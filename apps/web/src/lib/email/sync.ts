@@ -4,7 +4,7 @@
  */
 
 import type { Email, EmailAccount, Prisma } from "@email-ai/database";
-import { IEmailProvider, createEmailProvider, withRetry, batchExecute } from "./provider";
+import { IEmailProvider, createEmailProvider, withRetry, batchExecute as _batchExecute } from "./provider";
 import {
   EmailProvider,
   NormalizedEmail,

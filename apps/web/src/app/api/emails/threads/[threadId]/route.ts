@@ -58,7 +58,7 @@ async function getThreadEmailsIfOwned(
  * Get all messages in a thread
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {

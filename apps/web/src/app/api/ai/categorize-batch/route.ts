@@ -11,7 +11,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   categorizeUncategorizedEmails,
-  getUncategorizedEmails,
 } from "@/lib/email";
 
 /**
@@ -30,7 +29,7 @@ interface BatchCategorizeRequest {
  * GET /api/ai/categorize-batch
  * Get stats about uncategorized emails
  */
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
     // Authenticate user
     const session = await auth();
@@ -56,8 +55,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         accounts: [],
       });
     }
-
-    const accountIds = accounts.map((a) => a.id);
 
     // Count uncategorized emails per account
     const accountStats = await Promise.all(
