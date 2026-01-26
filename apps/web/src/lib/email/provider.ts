@@ -5,6 +5,8 @@
 
 import { GmailService, createGmailService } from "./gmail";
 import { OutlookService, createOutlookService } from "./outlook";
+import { ImapService, createImapService } from "./imap";
+import { SmtpService, createSmtpServiceFromImapConfig } from "./smtp";
 import {
   EmailProvider,
   NormalizedEmail,
@@ -13,6 +15,7 @@ import {
   SendEmailOptions,
   SendEmailResult,
   EmailOAuthTokens,
+  ImapConfig,
   ModifyLabelsOptions,
   EmailProviderError,
 } from "./types";
@@ -239,20 +242,110 @@ class OutlookProvider implements IEmailProvider {
 }
 
 /**
+ * IMAP provider implementation of IEmailProvider
+ * Uses IMAP for fetching/managing emails and SMTP for sending
+ */
+class ImapProvider implements IEmailProvider {
+  readonly provider: EmailProvider = "imap";
+  private imapService: ImapService;
+  private smtpService: SmtpService;
+
+  constructor(config: ImapConfig) {
+    this.imapService = createImapService(config);
+    this.smtpService = createSmtpServiceFromImapConfig(config);
+  }
+
+  async fetchEmails(options?: FetchEmailsOptions): Promise<FetchEmailsResult> {
+    return this.imapService.fetchEmails(options);
+  }
+
+  async getEmail(messageId: string): Promise<NormalizedEmail | null> {
+    return this.imapService.getEmail(messageId);
+  }
+
+  async sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
+    return this.smtpService.sendEmail(options);
+  }
+
+  async archiveEmail(messageId: string): Promise<void> {
+    return this.imapService.archiveEmail(messageId);
+  }
+
+  async trashEmail(messageId: string): Promise<void> {
+    return this.imapService.trashEmail(messageId);
+  }
+
+  async deleteEmail(messageId: string): Promise<void> {
+    return this.imapService.deleteEmail(messageId);
+  }
+
+  async markAsRead(messageId: string): Promise<void> {
+    return this.imapService.markAsRead(messageId);
+  }
+
+  async markAsUnread(messageId: string): Promise<void> {
+    return this.imapService.markAsUnread(messageId);
+  }
+
+  async starEmail(messageId: string): Promise<void> {
+    return this.imapService.starEmail(messageId);
+  }
+
+  async unstarEmail(messageId: string): Promise<void> {
+    return this.imapService.unstarEmail(messageId);
+  }
+
+  async markAsSpam(messageId: string): Promise<void> {
+    return this.imapService.markAsSpam(messageId);
+  }
+
+  async removeSpam(messageId: string): Promise<void> {
+    return this.imapService.removeSpam(messageId);
+  }
+
+  async modifyLabels(messageId: string, options: ModifyLabelsOptions): Promise<void> {
+    return this.imapService.modifyLabels(messageId, options);
+  }
+
+  async getAttachment(messageId: string, attachmentId: string): Promise<Buffer> {
+    return this.imapService.getAttachment(messageId, attachmentId);
+  }
+
+  async getProfile(): Promise<EmailProfile> {
+    const profile = await this.imapService.getProfile();
+    return {
+      email: profile.email,
+      displayName: profile.displayName,
+    };
+  }
+
+  /**
+   * Disconnect IMAP connection
+   * Should be called when the provider is no longer needed
+   */
+  async disconnect(): Promise<void> {
+    await this.imapService.disconnect();
+    this.smtpService.close();
+  }
+}
+
+/**
  * Create an email provider instance based on provider type
- * @param provider - The email provider type ('google' or 'microsoft')
- * @param tokens - OAuth tokens for API access
+ * @param provider - The email provider type ('google', 'microsoft', or 'imap')
+ * @param credentials - OAuth tokens for API access (for google/microsoft) or ImapConfig (for imap)
  * @returns An IEmailProvider implementation
  */
 export function createEmailProvider(
   provider: EmailProvider,
-  tokens: EmailOAuthTokens
+  credentials: EmailOAuthTokens | ImapConfig
 ): IEmailProvider {
   switch (provider) {
     case "google":
-      return new GmailProvider(tokens);
+      return new GmailProvider(credentials as EmailOAuthTokens);
     case "microsoft":
-      return new OutlookProvider(tokens);
+      return new OutlookProvider(credentials as EmailOAuthTokens);
+    case "imap":
+      return new ImapProvider(credentials as ImapConfig);
     default:
       throw new EmailProviderError(
         `Unsupported email provider: ${provider}`,
