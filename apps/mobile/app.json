@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "scheme": "emailai",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
@@ -23,6 +24,12 @@
     "web": {
       "bundler": "metro",
       "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
