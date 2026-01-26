@@ -112,3 +112,21 @@ export const ComposeAssistSchema = z.object({
 });
 
 export type ComposeAssist = z.infer<typeof ComposeAssistSchema>;
+
+/**
+ * Schema for thread summarization results.
+ *
+ * Used by the summarizeThread function to structure AI responses.
+ */
+export const ThreadSummarySchema = z.object({
+  /** A concise summary of the entire thread */
+  summary: z.string(),
+  /** Key points and decisions from the discussion */
+  keyPoints: z.array(z.string()),
+  /** Action items mentioned in the thread */
+  actionItems: z.array(z.string()),
+  /** Overall sentiment of the conversation */
+  sentiment: z.enum(["positive", "neutral", "negative", "mixed"]),
+});
+
+export type ThreadSummary = z.infer<typeof ThreadSummarySchema>;

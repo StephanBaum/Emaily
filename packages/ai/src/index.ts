@@ -33,6 +33,7 @@ export {
   SmartReplySchema,
   SmartReplyItemSchema,
   ComposeAssistSchema,
+  ThreadSummarySchema,
   // Types
   type EmailCategoryType,
   type SuggestedActionType,
@@ -41,6 +42,7 @@ export {
   type SmartReplyItem,
   type SmartReply,
   type ComposeAssist,
+  type ThreadSummary,
 } from "./schemas";
 
 // Re-export categorization functions
@@ -71,6 +73,14 @@ export {
   type DraftEmailOptions,
   type AdjustToneInput,
 } from "./compose-assist";
+
+// Re-export thread summarization functions
+export {
+  summarizeThread,
+  type SummarizeThreadInput,
+  type SummarizeThreadOptions,
+  type ThreadMessage,
+} from "./thread-summary";
 
 // Re-export core AI SDK utilities for convenience
 export { generateObject, generateText } from "ai";
