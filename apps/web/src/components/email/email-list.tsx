@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { EmailListItem, type Email } from "./email-list-item";
+import { ThreadListItem, type EmailThread } from "./thread-list-item";
 import { cn } from "@/lib/utils";
 
 export interface EmailListProps {
@@ -105,10 +106,67 @@ function InboxZeroState() {
 }
 
 /**
+ * Group emails by threadId
+ * Returns an array of threads and standalone emails
+ */
+function groupEmailsByThread(emails: Email[]): {
+  threads: EmailThread[];
+  standaloneEmails: Email[];
+} {
+  const threadMap = new Map<string, Email[]>();
+  const standaloneEmails: Email[] = [];
+
+  // Group emails by threadId
+  for (const email of emails) {
+    if (email.threadId) {
+      const existing = threadMap.get(email.threadId) || [];
+      existing.push(email);
+      threadMap.set(email.threadId, existing);
+    } else {
+      standaloneEmails.push(email);
+    }
+  }
+
+  // Convert thread groups to EmailThread objects
+  const threads: EmailThread[] = Array.from(threadMap.entries()).map(
+    ([threadId, threadEmails]) => {
+      // Sort by receivedAt descending to get latest first
+      const sortedEmails = threadEmails.sort((a, b) => {
+        const dateA = typeof a.receivedAt === "string" ? new Date(a.receivedAt) : a.receivedAt;
+        const dateB = typeof b.receivedAt === "string" ? new Date(b.receivedAt) : b.receivedAt;
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      const latestEmail = sortedEmails[0];
+
+      // Collect unique participants (senders)
+      const participantsSet = new Set<string>();
+      threadEmails.forEach((email) => participantsSet.add(email.sender));
+      const participants = Array.from(participantsSet);
+
+      return {
+        threadId,
+        subject: latestEmail.subject,
+        participants,
+        messageCount: threadEmails.length,
+        preview: latestEmail.preview,
+        isRead: threadEmails.every((email) => email.isRead),
+        isStarred: threadEmails.some((email) => email.isStarred),
+        lastMessageAt: latestEmail.receivedAt,
+        latestEmailId: latestEmail.id,
+      };
+    }
+  );
+
+  return { threads, standaloneEmails };
+}
+
+/**
  * EmailList component displays a scrollable list of email items.
  *
  * Features:
- * - Displays list of EmailListItem components
+ * - Groups emails by threadId and displays ThreadListItem for threads
+ * - Displays EmailListItem for standalone emails without threads
  * - Loading skeleton during data fetch
  * - Empty state when no emails exist
  * - Inbox Zero celebration state
@@ -131,39 +189,112 @@ export function EmailList({
 }: EmailListProps) {
   const listRef = React.useRef<HTMLDivElement>(null);
 
+  // Group emails by thread
+  const { threads, standaloneEmails } = React.useMemo(
+    () => groupEmailsByThread(emails),
+    [emails]
+  );
+
+  // Combine threads and standalone emails, sorted by most recent
+  const displayItems = React.useMemo(() => {
+    const items: Array<
+      | { type: "thread"; data: EmailThread }
+      | { type: "email"; data: Email }
+    > = [
+      ...threads.map((thread) => ({ type: "thread" as const, data: thread })),
+      ...standaloneEmails.map((email) => ({
+        type: "email" as const,
+        data: email,
+      })),
+    ];
+
+    // Sort by most recent date
+    return items.sort((a, b) => {
+      const dateA =
+        a.type === "thread"
+          ? typeof a.data.lastMessageAt === "string"
+            ? new Date(a.data.lastMessageAt)
+            : a.data.lastMessageAt
+          : typeof a.data.receivedAt === "string"
+            ? new Date(a.data.receivedAt)
+            : a.data.receivedAt;
+      const dateB =
+        b.type === "thread"
+          ? typeof b.data.lastMessageAt === "string"
+            ? new Date(b.data.lastMessageAt)
+            : b.data.lastMessageAt
+          : typeof b.data.receivedAt === "string"
+            ? new Date(b.data.receivedAt)
+            : b.data.receivedAt;
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [threads, standaloneEmails]);
+
+  // Handle thread click - select the latest email in the thread
+  const handleThreadClick = React.useCallback(
+    (thread: EmailThread) => {
+      if (!onEmailSelect) return;
+      // Find the latest email in this thread to select
+      const latestEmail = emails.find((e) => e.id === thread.latestEmailId);
+      if (latestEmail) {
+        onEmailSelect(latestEmail);
+      }
+    },
+    [emails, onEmailSelect]
+  );
+
   // Handle keyboard navigation through the list
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent) => {
-      if (!emails.length || !onEmailSelect) return;
+      if (!displayItems.length || !onEmailSelect) return;
 
-      const currentIndex = emails.findIndex((e) => e.id === selectedEmailId);
+      // Find current item index
+      const currentIndex = displayItems.findIndex((item) => {
+        if (item.type === "thread") {
+          return item.data.latestEmailId === selectedEmailId;
+        }
+        return item.data.id === selectedEmailId;
+      });
+
+      const selectItemAtIndex = (index: number) => {
+        const item = displayItems[index];
+        if (item.type === "thread") {
+          handleThreadClick(item.data);
+        } else {
+          onEmailSelect(item.data);
+        }
+      };
 
       switch (event.key) {
         case "ArrowDown":
           event.preventDefault();
-          if (currentIndex < emails.length - 1) {
-            onEmailSelect(emails[currentIndex + 1]);
-          } else if (currentIndex === -1) {
-            onEmailSelect(emails[0]);
+          if (currentIndex < displayItems.length - 1) {
+            selectItemAtIndex(currentIndex + 1);
+          } else if (currentIndex === -1 && displayItems.length > 0) {
+            selectItemAtIndex(0);
           }
           break;
         case "ArrowUp":
           event.preventDefault();
           if (currentIndex > 0) {
-            onEmailSelect(emails[currentIndex - 1]);
+            selectItemAtIndex(currentIndex - 1);
           }
           break;
         case "Home":
           event.preventDefault();
-          onEmailSelect(emails[0]);
+          if (displayItems.length > 0) {
+            selectItemAtIndex(0);
+          }
           break;
         case "End":
           event.preventDefault();
-          onEmailSelect(emails[emails.length - 1]);
+          if (displayItems.length > 0) {
+            selectItemAtIndex(displayItems.length - 1);
+          }
           break;
       }
     },
-    [emails, selectedEmailId, onEmailSelect]
+    [displayItems, selectedEmailId, onEmailSelect, handleThreadClick]
   );
 
   // Show loading skeleton
@@ -179,7 +310,8 @@ export function EmailList({
   if (emails.length === 0) {
     // Check if this might be an "inbox zero" situation
     // (Could be enhanced with a prop to distinguish between empty inbox and zero)
-    return emptyMessage.includes("processed") || emptyMessage.includes("zero") ? (
+    return emptyMessage.includes("processed") ||
+      emptyMessage.includes("zero") ? (
       <InboxZeroState />
     ) : (
       <EmptyState message={emptyMessage} />
@@ -194,19 +326,33 @@ export function EmailList({
       aria-label="Email list"
       onKeyDown={handleKeyDown}
     >
-      {emails.map((email) => (
-        <EmailListItem
-          key={email.id}
-          email={email}
-          isSelected={email.id === selectedEmailId}
-          onClick={onEmailSelect}
-          onArchive={onArchive}
-          onDelete={onDelete}
-          onMarkRead={onMarkRead}
-          onMarkUnread={onMarkUnread}
-          onToggleStar={onToggleStar}
-        />
-      ))}
+      {displayItems.map((item) =>
+        item.type === "thread" ? (
+          <ThreadListItem
+            key={item.data.threadId || item.data.latestEmailId}
+            thread={item.data}
+            isSelected={item.data.latestEmailId === selectedEmailId}
+            onClick={handleThreadClick}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onMarkRead={onMarkRead}
+            onMarkUnread={onMarkUnread}
+            onToggleStar={onToggleStar}
+          />
+        ) : (
+          <EmailListItem
+            key={item.data.id}
+            email={item.data}
+            isSelected={item.data.id === selectedEmailId}
+            onClick={onEmailSelect}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onMarkRead={onMarkRead}
+            onMarkUnread={onMarkUnread}
+            onToggleStar={onToggleStar}
+          />
+        )
+      )}
     </div>
   );
 }

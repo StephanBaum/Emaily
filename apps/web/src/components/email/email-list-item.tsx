@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
  */
 export interface Email {
   id: string;
+  threadId?: string | null;
   subject: string;
   sender: string;
   preview: string;
