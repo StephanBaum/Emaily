@@ -12,6 +12,22 @@ export { GmailService, createGmailService, batchFetchEmails } from "./gmail";
 // Outlook service
 export { OutlookService, createOutlookService, batchFetchOutlookEmails } from "./outlook";
 
+// IMAP service
+export {
+  IMAP_FOLDERS,
+  ImapService,
+  createImapService,
+  batchFetchImapEmails,
+} from "./imap";
+
+// SMTP service
+export {
+  type SmtpConfig,
+  SmtpService,
+  createSmtpService,
+  createSmtpServiceFromImapConfig,
+} from "./smtp";
+
 // Unified provider interface
 export {
   type IEmailProvider,
