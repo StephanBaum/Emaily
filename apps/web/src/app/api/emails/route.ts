@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma, type Email } from "@/lib/prisma";
+import { Prisma } from '@email-ai/database';
 
 /**
  * Query parameters for email listing
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Build where clause
-    const whereClause: Parameters<typeof prisma.email.findMany>[0]["where"] = {
+    const whereClause: Prisma.EmailWhereInput = {
       accountId: { in: validAccountIds },
     };
 

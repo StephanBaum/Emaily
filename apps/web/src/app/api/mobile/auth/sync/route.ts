@@ -137,7 +137,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<MobileAut
         data: {
           userId: user.id,
           provider: emailProvider,
-          email: body.email,
           accessToken: body.accessToken,
           refreshToken: body.refreshToken || null,
         },

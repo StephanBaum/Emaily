@@ -26,7 +26,7 @@ import {
 export class OutlookService {
   private client: Client;
 
-  constructor(private tokens: EmailOAuthTokens) {
+  constructor(private _tokens: EmailOAuthTokens) {
     this.client = Client.init({
       authProvider: (done) => {
         done(null, tokens.accessToken);
@@ -43,7 +43,7 @@ export class OutlookService {
       pageToken,
       labelId = OUTLOOK_FOLDERS.INBOX,
       query,
-      includeSpamTrash = false,
+      includeSpamTrash: _includeSpamTrash = false,
     } = options;
 
     try {
@@ -189,7 +189,7 @@ export class OutlookService {
         };
       } else {
         // Send directly without attachments
-        const response = await this.client
+        const _response = await this.client
           .api("/me/sendMail")
           .post({
             message,

@@ -26,7 +26,7 @@ export class GmailService {
   private gmail: gmail_v1.Gmail;
   private oauth2Client: ReturnType<typeof google.auth.OAuth2.prototype>;
 
-  constructor(private tokens: EmailOAuthTokens) {
+  constructor(private _tokens: EmailOAuthTokens) {
     this.oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET

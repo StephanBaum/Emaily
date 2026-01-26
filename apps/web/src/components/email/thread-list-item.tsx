@@ -8,39 +8,49 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 /**
- * Email data structure matching the Prisma Email model
+ * Email thread data structure matching the API response
  */
-export interface Email {
-  id: string;
-  threadId?: string | null;
+export interface EmailThread {
+  /** Thread ID - null for emails without a thread */
+  threadId: string | null;
+  /** Subject from the most recent email in thread */
   subject: string;
-  sender: string;
+  /** Unique participants in the thread */
+  participants: string[];
+  /** Number of messages in the thread */
+  messageCount: number;
+  /** Preview of the latest message body */
   preview: string;
-  category: string | null;
-  priority: number | null;
+  /** Whether all messages in thread are read */
   isRead: boolean;
+  /** Whether any message in thread is starred */
   isStarred: boolean;
-  receivedAt: Date | string;
+  /** Timestamp of the most recent message */
+  lastMessageAt: Date | string;
+  /** ID of the most recent email in the thread */
+  latestEmailId: string;
 }
 
-export interface EmailListItemProps {
-  email: Email;
+export interface ThreadListItemProps {
+  thread: EmailThread;
   isSelected?: boolean;
-  onClick?: (email: Email) => void;
-  onArchive?: (emailId: string) => void;
-  onDelete?: (emailId: string) => void;
-  onMarkRead?: (emailId: string) => void;
-  onMarkUnread?: (emailId: string) => void;
-  onToggleStar?: (emailId: string, isStarred: boolean) => void;
+  onClick?: (thread: EmailThread) => void;
+  onArchive?: (threadId: string) => void;
+  onDelete?: (threadId: string) => void;
+  onMarkRead?: (threadId: string) => void;
+  onMarkUnread?: (threadId: string) => void;
+  onToggleStar?: (threadId: string, isStarred: boolean) => void;
   className?: string;
 }
 
 /**
- * Get initials from sender name/email for avatar fallback
+ * Get initials from participant name/email for avatar fallback
  */
-function getInitials(sender: string): string {
+function getInitials(participant: string): string {
   // If it's an email, extract the name part before @
-  const name = sender.includes("@") ? sender.split("@")[0] : sender;
+  const name = participant.includes("@")
+    ? participant.split("@")[0]
+    : participant;
   // Get first two characters, uppercase
   return name
     .split(/[.\-_\s]+/)
@@ -52,31 +62,12 @@ function getInitials(sender: string): string {
 }
 
 /**
- * Get badge variant based on email category
- */
-function getCategoryVariant(
-  category: string | null
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (category?.toLowerCase()) {
-    case "important":
-      return "default";
-    case "promotional":
-    case "social":
-      return "secondary";
-    case "spam":
-      return "destructive";
-    default:
-      return "outline";
-  }
-}
-
-/**
- * Format relative time for email received date
+ * Format relative time for thread last message date
  */
 function formatRelativeTime(date: Date | string): string {
   const now = new Date();
-  const emailDate = typeof date === "string" ? new Date(date) : date;
-  const diffMs = now.getTime() - emailDate.getTime();
+  const messageDate = typeof date === "string" ? new Date(date) : date;
+  const diffMs = now.getTime() - messageDate.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
@@ -86,28 +77,11 @@ function formatRelativeTime(date: Date | string): string {
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays < 7) return `${diffDays}d`;
 
-  // Format as date for older emails
-  return emailDate.toLocaleDateString("en-US", {
+  // Format as date for older threads
+  return messageDate.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
-}
-
-/**
- * Priority indicator component
- */
-function PriorityIndicator({ priority }: { priority: number | null }) {
-  if (!priority || priority < 4) return null;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex h-2 w-2 rounded-full",
-        priority === 5 ? "bg-red-500" : "bg-orange-500"
-      )}
-      title={`Priority: ${priority}/5`}
-    />
-  );
 }
 
 /**
@@ -194,64 +168,119 @@ const Icons = {
       />
     </svg>
   ),
+  messages: (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+      />
+    </svg>
+  ),
 };
+
+/**
+ * Participant avatars component - shows up to 3 participants
+ */
+function ParticipantAvatars({ participants }: { participants: string[] }) {
+  const displayedParticipants = participants.slice(0, 3);
+  const remainingCount = participants.length - displayedParticipants.length;
+
+  return (
+    <div className="flex items-center -space-x-2">
+      {displayedParticipants.map((participant, index) => (
+        <Avatar
+          key={`${participant}-${index}`}
+          className="h-10 w-10 shrink-0 border-2 border-background"
+          title={participant}
+        >
+          <AvatarFallback className="text-xs font-medium">
+            {getInitials(participant)}
+          </AvatarFallback>
+        </Avatar>
+      ))}
+      {remainingCount > 0 && (
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium"
+          title={`${remainingCount} more participant${remainingCount > 1 ? "s" : ""}`}
+        >
+          +{remainingCount}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Quick actions toolbar that appears on hover
  */
 function QuickActions({
-  email,
+  thread,
   onArchive,
   onDelete,
   onMarkRead,
   onMarkUnread,
   onToggleStar,
 }: {
-  email: Email;
-  onArchive?: (emailId: string) => void;
-  onDelete?: (emailId: string) => void;
-  onMarkRead?: (emailId: string) => void;
-  onMarkUnread?: (emailId: string) => void;
-  onToggleStar?: (emailId: string, isStarred: boolean) => void;
+  thread: EmailThread;
+  onArchive?: (threadId: string) => void;
+  onDelete?: (threadId: string) => void;
+  onMarkRead?: (threadId: string) => void;
+  onMarkUnread?: (threadId: string) => void;
+  onToggleStar?: (threadId: string, isStarred: boolean) => void;
 }) {
+  const threadKey = thread.threadId || thread.latestEmailId;
+
   const handleArchive = React.useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onArchive?.(email.id);
+      onArchive?.(threadKey);
     },
-    [email.id, onArchive]
+    [threadKey, onArchive]
   );
 
   const handleDelete = React.useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onDelete?.(email.id);
+      onDelete?.(threadKey);
     },
-    [email.id, onDelete]
+    [threadKey, onDelete]
   );
 
   const handleToggleRead = React.useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (email.isRead) {
-        onMarkUnread?.(email.id);
+      if (thread.isRead) {
+        onMarkUnread?.(threadKey);
       } else {
-        onMarkRead?.(email.id);
+        onMarkRead?.(threadKey);
       }
     },
-    [email.id, email.isRead, onMarkRead, onMarkUnread]
+    [threadKey, thread.isRead, onMarkRead, onMarkUnread]
   );
 
   const handleToggleStar = React.useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onToggleStar?.(email.id, !email.isStarred);
+      onToggleStar?.(threadKey, !thread.isStarred);
     },
-    [email.id, email.isStarred, onToggleStar]
+    [threadKey, thread.isStarred, onToggleStar]
   );
 
   // Only show if at least one action is available
-  if (!onArchive && !onDelete && !onMarkRead && !onMarkUnread && !onToggleStar) {
+  if (
+    !onArchive &&
+    !onDelete &&
+    !onMarkRead &&
+    !onMarkUnread &&
+    !onToggleStar
+  ) {
     return null;
   }
 
@@ -262,10 +291,10 @@ function QuickActions({
           variant="ghost"
           size="icon"
           onClick={handleToggleStar}
-          className={cn("h-7 w-7", email.isStarred && "text-yellow-500")}
-          title={email.isStarred ? "Unstar" : "Star"}
+          className={cn("h-7 w-7", thread.isStarred && "text-yellow-500")}
+          title={thread.isStarred ? "Unstar thread" : "Star thread"}
         >
-          {email.isStarred ? Icons.starFilled : Icons.star}
+          {thread.isStarred ? Icons.starFilled : Icons.star}
         </Button>
       )}
       {(onMarkRead || onMarkUnread) && (
@@ -274,9 +303,11 @@ function QuickActions({
           size="icon"
           onClick={handleToggleRead}
           className="h-7 w-7"
-          title={email.isRead ? "Mark as unread" : "Mark as read"}
+          title={
+            thread.isRead ? "Mark thread as unread" : "Mark thread as read"
+          }
         >
-          {email.isRead ? Icons.markUnread : Icons.markRead}
+          {thread.isRead ? Icons.markUnread : Icons.markRead}
         </Button>
       )}
       {onArchive && (
@@ -285,7 +316,7 @@ function QuickActions({
           size="icon"
           onClick={handleArchive}
           className="h-7 w-7"
-          title="Archive"
+          title="Archive thread"
         >
           {Icons.archive}
         </Button>
@@ -296,7 +327,7 @@ function QuickActions({
           size="icon"
           onClick={handleDelete}
           className="h-7 w-7 hover:text-destructive"
-          title="Delete"
+          title="Delete thread"
         >
           {Icons.delete}
         </Button>
@@ -306,18 +337,46 @@ function QuickActions({
 }
 
 /**
- * EmailListItem component displays a single email in the inbox list.
+ * Format participants list for display
+ */
+function formatParticipants(participants: string[], maxLength = 50): string {
+  if (participants.length === 0) return "Unknown";
+  if (participants.length === 1) return participants[0];
+
+  // Show first 2-3 participants, then add "and X more" if needed
+  let result = participants[0];
+  let count = 1;
+
+  for (let i = 1; i < participants.length && result.length < maxLength; i++) {
+    if (i === participants.length - 1) {
+      result += ` and ${participants[i]}`;
+    } else {
+      result += `, ${participants[i]}`;
+    }
+    count++;
+  }
+
+  const remaining = participants.length - count;
+  if (remaining > 0) {
+    result += ` and ${remaining} more`;
+  }
+
+  return result;
+}
+
+/**
+ * ThreadListItem component displays a thread preview in the inbox list.
  *
  * Features:
- * - Shows sender avatar with initials
- * - Displays subject, preview, and category badge
- * - Visual distinction between read and unread emails
- * - Priority indicator for high-priority emails
+ * - Shows participant avatars (up to 3, with overflow indicator)
+ * - Displays subject, preview, and message count badge
+ * - Visual distinction between read and unread threads
  * - Click handling for selection
  * - Quick action buttons on hover (archive, delete, star, read/unread)
+ * - Keyboard navigation support
  */
-export function EmailListItem({
-  email,
+export function ThreadListItem({
+  thread,
   isSelected = false,
   onClick,
   onArchive,
@@ -326,39 +385,43 @@ export function EmailListItem({
   onMarkUnread,
   onToggleStar,
   className,
-}: EmailListItemProps) {
+}: ThreadListItemProps) {
   const handleClick = React.useCallback(() => {
-    onClick?.(email);
-  }, [email, onClick]);
+    onClick?.(thread);
+  }, [thread, onClick]);
+
+  const threadKey = thread.threadId || thread.latestEmailId;
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        onClick?.(email);
+        onClick?.(thread);
       }
       // Keyboard shortcuts for actions
       if (event.key === "e" && onArchive) {
         event.preventDefault();
-        onArchive(email.id);
+        onArchive(threadKey);
       }
       if ((event.key === "#" || event.key === "Delete") && onDelete) {
         event.preventDefault();
-        onDelete(email.id);
+        onDelete(threadKey);
       }
       if (event.key === "s" && onToggleStar) {
         event.preventDefault();
-        onToggleStar(email.id, !email.isStarred);
+        onToggleStar(threadKey, !thread.isStarred);
       }
     },
-    [email, onClick, onArchive, onDelete, onToggleStar]
+    [thread, threadKey, onClick, onArchive, onDelete, onToggleStar]
   );
+
+  const participantsText = formatParticipants(thread.participants);
 
   return (
     <Card
       className={cn(
         "cursor-pointer transition-colors hover:bg-accent/50 relative group",
-        email.isRead && "opacity-60",
+        thread.isRead && "opacity-60",
         isSelected && "ring-2 ring-primary bg-accent/30",
         className
       )}
@@ -366,33 +429,41 @@ export function EmailListItem({
       onKeyDown={handleKeyDown}
       tabIndex={0}
       role="button"
-      aria-label={`Email from ${email.sender}: ${email.subject}`}
+      aria-label={`Thread: ${thread.subject} with ${thread.messageCount} message${thread.messageCount !== 1 ? "s" : ""}`}
       aria-selected={isSelected}
     >
       <CardHeader className="flex flex-row items-start gap-4 space-y-0 p-4 pb-2">
-        <Avatar className="h-10 w-10 shrink-0">
-          <AvatarFallback className="text-xs font-medium">
-            {getInitials(email.sender)}
-          </AvatarFallback>
-        </Avatar>
+        <ParticipantAvatars participants={thread.participants} />
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span
               className={cn(
                 "truncate text-sm",
-                !email.isRead && "font-semibold"
+                !thread.isRead && "font-semibold"
               )}
+              title={participantsText}
             >
-              {email.sender}
+              {participantsText}
             </span>
             <div className="flex items-center gap-2 shrink-0 pr-24 group-hover:pr-32">
-              {email.isStarred && (
-                <span className="text-yellow-500">{Icons.starFilled}</span>
+              {thread.isStarred && (
+                <span className="text-yellow-500" title="Starred">
+                  {Icons.starFilled}
+                </span>
               )}
-              <PriorityIndicator priority={email.priority} />
+              {thread.messageCount > 1 && (
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-1 text-xs"
+                  title={`${thread.messageCount} messages in thread`}
+                >
+                  {Icons.messages}
+                  <span>{thread.messageCount}</span>
+                </Badge>
+              )}
               <span className="text-xs text-muted-foreground">
-                {formatRelativeTime(email.receivedAt)}
+                {formatRelativeTime(thread.lastMessageAt)}
               </span>
             </div>
           </div>
@@ -400,33 +471,23 @@ export function EmailListItem({
           <h3
             className={cn(
               "text-sm truncate",
-              !email.isRead && "font-medium"
+              !thread.isRead && "font-medium"
             )}
           >
-            {email.subject || "(No subject)"}
+            {thread.subject || "(No subject)"}
           </h3>
         </div>
       </CardHeader>
 
-      <CardContent className="px-4 pb-4 pt-0 pl-[72px]">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-muted-foreground text-sm line-clamp-2 flex-1">
-            {email.preview}
-          </p>
-          {email.category && (
-            <Badge
-              variant={getCategoryVariant(email.category)}
-              className="shrink-0 capitalize"
-            >
-              {email.category}
-            </Badge>
-          )}
-        </div>
+      <CardContent className="px-4 pb-4 pt-0 pl-[88px]">
+        <p className="text-muted-foreground text-sm line-clamp-2">
+          {thread.preview}
+        </p>
       </CardContent>
 
       {/* Quick actions toolbar */}
       <QuickActions
-        email={email}
+        thread={thread}
         onArchive={onArchive}
         onDelete={onDelete}
         onMarkRead={onMarkRead}

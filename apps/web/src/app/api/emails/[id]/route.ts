@@ -51,7 +51,7 @@ async function getEmailIfOwned(
  * Get a single email by ID
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {
@@ -214,7 +214,7 @@ export async function PATCH(
  * Delete a single email
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {

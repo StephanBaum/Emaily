@@ -62,7 +62,7 @@ async function getEmailWithAccountIfOwned(
  * Mark an email as read
  */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {
@@ -140,7 +140,7 @@ export async function POST(
  * Mark an email as unread
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {

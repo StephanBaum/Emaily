@@ -15,11 +15,11 @@ datasource db {
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
-  emailVerified DateTime?      // Auth.js field
+  emailVerified DateTime? // Auth.js field
   name          String?
-  image         String?        // Auth.js field
-  accounts      Account[]      // Auth.js OAuth accounts
-  sessions      Session[]      // Auth.js sessions
+  image         String? // Auth.js field
+  accounts      Account[] // Auth.js OAuth accounts
+  sessions      Session[] // Auth.js sessions
   emailAccounts EmailAccount[] // Email provider connections
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -65,37 +65,38 @@ model VerificationToken {
 // ============================================
 
 model EmailAccount {
-  id            String    @id @default(cuid())
-  provider      String    // gmail, outlook, etc.
-  accessToken   String    @db.Text
-  refreshToken  String?   @db.Text
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emails        Email[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  provider     String // gmail, outlook, etc.
+  accessToken  String   @db.Text
+  refreshToken String?  @db.Text
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails       Email[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Email {
-  id            String       @id @default(cuid())
-  messageId     String       @unique
-  threadId      String?
-  subject       String
-  sender        String
-  recipients    String[]
-  body          String
-  bodyHtml      String?
-  isRead        Boolean      @default(false)
-  isStarred     Boolean      @default(false)
-  category      String?      // AI-determined category
-  priority      Int?         // AI-determined priority (1-5)
-  summary       String?      // AI-generated summary
-  accountId     String
-  account       EmailAccount @relation(fields: [accountId], references: [id])
-  receivedAt    DateTime
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id         String       @id @default(cuid())
+  messageId  String       @unique
+  threadId   String?
+  subject    String
+  sender     String
+  recipients String[]
+  body       String
+  bodyHtml   String?
+  isRead     Boolean      @default(false)
+  isStarred  Boolean      @default(false)
+  category   String? // AI-determined category
+  priority   Int? // AI-determined priority (1-5)
+  summary    String? // AI-generated summary
+  accountId  String
+  account    EmailAccount @relation(fields: [accountId], references: [id])
+  receivedAt DateTime
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   @@index([accountId, receivedAt])
   @@index([category])
+  @@index([threadId])
 }

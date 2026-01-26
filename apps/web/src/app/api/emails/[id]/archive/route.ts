@@ -62,7 +62,7 @@ async function getEmailWithAccountIfOwned(
  * Archive an email (remove from inbox)
  */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {
@@ -149,7 +149,7 @@ export async function POST(
  * Unarchive an email (move back to inbox)
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   try {

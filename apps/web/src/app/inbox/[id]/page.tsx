@@ -4,9 +4,10 @@ import * as React from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { EmailDetail, EmailCompose, type EmailDetailData, type ComposeMode, type OriginalEmail } from "@/components/email";
+import { ThreadView, type ThreadData } from "@/components/email/thread-view";
+import { type ThreadMessageData } from "@/components/email/thread-message";
 import { ContentContainer } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 /**
  * Fetch email by ID from the API
@@ -20,6 +21,56 @@ async function fetchEmail(id: string): Promise<EmailDetailData> {
   }
 
   return response.json();
+}
+
+/**
+ * Fetch thread by threadId from the API
+ */
+async function fetchThread(threadId: string): Promise<ThreadData> {
+  const response = await fetch(`/api/emails/threads/${threadId}`);
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || `Failed to fetch thread: ${response.statusText}`);
+  }
+
+  const emails: EmailDetailData[] = await response.json();
+
+  // Transform emails into ThreadData format
+  const participants = Array.from(
+    new Set(
+      emails.flatMap((email) => [
+        email.sender,
+        ...(email.recipients || []),
+      ])
+    )
+  );
+
+  const messages: ThreadMessageData[] = emails.map((email) => ({
+    id: email.id,
+    subject: email.subject,
+    sender: email.sender,
+    recipients: email.recipients || [],
+    body: email.body,
+    bodyHtml: email.bodyHtml,
+    category: email.category || null,
+    priority: email.priority || null,
+    isRead: email.isRead || false,
+    isStarred: email.isStarred || false,
+    receivedAt: email.receivedAt,
+  }));
+
+  // Use first message's subject and threadId
+  const firstEmail = emails[0];
+
+  return {
+    threadId,
+    subject: firstEmail.subject,
+    messages,
+    participants,
+    // Show AI summary only for threads with 5+ messages
+    summary: emails.length >= 5 ? firstEmail.summary : null,
+  };
 }
 
 /**
@@ -218,6 +269,7 @@ export default function EmailDetailPage() {
 
   // State
   const [email, setEmail] = React.useState<EmailDetailData | null>(null);
+  const [thread, setThread] = React.useState<ThreadData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isActionLoading, setIsActionLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -227,24 +279,51 @@ export default function EmailDetailPage() {
   const [composeMode, setComposeMode] = React.useState<ComposeMode>("reply");
   const [initialContent, setInitialContent] = React.useState<string | undefined>();
 
-  // Fetch email
+  // Fetch email or thread
   const loadEmail = React.useCallback(async () => {
     if (!emailId) return;
 
     setIsLoading(true);
     setError(null);
+    setThread(null);
+    setEmail(null);
 
     try {
       const fetchedEmail = await fetchEmail(emailId);
-      setEmail(fetchedEmail);
 
-      // Auto-mark as read if unread
-      if (!fetchedEmail.isRead) {
-        try {
-          await updateEmail(emailId, { isRead: true });
-          setEmail((prev) => prev ? { ...prev, isRead: true } : prev);
-        } catch {
-          // Silently ignore mark-as-read failures
+      // Check if email is part of a thread
+      if (fetchedEmail.threadId) {
+        // Fetch full thread
+        const fetchedThread = await fetchThread(fetchedEmail.threadId);
+        setThread(fetchedThread);
+
+        // Mark all unread messages in thread as read
+        const unreadMessageIds = fetchedThread.messages
+          .filter((msg) => {
+            const originalEmail = fetchedEmail;
+            return msg.id === originalEmail.id && !originalEmail.isRead;
+          })
+          .map((msg) => msg.id);
+
+        if (unreadMessageIds.length > 0) {
+          try {
+            await updateEmail(emailId, { isRead: true });
+          } catch {
+            // Silently ignore mark-as-read failures
+          }
+        }
+      } else {
+        // Show single email
+        setEmail(fetchedEmail);
+
+        // Auto-mark as read if unread
+        if (!fetchedEmail.isRead) {
+          try {
+            await updateEmail(emailId, { isRead: true });
+            setEmail((prev) => prev ? { ...prev, isRead: true } : prev);
+          } catch {
+            // Silently ignore mark-as-read failures
+          }
         }
       }
     } catch (err) {
@@ -301,7 +380,7 @@ export default function EmailDetailPage() {
 
   // Handle reply action
   const handleReply = React.useCallback(
-    (id: string, content?: string) => {
+    (_id: string, content?: string) => {
       setComposeMode("reply");
       setInitialContent(content);
       setIsComposeOpen(true);
@@ -310,7 +389,7 @@ export default function EmailDetailPage() {
   );
 
   // Handle forward action
-  const handleForward = React.useCallback((id: string) => {
+  const handleForward = React.useCallback((_id: string) => {
     setComposeMode("forward");
     setInitialContent(undefined);
     setIsComposeOpen(true);
@@ -369,17 +448,120 @@ export default function EmailDetailPage() {
     setInitialContent(undefined);
   }, []);
 
+  // Handle thread archive
+  const handleThreadArchive = React.useCallback(
+    async (_threadId: string) => {
+      setIsActionLoading(true);
+      try {
+        // Archive all messages in the thread
+        if (thread) {
+          for (const message of thread.messages) {
+            await archiveEmail(message.id);
+          }
+        }
+        router.push("/inbox");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to archive thread");
+      } finally {
+        setIsActionLoading(false);
+      }
+    },
+    [thread, router]
+  );
+
+  // Handle thread delete
+  const handleThreadDelete = React.useCallback(
+    async (_threadId: string) => {
+      setIsActionLoading(true);
+      try {
+        // Delete all messages in the thread
+        if (thread) {
+          for (const message of thread.messages) {
+            await deleteEmail(message.id);
+          }
+        }
+        router.push("/inbox");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete thread");
+      } finally {
+        setIsActionLoading(false);
+      }
+    },
+    [thread, router]
+  );
+
+  // Handle message-level reply in thread
+  const handleThreadReply = React.useCallback(
+    (_messageId: string) => {
+      setComposeMode("reply");
+      setInitialContent(undefined);
+      setIsComposeOpen(true);
+    },
+    []
+  );
+
+  // Handle message-level forward in thread
+  const handleThreadForward = React.useCallback(
+    (_messageId: string) => {
+      setComposeMode("forward");
+      setInitialContent(undefined);
+      setIsComposeOpen(true);
+    },
+    []
+  );
+
+  // Handle message-level star toggle in thread
+  const handleThreadToggleStar = React.useCallback(
+    async (messageId: string, isStarred: boolean) => {
+      setIsActionLoading(true);
+      try {
+        await updateEmail(messageId, { isStarred });
+        // Update thread state
+        setThread((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: prev.messages.map((msg) =>
+                  msg.id === messageId ? { ...msg, isStarred } : msg
+                ),
+              }
+            : prev
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update message");
+      } finally {
+        setIsActionLoading(false);
+      }
+    },
+    []
+  );
+
   // Create original email data for compose
-  const originalEmail: OriginalEmail | undefined = email
-    ? {
+  const originalEmail: OriginalEmail | undefined = React.useMemo(() => {
+    if (email) {
+      return {
         id: email.id,
         subject: email.subject,
         sender: email.sender,
         recipients: email.recipients,
         body: email.body,
         receivedAt: email.receivedAt,
-      }
-    : undefined;
+      };
+    }
+    if (thread && thread.messages.length > 0) {
+      // Use the latest message in the thread for compose context
+      const latestMessage = thread.messages[thread.messages.length - 1];
+      return {
+        id: latestMessage.id,
+        subject: thread.subject,
+        sender: latestMessage.sender,
+        recipients: latestMessage.recipients,
+        body: latestMessage.body,
+        receivedAt: latestMessage.receivedAt,
+      };
+    }
+    return undefined;
+  }, [email, thread]);
 
   // Show loading state while checking auth
   if (status === "loading") {
@@ -405,7 +587,7 @@ export default function EmailDetailPage() {
   }
 
   // Show error state
-  if (error || !email) {
+  if (error || (!email && !thread)) {
     return (
       <ContentContainer>
         <ErrorState
@@ -417,36 +599,76 @@ export default function EmailDetailPage() {
     );
   }
 
-  return (
-    <>
-      <ContentContainer className="p-0 h-full">
-        <EmailDetail
-          email={email}
-          userName={session?.user?.name || undefined}
-          onArchive={handleArchive}
-          onDelete={handleDelete}
-          onReply={handleReply}
-          onForward={handleForward}
-          onToggleRead={handleToggleRead}
-          onToggleStar={handleToggleStar}
-          onClose={handleClose}
-          showSmartReplies={true}
-          isLoading={isActionLoading}
-          className="h-full"
-        />
-      </ContentContainer>
+  // Show thread view if thread data is available
+  if (thread) {
+    return (
+      <>
+        <ContentContainer className="p-0 h-full">
+          <ThreadView
+            thread={thread}
+            userName={session?.user?.name || undefined}
+            onArchive={handleThreadArchive}
+            onDelete={handleThreadDelete}
+            onReply={handleThreadReply}
+            onForward={handleThreadForward}
+            onToggleStar={handleThreadToggleStar}
+            onClose={handleClose}
+            isLoading={isActionLoading}
+            className="h-full"
+          />
+        </ContentContainer>
 
-      {/* Email Compose Dialog */}
-      <EmailCompose
-        isOpen={isComposeOpen}
-        onClose={handleCloseCompose}
-        onSend={handleSend}
-        mode={composeMode}
-        originalEmail={originalEmail}
-        initialContent={initialContent}
-        userEmail={session?.user?.email || undefined}
-        userName={session?.user?.name || undefined}
-      />
-    </>
-  );
+        {/* Email Compose Dialog */}
+        <EmailCompose
+          isOpen={isComposeOpen}
+          onClose={handleCloseCompose}
+          onSend={handleSend}
+          mode={composeMode}
+          originalEmail={originalEmail}
+          initialContent={initialContent}
+          userEmail={session?.user?.email || undefined}
+          userName={session?.user?.name || undefined}
+        />
+      </>
+    );
+  }
+
+  // Show single email view
+  if (email) {
+    return (
+      <>
+        <ContentContainer className="p-0 h-full">
+          <EmailDetail
+            email={email}
+            userName={session?.user?.name || undefined}
+            onArchive={handleArchive}
+            onDelete={handleDelete}
+            onReply={handleReply}
+            onForward={handleForward}
+            onToggleRead={handleToggleRead}
+            onToggleStar={handleToggleStar}
+            onClose={handleClose}
+            showSmartReplies={true}
+            isLoading={isActionLoading}
+            className="h-full"
+          />
+        </ContentContainer>
+
+        {/* Email Compose Dialog */}
+        <EmailCompose
+          isOpen={isComposeOpen}
+          onClose={handleCloseCompose}
+          onSend={handleSend}
+          mode={composeMode}
+          originalEmail={originalEmail}
+          initialContent={initialContent}
+          userEmail={session?.user?.email || undefined}
+          userName={session?.user?.name || undefined}
+        />
+      </>
+    );
+  }
+
+  // Fallback (should not reach here)
+  return null;
 }

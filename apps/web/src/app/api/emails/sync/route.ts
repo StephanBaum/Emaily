@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   createSyncService,
-  syncAllUserAccounts,
+  syncAllUserAccounts as _syncAllUserAccounts,
   syncJobQueue,
   type SyncResult,
   categorizeUncategorizedEmails,
@@ -61,7 +61,7 @@ interface SyncResponse {
  * GET /api/emails/sync
  * Get sync status and statistics for user's accounts
  */
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
     // Authenticate user
     const session = await auth();

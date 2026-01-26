@@ -248,7 +248,7 @@ function InboxHeader({
  * - Undo notifications for destructive actions
  */
 export default function InboxPage() {
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
 
