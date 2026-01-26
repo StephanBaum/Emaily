@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import DOMPurify from "dompurify";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -573,7 +574,13 @@ export function EmailDetail({
             <div className="prose prose-sm dark:prose-invert max-w-none">
               {email.bodyHtml ? (
                 <div
-                  dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(email.bodyHtml, {
+                      USE_PROFILES: { html: true },
+                      FORBID_TAGS: ['script', 'style', 'iframe'],
+                      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover']
+                    })
+                  }}
                   className="email-body"
                 />
               ) : (

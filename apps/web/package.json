@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
+    "@email-ai/ai": "workspace:*",
     "@email-ai/database": "workspace:*",
+    "dompurify": "^3.2.4",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@microsoft/microsoft-graph-types": "^2.40.0",
     "@radix-ui/react-avatar": "^1.1.2",
@@ -29,6 +31,7 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
