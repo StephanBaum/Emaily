@@ -7,8 +7,6 @@
  */
 
 import { openai } from "@ai-sdk/openai";
-import { generateObject, generateText } from "ai";
-import { z } from "zod";
 
 /**
  * Default OpenAI model for AI operations.
@@ -24,32 +22,34 @@ export function createModel(modelId: string = DEFAULT_MODEL) {
   return openai(modelId);
 }
 
-/**
- * Schema for email categorization results.
- */
-export const EmailCategorySchema = z.object({
-  category: z.enum(["important", "promotional", "social", "updates", "spam"]),
-  priority: z.number().min(1).max(5),
-  summary: z.string(),
-  suggestedAction: z.enum(["reply", "archive", "delete", "defer"]),
-});
+// Re-export all schemas and types
+export {
+  // Enums
+  EmailCategoryEnum,
+  SuggestedActionEnum,
+  ReplyToneEnum,
+  // Schemas
+  EmailCategorySchema,
+  SmartReplySchema,
+  SmartReplyItemSchema,
+  ComposeAssistSchema,
+  // Types
+  type EmailCategoryType,
+  type SuggestedActionType,
+  type EmailCategory,
+  type ReplyTone,
+  type SmartReplyItem,
+  type SmartReply,
+  type ComposeAssist,
+} from "./schemas";
 
-export type EmailCategory = z.infer<typeof EmailCategorySchema>;
-
-/**
- * Schema for smart reply suggestions.
- */
-export const SmartReplySchema = z.object({
-  replies: z.array(
-    z.object({
-      tone: z.enum(["formal", "casual", "friendly", "professional"]),
-      content: z.string(),
-      isShort: z.boolean(),
-    })
-  ),
-});
-
-export type SmartReply = z.infer<typeof SmartReplySchema>;
+// Re-export categorization functions
+export {
+  categorizeEmail,
+  categorizeEmailContent,
+  type CategorizeEmailInput,
+  type CategorizeEmailOptions,
+} from "./categorize";
 
 // Re-export core AI SDK utilities for convenience
 export { generateObject, generateText } from "ai";
