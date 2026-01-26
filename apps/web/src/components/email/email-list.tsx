@@ -8,6 +8,11 @@ export interface EmailListProps {
   emails: Email[];
   selectedEmailId?: string | null;
   onEmailSelect?: (email: Email) => void;
+  onArchive?: (emailId: string) => void;
+  onDelete?: (emailId: string) => void;
+  onMarkRead?: (emailId: string) => void;
+  onMarkUnread?: (emailId: string) => void;
+  onToggleStar?: (emailId: string, isStarred: boolean) => void;
   isLoading?: boolean;
   emptyMessage?: string;
   className?: string;
@@ -109,11 +114,17 @@ function InboxZeroState() {
  * - Inbox Zero celebration state
  * - Selection tracking with visual feedback
  * - Keyboard navigation support
+ * - Quick actions (archive, delete, mark read, star) with optimistic updates
  */
 export function EmailList({
   emails,
   selectedEmailId = null,
   onEmailSelect,
+  onArchive,
+  onDelete,
+  onMarkRead,
+  onMarkUnread,
+  onToggleStar,
   isLoading = false,
   emptyMessage = "Your inbox is empty. New emails will appear here.",
   className,
@@ -189,6 +200,11 @@ export function EmailList({
           email={email}
           isSelected={email.id === selectedEmailId}
           onClick={onEmailSelect}
+          onArchive={onArchive}
+          onDelete={onDelete}
+          onMarkRead={onMarkRead}
+          onMarkUnread={onMarkUnread}
+          onToggleStar={onToggleStar}
         />
       ))}
     </div>

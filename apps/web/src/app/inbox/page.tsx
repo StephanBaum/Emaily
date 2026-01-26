@@ -7,6 +7,7 @@ import { EmailList, type Email } from "@/components/email";
 import { ContentContainer } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useEmailActions, type UndoNotification } from "@/hooks/useEmailActions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,6 +70,74 @@ async function fetchEmails(params: {
   }
 
   return response.json();
+}
+
+/**
+ * UndoNotificationBar displays a notification with undo action
+ */
+function UndoNotificationBar({
+  notification,
+  onUndo,
+  onDismiss,
+}: {
+  notification: UndoNotification;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  const [timeRemaining, setTimeRemaining] = React.useState(
+    Math.max(0, Math.ceil((notification.expiresAt - Date.now()) / 1000))
+  );
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((notification.expiresAt - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [notification.expiresAt]);
+
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+      <div className="flex items-center gap-4 px-4 py-3 rounded-lg bg-foreground text-background shadow-lg">
+        <span className="text-sm font-medium">{notification.message}</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onUndo}
+            className="text-background hover:bg-background/20 hover:text-background h-7 px-2"
+          >
+            Undo
+            <span className="ml-1 text-xs opacity-70">({timeRemaining}s)</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDismiss}
+            className="text-background hover:bg-background/20 hover:text-background h-7 w-7"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -175,6 +244,8 @@ function InboxHeader({
  * - Session protection (redirects to login if not authenticated)
  * - Loading and error states
  * - Pull-to-refresh functionality
+ * - Email actions with optimistic updates (archive, delete, mark read)
+ * - Undo notifications for destructive actions
  */
 export default function InboxPage() {
   const { data: session, status } = useSession();
@@ -191,6 +262,43 @@ export default function InboxPage() {
   const urlFilter = searchParams.get("filter") || "";
   const urlCategory = searchParams.get("category") || "all";
   const [activeCategory, setActiveCategory] = React.useState(urlCategory);
+
+  // Email actions hook with optimistic updates
+  const {
+    archiveEmail,
+    deleteEmail,
+    markAsRead,
+    markAsUnread,
+    toggleStar,
+    undoNotification,
+    dismissUndo,
+    executeUndo,
+    isLoading: isActionLoading,
+  } = useEmailActions({
+    onOptimisticRemove: React.useCallback((emailId: string) => {
+      setEmails((prev) => prev.filter((e) => e.id !== emailId));
+    }, []),
+    onOptimisticUpdate: React.useCallback((emailId: string, updates: Partial<Email>) => {
+      setEmails((prev) =>
+        prev.map((e) => (e.id === emailId ? { ...e, ...updates } : e))
+      );
+    }, []),
+    onRevert: React.useCallback((emailId: string, previousState: Email) => {
+      setEmails((prev) => {
+        // Check if email already exists
+        if (prev.some((e) => e.id === emailId)) {
+          return prev.map((e) => (e.id === emailId ? previousState : e));
+        }
+        // Add back to list (sorted by receivedAt)
+        const newList = [...prev, previousState];
+        return newList.sort((a, b) => {
+          const dateA = typeof a.receivedAt === "string" ? new Date(a.receivedAt) : a.receivedAt;
+          const dateB = typeof b.receivedAt === "string" ? new Date(b.receivedAt) : b.receivedAt;
+          return dateB.getTime() - dateA.getTime();
+        });
+      });
+    }, []),
+  });
 
   // Calculate email counts by category
   const emailCounts = React.useMemo(() => {
@@ -275,6 +383,46 @@ export default function InboxPage() {
     [router]
   );
 
+  // Handle email archive
+  const handleArchive = React.useCallback(
+    async (emailId: string) => {
+      await archiveEmail(emailId);
+    },
+    [archiveEmail]
+  );
+
+  // Handle email delete
+  const handleDelete = React.useCallback(
+    async (emailId: string) => {
+      await deleteEmail(emailId);
+    },
+    [deleteEmail]
+  );
+
+  // Handle mark as read
+  const handleMarkRead = React.useCallback(
+    async (emailId: string) => {
+      await markAsRead(emailId);
+    },
+    [markAsRead]
+  );
+
+  // Handle mark as unread
+  const handleMarkUnread = React.useCallback(
+    async (emailId: string) => {
+      await markAsUnread(emailId);
+    },
+    [markAsUnread]
+  );
+
+  // Handle toggle star
+  const handleToggleStar = React.useCallback(
+    async (emailId: string, isStarred: boolean) => {
+      await toggleStar(emailId, isStarred);
+    },
+    [toggleStar]
+  );
+
   // Handle refresh
   const handleRefresh = React.useCallback(() => {
     loadEmails();
@@ -301,7 +449,7 @@ export default function InboxPage() {
       <InboxHeader
         totalEmails={filteredEmails.length}
         unreadCount={unreadCount}
-        isLoading={isLoading}
+        isLoading={isLoading || isActionLoading}
         onRefresh={handleRefresh}
       />
 
@@ -341,12 +489,26 @@ export default function InboxPage() {
           emails={filteredEmails}
           selectedEmailId={selectedEmailId}
           onEmailSelect={handleEmailSelect}
+          onArchive={handleArchive}
+          onDelete={handleDelete}
+          onMarkRead={handleMarkRead}
+          onMarkUnread={handleMarkUnread}
+          onToggleStar={handleToggleStar}
           isLoading={isLoading}
           emptyMessage={
             activeCategory === "all"
               ? "Your inbox is empty. New emails will appear here."
               : `No ${activeCategory} emails found.`
           }
+        />
+      )}
+
+      {/* Undo notification */}
+      {undoNotification && (
+        <UndoNotificationBar
+          notification={undoNotification}
+          onUndo={executeUndo}
+          onDismiss={dismissUndo}
         />
       )}
     </ContentContainer>
