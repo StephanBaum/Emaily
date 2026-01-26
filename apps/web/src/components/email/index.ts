@@ -7,3 +7,18 @@ export {
   type SmartReplyItem,
   type ReplyTone,
 } from "./smart-reply-suggestions";
+export {
+  EmailCompose,
+  ComposeButton,
+  type EmailComposeProps,
+  type ComposeMode,
+  type OriginalEmail,
+  type ComposeButtonProps,
+} from "./email-compose";
+export {
+  ComposeToolbar,
+  DraftIntentDialog,
+  type ComposeToolbarProps,
+  type ComposeTone,
+  type DraftIntentDialogProps,
+} from "./compose-toolbar";
