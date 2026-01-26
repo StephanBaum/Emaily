@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from '@email-ai/database';
 
 /**
  * Thread information with preview details
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Build where clause for filtering
-    const whereClause: Parameters<typeof prisma.email.findMany>[0]["where"] = {
+    const whereClause: Prisma.EmailWhereInput = {
       accountId: { in: validAccountIds },
     };
 
@@ -178,7 +179,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Group emails by threadId
-    const threadMap = new Map<string | null, typeof emails>();
+    const threadMap = new Map<string, typeof emails>();
 
     for (const email of emails) {
       const threadKey = email.threadId || `single_${email.id}`;
