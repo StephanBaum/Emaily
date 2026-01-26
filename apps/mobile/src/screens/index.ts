@@ -8,3 +8,6 @@
 
 export { LoginScreen, default as LoginScreenDefault } from './LoginScreen';
 export type { LoginScreenProps } from './LoginScreen';
+
+export { InboxScreen, default as InboxScreenDefault } from './InboxScreen';
+export type { InboxScreenProps } from './InboxScreen';

@@ -13,3 +13,15 @@ export {
   type AuthActions,
   type UseAuthReturn,
 } from './useAuth';
+
+export {
+  useEmails,
+  default as useEmailsDefault,
+  type Email,
+  type EmailAddress,
+  type EmailCategory,
+  type FetchEmailsOptions,
+  type UseEmailsState,
+  type UseEmailsActions,
+  type UseEmailsReturn,
+} from './useEmails';
