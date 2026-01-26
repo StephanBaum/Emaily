@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EmailList, type Email } from "@/components/email";
+import { EmailList, InboxZero, type Email } from "@/components/email";
 import { ContentContainer } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -484,6 +484,9 @@ export default function InboxPage() {
             Try again
           </Button>
         </div>
+      ) : !isLoading && emails.length === 0 && activeCategory === "all" && !urlFilter ? (
+        // Show inbox zero celebration when inbox is truly empty
+        <InboxZero />
       ) : (
         <EmailList
           emails={filteredEmails}

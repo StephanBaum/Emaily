@@ -22,3 +22,4 @@ export {
   type ComposeTone,
   type DraftIntentDialogProps,
 } from "./compose-toolbar";
+export { InboxZero, type InboxZeroProps } from "./inbox-zero";
