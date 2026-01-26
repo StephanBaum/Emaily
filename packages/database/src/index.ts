@@ -11,6 +11,9 @@ export { prisma, connect, disconnect } from "./client";
 // Re-export all Prisma types for convenience
 export type {
   User,
+  Account,
+  Session,
+  VerificationToken,
   EmailAccount,
   Email,
   Prisma,
