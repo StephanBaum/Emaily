@@ -8,3 +8,66 @@
 .worktrees/
 .security-key
 logs/security/
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.next
+.turbo
+out
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage
+.nyc_output
+
+# Prisma
+packages/database/prisma/migrations/**/migration_lock.toml
+
+# Mobile/Expo
+apps/mobile/.expo
+apps/mobile/ios
+apps/mobile/android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Temporary files
+*.tmp
+*.temp
+.cache
+
+# Credentials (never commit)
+service-account.json
+credentials.json
+*.pem

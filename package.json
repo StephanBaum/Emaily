@@ -1,0 +1,29 @@
+{
+  "name": "email-ai-client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=./apps/web",
+    "dev:mobile": "turbo dev --filter=./apps/mobile",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "test:integration": "turbo test:integration",
+    "test:e2e": "turbo test:e2e",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean",
+    "db:generate": "pnpm --filter @email-ai/database prisma generate",
+    "db:push": "pnpm --filter @email-ai/database prisma db push",
+    "db:migrate": "pnpm --filter @email-ai/database prisma migrate dev",
+    "db:studio": "pnpm --filter @email-ai/database prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
