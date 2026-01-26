@@ -11,3 +11,6 @@ export type { LoginScreenProps } from './LoginScreen';
 
 export { InboxScreen, default as InboxScreenDefault } from './InboxScreen';
 export type { InboxScreenProps } from './InboxScreen';
+
+export { EmailDetailScreen, default as EmailDetailScreenDefault } from './EmailDetailScreen';
+export type { EmailDetailScreenProps } from './EmailDetailScreen';
