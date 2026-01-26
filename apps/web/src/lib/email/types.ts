@@ -6,7 +6,7 @@
 /**
  * Supported email providers
  */
-export type EmailProvider = "google" | "microsoft";
+export type EmailProvider = "google" | "microsoft" | "imap";
 
 /**
  * Normalized email message structure
@@ -181,6 +181,52 @@ export interface EmailOAuthTokens {
   refreshToken?: string | null;
   /** Token expiration timestamp */
   expiresAt?: number | null;
+}
+
+/**
+ * IMAP/SMTP server configuration
+ * Used when connecting a custom IMAP email provider
+ */
+export interface ImapConfig {
+  /** User's email address */
+  email: string;
+  /** Email account password */
+  password: string;
+  /** IMAP server hostname */
+  imapHost: string;
+  /** IMAP server port (993 for TLS, 143 for STARTTLS) */
+  imapPort: number;
+  /** Whether to use TLS (true for port 993) */
+  imapSecure: boolean;
+  /** SMTP server hostname */
+  smtpHost: string;
+  /** SMTP server port (587 for STARTTLS, 465 for TLS) */
+  smtpPort: number;
+  /** Whether to use TLS (true for port 465) */
+  smtpSecure: boolean;
+}
+
+/**
+ * Stored IMAP credentials with encrypted password
+ * Represents IMAP account data as stored in the database
+ */
+export interface StoredImapCredentials {
+  /** User's email address */
+  email: string;
+  /** AES-256 encrypted password */
+  encryptedPassword: string;
+  /** IMAP server hostname */
+  imapHost: string;
+  /** IMAP server port (993 for TLS, 143 for STARTTLS) */
+  imapPort: number;
+  /** Whether to use TLS (true for port 993) */
+  imapSecure: boolean;
+  /** SMTP server hostname */
+  smtpHost: string;
+  /** SMTP server port (587 for STARTTLS, 465 for TLS) */
+  smtpPort: number;
+  /** Whether to use TLS (true for port 465) */
+  smtpSecure: boolean;
 }
 
 /**
