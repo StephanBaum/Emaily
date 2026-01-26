@@ -51,6 +51,27 @@ export {
   type CategorizeEmailOptions,
 } from "./categorize";
 
+// Re-export smart reply functions
+export {
+  generateSmartReplies,
+  generateSmartReplyWithTone,
+  type SmartReplyInput,
+  type SmartReplyOptions,
+} from "./smart-reply";
+
+// Re-export compose assistance functions
+export {
+  enhanceDraft,
+  draftEmail,
+  adjustTone,
+  generateSubjectLine,
+  type ComposeAssistInput,
+  type ComposeAssistOptions,
+  type DraftEmailInput,
+  type DraftEmailOptions,
+  type AdjustToneInput,
+} from "./compose-assist";
+
 // Re-export core AI SDK utilities for convenience
 export { generateObject, generateText } from "ai";
 export { openai } from "@ai-sdk/openai";
