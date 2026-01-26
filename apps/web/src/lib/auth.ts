@@ -80,6 +80,59 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/",
   },
+  events: {
+    /**
+     * Event handler called after OAuth sign-in completes.
+     * Creates or updates EmailAccount for email syncing.
+     */
+    async signIn({ user, account }) {
+      if (!account || !user?.id || !account.access_token) {
+        return;
+      }
+
+      // Map OAuth provider to email provider type
+      const emailProvider = account.provider === "google" ? "gmail" : "outlook";
+
+      try {
+        // Check if EmailAccount already exists for this user and provider
+        const existingEmailAccount = await prisma.emailAccount.findFirst({
+          where: {
+            userId: user.id,
+            provider: emailProvider,
+          },
+        });
+
+        if (existingEmailAccount) {
+          // Update existing EmailAccount with new tokens
+          await prisma.emailAccount.update({
+            where: { id: existingEmailAccount.id },
+            data: {
+              accessToken: account.access_token,
+              refreshToken: account.refresh_token || existingEmailAccount.refreshToken,
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          // Create new EmailAccount for email syncing
+          await prisma.emailAccount.create({
+            data: {
+              userId: user.id,
+              provider: emailProvider,
+              accessToken: account.access_token,
+              refreshToken: account.refresh_token,
+            },
+          });
+        }
+      } catch (error) {
+        // Log error but don't fail the sign-in
+        // The user can still authenticate, just email sync may need to be set up separately
+        if (process.env.NODE_ENV === "development") {
+          // eslint-disable-next-line no-console
+          console.error("Failed to create/update EmailAccount:", error);
+        }
+      }
+    },
+  },
   callbacks: {
     /**
      * JWT callback - called when JWT is created or updated

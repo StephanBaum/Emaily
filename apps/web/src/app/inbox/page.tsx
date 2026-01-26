@@ -255,8 +255,10 @@ export default function InboxPage() {
   // State
   const [emails, setEmails] = React.useState<Email[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isSyncing, setIsSyncing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [selectedEmailId, setSelectedEmailId] = React.useState<string | null>(null);
+  const [hasInitialSynced, setHasInitialSynced] = React.useState(false);
 
   // Get current filter from URL params
   const urlFilter = searchParams.get("filter") || "";
@@ -336,6 +338,37 @@ export default function InboxPage() {
     );
   }, [emails, activeCategory]);
 
+  // Trigger email sync from provider
+  const triggerSync = React.useCallback(async (isInitial: boolean = false) => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch("/api/emails/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          syncType: isInitial ? "full" : "incremental",
+          maxEmails: isInitial ? 100 : 50,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Sync failed");
+      }
+
+      return true;
+    } catch (err) {
+      // Don't show sync errors as the main error - just log them
+      if (process.env.NODE_ENV === "development") {
+        // eslint-disable-next-line no-console
+        console.error("Sync error:", err);
+      }
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
   // Fetch emails
   const loadEmails = React.useCallback(async () => {
     setIsLoading(true);
@@ -346,12 +379,23 @@ export default function InboxPage() {
         filter: urlFilter,
       });
       setEmails(fetchedEmails);
+
+      // If no emails and haven't synced yet, trigger initial sync
+      if (fetchedEmails.length === 0 && !hasInitialSynced) {
+        setHasInitialSynced(true);
+        const syncSuccess = await triggerSync(true);
+        if (syncSuccess) {
+          // Reload emails after sync
+          const syncedEmails = await fetchEmails({ filter: urlFilter });
+          setEmails(syncedEmails);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load emails");
     } finally {
       setIsLoading(false);
     }
-  }, [urlFilter]);
+  }, [urlFilter, hasInitialSynced, triggerSync]);
 
   // Load emails on mount and when filter changes
   React.useEffect(() => {
@@ -423,10 +467,11 @@ export default function InboxPage() {
     [toggleStar]
   );
 
-  // Handle refresh
-  const handleRefresh = React.useCallback(() => {
-    loadEmails();
-  }, [loadEmails]);
+  // Handle refresh - trigger sync then reload
+  const handleRefresh = React.useCallback(async () => {
+    await triggerSync(false);
+    await loadEmails();
+  }, [triggerSync, loadEmails]);
 
   // Show loading state while checking auth
   if (status === "loading") {
@@ -449,7 +494,7 @@ export default function InboxPage() {
       <InboxHeader
         totalEmails={filteredEmails.length}
         unreadCount={unreadCount}
-        isLoading={isLoading || isActionLoading}
+        isLoading={isLoading || isActionLoading || isSyncing}
         onRefresh={handleRefresh}
       />
 
