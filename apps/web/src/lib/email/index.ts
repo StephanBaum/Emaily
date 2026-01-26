@@ -36,3 +36,17 @@ export {
   SyncJobQueue,
   syncJobQueue,
 } from "./sync";
+
+// AI categorization service
+export {
+  type CategorizationResult,
+  type BatchCategorizationResult,
+  type CategorizationOptions,
+  type PrismaCategorizationClient,
+  categorizeEmailWithAI,
+  categorizeEmailDirect,
+  getUncategorizedEmails,
+  updateEmailCategorization,
+  batchCategorizeEmails,
+  categorizeUncategorizedEmails,
+} from "./ai-categorization";

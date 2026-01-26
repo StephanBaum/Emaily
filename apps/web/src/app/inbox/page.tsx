@@ -348,6 +348,9 @@ export default function InboxPage() {
         body: JSON.stringify({
           syncType: isInitial ? "full" : "incremental",
           maxEmails: isInitial ? 100 : 50,
+          // Enable AI categorization for new emails during sync
+          categorize: true,
+          categorizeLimit: isInitial ? 50 : 20,
         }),
       });
 

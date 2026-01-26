@@ -14,6 +14,8 @@ import {
   syncAllUserAccounts,
   syncJobQueue,
   type SyncResult,
+  categorizeUncategorizedEmails,
+  type BatchCategorizationResult,
 } from "@/lib/email";
 
 /**
@@ -26,6 +28,10 @@ interface SyncRequest {
   syncType?: "full" | "incremental";
   /** Maximum emails to sync (for full sync) */
   maxEmails?: number;
+  /** Whether to run AI categorization on new emails after sync */
+  categorize?: boolean;
+  /** Maximum emails to categorize (default 50, max 100) */
+  categorizeLimit?: number;
 }
 
 /**
@@ -43,6 +49,12 @@ interface SyncResponse {
     errors: Array<{ messageId?: string; error: string }>;
     syncedAt: string;
   }[];
+  /** AI categorization results (if categorize=true) */
+  categorization?: {
+    total: number;
+    categorized: number;
+    failed: number;
+  };
 }
 
 /**
@@ -175,7 +187,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { accountId, syncType = "incremental", maxEmails = 100 } = body;
+    const { accountId, syncType = "incremental", maxEmails = 100, categorize = false, categorizeLimit = 50 } = body;
 
     // Validate syncType
     if (!["full", "incremental"].includes(syncType)) {
@@ -270,12 +282,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const totalNewEmails = results.reduce((sum, r) => sum + r.newEmails, 0);
     const totalProcessed = results.reduce((sum, r) => sum + r.totalProcessed, 0);
 
+    // Optionally run AI categorization on new/uncategorized emails
+    let categorizationResult: BatchCategorizationResult | undefined;
+    if (categorize && totalNewEmails > 0) {
+      try {
+        categorizationResult = await categorizeUncategorizedEmails(
+          prisma,
+          accountId,
+          {
+            batchSize: Math.min(categorizeLimit, 100),
+            delayBetweenCalls: 200,
+          }
+        );
+      } catch (catError) {
+        // Log categorization errors but don't fail the sync
+        const catErrorMsg = catError instanceof Error ? catError.message : "Unknown error";
+        errors.push(`AI categorization: ${catErrorMsg}`);
+      }
+    }
+
     const response: SyncResponse = {
       success: allSuccessful,
       message: allSuccessful
-        ? `Sync completed: ${totalNewEmails} new emails, ${totalProcessed} total processed`
+        ? `Sync completed: ${totalNewEmails} new emails, ${totalProcessed} total processed${
+            categorizationResult ? `, ${categorizationResult.categorized} categorized` : ""
+          }`
         : `Sync completed with errors: ${errors.join("; ")}`,
       results,
+      categorization: categorizationResult
+        ? {
+            total: categorizationResult.total,
+            categorized: categorizationResult.categorized,
+            failed: categorizationResult.failed,
+          }
+        : undefined,
     };
 
     return NextResponse.json(response);
