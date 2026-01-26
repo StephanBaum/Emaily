@@ -1,0 +1,54 @@
+// packages/database/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  accounts      EmailAccount[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model EmailAccount {
+  id            String    @id @default(cuid())
+  provider      String    // gmail, outlook, etc.
+  accessToken   String
+  refreshToken  String?
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  emails        Email[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Email {
+  id            String       @id @default(cuid())
+  messageId     String       @unique
+  threadId      String?
+  subject       String
+  sender        String
+  recipients    String[]
+  body          String
+  bodyHtml      String?
+  isRead        Boolean      @default(false)
+  isStarred     Boolean      @default(false)
+  category      String?      // AI-determined category
+  priority      Int?         // AI-determined priority (1-5)
+  summary       String?      // AI-generated summary
+  accountId     String
+  account       EmailAccount @relation(fields: [accountId], references: [id])
+  receivedAt    DateTime
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([accountId, receivedAt])
+  @@index([category])
+}
