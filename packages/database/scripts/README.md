@@ -6,6 +6,11 @@ This directory contains scripts for migrating and managing OAuth tokens in the d
 
 ### Overview
 
+This directory contains two main scripts:
+
+1. **`encrypt-existing-tokens.ts`** - Encrypts existing plaintext OAuth tokens
+2. **`verify-token-encryption.ts`** - Verifies all tokens are properly encrypted
+
 The `encrypt-existing-tokens.ts` script encrypts existing plaintext OAuth access tokens and refresh tokens using AES-256-GCM encryption. This migration is required for security compliance to protect OAuth tokens stored in the database.
 
 **What it does:**
@@ -13,6 +18,8 @@ The `encrypt-existing-tokens.ts` script encrypts existing plaintext OAuth access
 - Encrypts tokens in the `EmailAccount` table (email provider connections)
 - Detects and skips already-encrypted tokens
 - Provides detailed logging and statistics
+
+The `verify-token-encryption.ts` script verifies that all OAuth tokens are properly encrypted and can be used after migration or for regular security audits.
 
 ---
 
@@ -121,7 +128,19 @@ Errors:         0
 
 After migration, verify that tokens are encrypted:
 
-1. **Check the database directly:**
+1. **Run the automated verification script:**
+   ```bash
+   pnpm --filter @email-ai/database tsx scripts/verify-token-encryption.ts
+   ```
+
+   Expected output:
+   ```
+   ✅ SUCCESS: All OAuth tokens are properly encrypted!
+   ```
+
+   If the script reports issues, review the recommendations and re-run the migration if needed.
+
+2. **Check the database directly:**
    ```sql
    -- Access tokens should look like encrypted base64 strings
    SELECT id, provider, LEFT(access_token, 50) as token_sample
@@ -133,13 +152,13 @@ After migration, verify that tokens are encrypted:
    LIMIT 5;
    ```
 
-2. **Test OAuth functionality:**
+3. **Test OAuth functionality:**
    - Log in with Google OAuth
    - Log in with Microsoft OAuth
    - Verify email fetching still works
    - Verify email sending still works
 
-3. **Check application logs:**
+4. **Check application logs:**
    - No decryption errors should appear
    - OAuth API calls should work normally
 
