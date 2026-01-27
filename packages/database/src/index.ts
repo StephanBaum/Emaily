@@ -21,3 +21,16 @@ export type {
 
 // Re-export PrismaClient class for type usage
 export { PrismaClient } from "@prisma/client";
+
+// Export OAuth token encryption utilities
+export {
+  encryptOAuthToken,
+  decryptOAuthToken,
+  encryptOAuthTokens,
+  decryptOAuthTokens,
+  batchEncryptTokens,
+  batchDecryptTokens,
+} from "./token-encryption";
+
+// Export OAuth token encryption types
+export type { TokenPair, EncryptedTokenPair } from "./token-encryption";
