@@ -486,6 +486,25 @@ export class OutlookService {
   }
 
   /**
+   * Get an existing subscription by ID
+   * Used to check subscription status and expiration
+   */
+  async getSubscription(subscriptionId: string): Promise<{ subscriptionId: string; expirationDateTime: string }> {
+    try {
+      const response = await this.client
+        .api(`/subscriptions/${subscriptionId}`)
+        .get();
+
+      return {
+        subscriptionId: response.id,
+        expirationDateTime: response.expirationDateTime,
+      };
+    } catch (error) {
+      throw this.handleError(error, `Failed to get subscription ${subscriptionId}`);
+    }
+  }
+
+  /**
    * Get user's profile
    */
   async getProfile(): Promise<{ email: string; displayName: string }> {

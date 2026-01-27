@@ -168,6 +168,54 @@ export class OutlookSubscriptionService {
     const bufferMs = 24 * 60 * 60 * 1000; // 24 hours
     return new Date(expirationDate.getTime() - bufferMs);
   }
+
+  /**
+   * Check the status of an existing Microsoft Graph subscription
+   * Retrieves subscription details from Microsoft Graph API
+   *
+   * @param subscriptionId - ID of the subscription to check
+   * @returns Subscription status with active state, expiration, and renewal recommendation
+   * @throws EmailProviderError if status check fails
+   */
+  async checkSubscriptionStatus(subscriptionId: string): Promise<{
+    active: boolean;
+    expiresAt: Date;
+    needsRenewal: boolean;
+    subscriptionId?: string;
+  }> {
+    try {
+      const subscription = await this.outlookService.getSubscription(subscriptionId);
+      const expiresAt = this.getExpirationDate(subscription.expirationDateTime);
+      const needsRenewal = this.isSubscriptionExpired(subscription.expirationDateTime);
+
+      return {
+        active: true,
+        expiresAt,
+        needsRenewal,
+        subscriptionId: subscription.subscriptionId,
+      };
+    } catch (error) {
+      // If subscription not found, it's inactive
+      if (error instanceof EmailProviderError && error.type === "not_found") {
+        return {
+          active: false,
+          expiresAt: new Date(),
+          needsRenewal: true,
+        };
+      }
+
+      if (error instanceof EmailProviderError) {
+        throw error;
+      }
+
+      throw new EmailProviderError(
+        `Failed to check Outlook subscription status: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "server_error",
+        "microsoft",
+        error
+      );
+    }
+  }
 }
 
 /**
