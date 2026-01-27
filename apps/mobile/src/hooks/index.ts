@@ -25,3 +25,12 @@ export {
   type UseEmailsActions,
   type UseEmailsReturn,
 } from './useEmails';
+
+export {
+  useNotifications,
+  default as useNotificationsDefault,
+  type NotificationState,
+  type NotificationActions,
+  type UseNotificationsReturn,
+  type NotificationNavigationCallback,
+} from './useNotifications';
