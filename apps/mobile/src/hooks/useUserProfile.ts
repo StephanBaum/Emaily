@@ -29,13 +29,6 @@ export interface UserProfileUpdate {
 }
 
 /**
- * Response from the user profile API
- */
-interface UserProfileApiResponse {
-  profile: UserProfile;
-}
-
-/**
  * State returned by the useUserProfile hook
  */
 export interface UseUserProfileState {

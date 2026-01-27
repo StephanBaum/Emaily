@@ -137,7 +137,7 @@ export default function AIProviderScreen(): JSX.Element {
               secureTextEntry={!showApiKey}
               autoCapitalize="none"
               autoCorrect={false}
-              editable={!isSaving}
+              editable={!isUpdating}
             />
             <Pressable
               style={styles.showKeyButton}

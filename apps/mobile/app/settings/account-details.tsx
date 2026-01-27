@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useUserProfile } from '../../src/hooks/useUserProfile';
 
 /**
@@ -155,7 +154,6 @@ function ErrorState({ message, onRetry }: ErrorStateProps): JSX.Element {
  * ```
  */
 export default function AccountDetailsScreen(): JSX.Element {
-  const router = useRouter();
   const {
     profile,
     isLoading,
