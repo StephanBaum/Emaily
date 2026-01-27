@@ -3,8 +3,8 @@
  * Handles fetching and managing emails via IMAP protocol
  */
 
-import { ImapFlow, FetchMessageObject, MailboxObject } from "imapflow";
-import { simpleParser, ParsedMail, Attachment } from "mailparser";
+import { ImapFlow, FetchMessageObject } from "imapflow";
+import { simpleParser, Attachment } from "mailparser";
 import {
   NormalizedEmail,
   EmailAddress,
@@ -95,7 +95,7 @@ export class ImapService {
       pageToken,
       labelId = IMAP_FOLDERS.INBOX,
       query,
-      includeSpamTrash = false,
+      // Note: includeSpamTrash is not used in IMAP - spam/trash handling is folder-based
     } = options;
 
     try {
