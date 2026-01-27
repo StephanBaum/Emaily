@@ -77,7 +77,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
     const userId = session.user.id;
 
     // Check rate limit
-    const rateLimitResult = await rateLimit(userId, "/api/emails/sync", RATE_LIMITS.EMAIL);
+    const rateLimitResult = await rateLimit(userId, "/api/emails/sync", RATE_LIMITS.SYNC);
     if (!rateLimitResult.success) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const userId = session.user.id;
 
     // Check rate limit
-    const rateLimitResult = await rateLimit(userId, "/api/emails/sync", RATE_LIMITS.EMAIL);
+    const rateLimitResult = await rateLimit(userId, "/api/emails/sync", RATE_LIMITS.SYNC);
     if (!rateLimitResult.success) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
