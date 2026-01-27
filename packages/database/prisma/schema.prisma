@@ -22,6 +22,7 @@ model User {
   sessions                Session[]                // Auth.js sessions
   emailAccounts           EmailAccount[]           // Email provider connections
   notificationPreferences NotificationPreference[] // Notification settings
+  pushSubscriptions       PushSubscription[]       // Push notification device tokens
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -117,4 +118,19 @@ model NotificationPreference {
 
   @@unique([userId, emailAccountId])
   @@index([userId])
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  deviceToken String   // Native device push token
+  platform    String   // ios or android
+  expoToken   String?  // Expo push token
+  active      Boolean  @default(true)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, deviceToken])
+  @@index([userId, active])
 }
