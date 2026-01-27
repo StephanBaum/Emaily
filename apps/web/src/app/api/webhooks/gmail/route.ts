@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSyncService } from "@/lib/email";
+import { verifyPubSubSignature } from "@/lib/notifications/pubsub-auth";
 
 /**
  * Gmail Pub/Sub message structure
@@ -50,6 +51,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let webhookLogId: string | undefined;
 
   try {
+    // SECURITY: Verify request is from Google Cloud Pub/Sub
+    const authorizationHeader = request.headers.get('authorization');
+
+    if (!await verifyPubSubSignature(authorizationHeader)) {
+      return NextResponse.json(
+        {
+          error: "Forbidden",
+          message: "Invalid Pub/Sub signature"
+        },
+        { status: 403 }
+      );
+    }
+
     // Parse request body
     let body: PubSubMessage;
     let rawBody: string;

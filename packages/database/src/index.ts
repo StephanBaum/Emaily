@@ -18,6 +18,7 @@ export type {
   Email,
   NotificationPreference,
   PushSubscription,
+  WebhookLog,
   Prisma,
 } from "@prisma/client";
 

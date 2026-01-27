@@ -162,9 +162,21 @@ fi
     echo "GMAIL_PUBSUB_TOPIC=\"$TOPIC_NAME\""
     echo "GMAIL_PUBSUB_SUBSCRIPTION=\"$SUBSCRIPTION_NAME\""
     echo "WEBHOOK_BASE_URL=\"$WEBHOOK_URL\""
+    echo "PUBSUB_VERIFICATION_TOKEN=\"$WEBHOOK_URL/api/webhooks/gmail\""
 } >> .env
 
 echo "   ✅ Environment variables added to .env"
+
+echo ""
+echo "=========================================="
+echo "Step 4: Configure Webhook Verification"
+echo "=========================================="
+echo ""
+echo "Add this to your .env file:"
+echo "PUBSUB_VERIFICATION_TOKEN=\"$WEBHOOK_URL/api/webhooks/gmail\""
+echo ""
+echo "This token is used to verify webhook requests are from Google Cloud Pub/Sub."
+echo ""
 
 echo ""
 echo "=========================================="

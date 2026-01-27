@@ -53,12 +53,37 @@ export class OutlookSubscriptionService {
     const {
       notificationUrl,
       expirationMinutes = 4230, // Default ~3 days (max allowed by Microsoft Graph)
+      resource = "me/mailFolders/inbox/messages",
+      changeType = "created,updated",
     } = options;
 
     try {
-      const response = await this.outlookService.createSubscription(
+      // Calculate expiration (max ~3 days)
+      const expirationDateTime = new Date();
+      expirationDateTime.setMinutes(
+        expirationDateTime.getMinutes() + Math.min(expirationMinutes, 4230)
+      );
+
+      // Get clientState from environment for webhook authentication
+      const clientState = process.env.OUTLOOK_CLIENT_STATE;
+
+      // Create subscription payload
+      const subscriptionPayload: any = {
+        changeType,
         notificationUrl,
-        expirationMinutes
+        resource,
+        expirationDateTime: expirationDateTime.toISOString(),
+      };
+
+      // Add clientState if configured (recommended for security)
+      if (clientState) {
+        subscriptionPayload.clientState = clientState;
+      } else {
+        console.warn('OUTLOOK_CLIENT_STATE not configured - subscriptions will not include clientState verification');
+      }
+
+      const response = await this.outlookService.createSubscription(
+        subscriptionPayload
       );
       return response;
     } catch (error) {

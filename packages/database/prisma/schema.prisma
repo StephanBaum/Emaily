@@ -15,14 +15,14 @@ datasource db {
 model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
-  emailVerified           DateTime?                // Auth.js field
+  emailVerified           DateTime? // Auth.js field
   name                    String?
-  image                   String?                  // Auth.js field
-  accounts                Account[]                // Auth.js OAuth accounts
-  sessions                Session[]                // Auth.js sessions
-  emailAccounts           EmailAccount[]           // Email provider connections
+  image                   String? // Auth.js field
+  accounts                Account[] // Auth.js OAuth accounts
+  sessions                Session[] // Auth.js sessions
+  emailAccounts           EmailAccount[] // Email provider connections
   notificationPreferences NotificationPreference[] // Notification settings
-  pushSubscriptions       PushSubscription[]       // Push notification device tokens
+  pushSubscriptions       PushSubscription[] // Push notification device tokens
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -68,7 +68,7 @@ model VerificationToken {
 
 model EmailAccount {
   id                      String                   @id @default(cuid())
-  provider                String                   // gmail, outlook, etc.
+  provider                String // gmail, outlook, etc.
   accessToken             String                   @db.Text
   refreshToken            String?                  @db.Text
   userId                  String
@@ -80,24 +80,24 @@ model EmailAccount {
 }
 
 model Email {
-  id            String       @id @default(cuid())
-  messageId     String       @unique
-  threadId      String?
-  subject       String
-  sender        String
-  recipients    String[]
-  body          String
-  bodyHtml      String?
-  isRead        Boolean      @default(false)
-  isStarred     Boolean      @default(false)
-  category      String?      // AI-determined category
-  priority      Int?         // AI-determined priority (1-5)
-  summary       String?      // AI-generated summary
-  accountId     String
-  account       EmailAccount @relation(fields: [accountId], references: [id])
-  receivedAt    DateTime
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id         String       @id @default(cuid())
+  messageId  String       @unique
+  threadId   String?
+  subject    String
+  sender     String
+  recipients String[]
+  body       String
+  bodyHtml   String?
+  isRead     Boolean      @default(false)
+  isStarred  Boolean      @default(false)
+  category   String? // AI-determined category
+  priority   Int? // AI-determined priority (1-5)
+  summary    String? // AI-generated summary
+  accountId  String
+  account    EmailAccount @relation(fields: [accountId], references: [id])
+  receivedAt DateTime
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   @@index([accountId, receivedAt])
   @@index([category])
@@ -109,8 +109,8 @@ model NotificationPreference {
   emailAccountId      String
   notificationEnabled Boolean      @default(true)
   priorityOnly        Boolean      @default(false)
-  doNotDisturbStart   String?      // HH:MM format
-  doNotDisturbEnd     String?      // HH:MM format
+  doNotDisturbStart   String? // HH:MM format
+  doNotDisturbEnd     String? // HH:MM format
   user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailAccount        EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   createdAt           DateTime     @default(now())
@@ -123,9 +123,9 @@ model NotificationPreference {
 model PushSubscription {
   id          String   @id @default(cuid())
   userId      String
-  deviceToken String   // Native device push token
-  platform    String   // ios or android
-  expoToken   String?  // Expo push token
+  deviceToken String // Native device push token
+  platform    String // ios or android
+  expoToken   String? // Expo push token
   active      Boolean  @default(true)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
@@ -137,14 +137,14 @@ model PushSubscription {
 
 model WebhookLog {
   id         String   @id @default(cuid())
-  endpoint   String   // The webhook endpoint that was called
-  method     String   // HTTP method (POST, GET, etc.)
+  endpoint   String // The webhook endpoint that was called
+  method     String // HTTP method (POST, GET, etc.)
   payload    String   @db.Text // The webhook payload
   headers    String?  @db.Text // Request headers (JSON)
-  statusCode Int?     // HTTP status code of response
+  statusCode Int? // HTTP status code of response
   response   String?  @db.Text // Response body
   error      String?  @db.Text // Error message if failed
-  userId     String?  // Optional - if webhook is user-specific
+  userId     String? // Optional - if webhook is user-specific
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

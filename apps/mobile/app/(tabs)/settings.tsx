@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, router } from 'expo-router';
 import {
   Alert,
   ScrollView,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import * as NotificationService from '../../src/services/notifications';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Settings item props
@@ -93,7 +94,7 @@ function SettingsSection({
  * - About/version info
  */
 export default function SettingsScreen(): JSX.Element {
-  const router = useRouter();
+  const { user, accessToken, isAuthenticated } = useAuth();
   const [pushNotifications, setPushNotifications] = useState(false);
   const [isProcessingNotifications, setIsProcessingNotifications] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(true);
@@ -130,6 +131,27 @@ export default function SettingsScreen(): JSX.Element {
       return;
     }
 
+    // Check if user is authenticated
+    if (!isAuthenticated || !accessToken) {
+      Alert.alert(
+        'Authentication Required',
+        'Please sign in to enable push notifications.',
+        [
+          {
+            text: 'Sign In',
+            onPress: () => {
+              // Navigate to sign-in screen
+              // Adjust based on your navigation structure
+              router.push('/(auth)/sign-in');
+            }
+          },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+      setPushNotifications(false);
+      return;
+    }
+
     // Check if notifications are supported
     if (!NotificationService.isPushNotificationSupported()) {
       Alert.alert(
@@ -158,16 +180,14 @@ export default function SettingsScreen(): JSX.Element {
             [{ text: 'OK' }]
           );
           setPushNotifications(false);
+          setIsProcessingNotifications(false);
           return;
         }
 
-        // Step 2: Register device with backend
-        // TODO: Get access token from auth context when available
-        const accessToken = 'demo-token';
-
+        // Step 2: Register device with backend using real access token
         try {
-          const { success } = await NotificationService.registerForPushNotifications(
-            accessToken
+          const { success, error } = await NotificationService.registerForPushNotifications(
+            accessToken  // Use real token from auth context
           );
 
           if (success) {
@@ -177,58 +197,63 @@ export default function SettingsScreen(): JSX.Element {
               'You will now receive push notifications for important emails.',
               [{ text: 'OK' }]
             );
-          }
-        } catch (registrationError) {
-          // Registration failed, but permissions were granted
-          // For now, still enable the toggle since permissions are granted
-          setPushNotifications(true);
-
-          if (registrationError instanceof Error) {
+          } else {
+            // Registration failed
             Alert.alert(
-              'Registration Warning',
-              `Permissions granted but registration encountered an issue: ${registrationError.message}`,
+              'Registration Failed',
+              error || 'Failed to register device for push notifications. Please try again.',
               [{ text: 'OK' }]
             );
+            setPushNotifications(false);
           }
+        } catch (error) {
+          // Backend registration error
+          Alert.alert(
+            'Error',
+            'Failed to communicate with notification service. Please check your internet connection and try again.',
+            [{ text: 'OK' }]
+          );
+          setPushNotifications(false);
         }
       } else {
         // Disabling notifications
-        // TODO: Get access token from auth context when available
-        const accessToken = 'demo-token';
-
         try {
-          await NotificationService.unregisterFromPushNotifications(accessToken);
-          setPushNotifications(false);
-          Alert.alert(
-            'Notifications Disabled',
-            'You will no longer receive push notifications.',
-            [{ text: 'OK' }]
+          const { success } = await NotificationService.unregisterFromPushNotifications(
+            accessToken  // Use real token from auth context
           );
-        } catch (unregisterError) {
-          // Unregistration failed, but still disable locally
-          setPushNotifications(false);
 
-          if (unregisterError instanceof Error) {
+          if (success) {
+            setPushNotifications(false);
             Alert.alert(
-              'Disabled Locally',
-              `Notifications disabled locally, but unregistration encountered an issue: ${unregisterError.message}`,
+              'Notifications Disabled',
+              'Push notifications have been disabled. You can re-enable them at any time.',
               [{ text: 'OK' }]
             );
+          } else {
+            // Unregistration failed
+            Alert.alert(
+              'Unregistration Failed',
+              'Failed to unregister device. Please try again.',
+              [{ text: 'OK' }]
+            );
+            // Keep current state
           }
+        } catch (error) {
+          Alert.alert(
+            'Error',
+            'Failed to communicate with notification service.',
+            [{ text: 'OK' }]
+          );
         }
       }
     } catch (error) {
-      // General error handling
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-
+      // Unexpected error
       Alert.alert(
-        'Error',
-        `Failed to update notification settings: ${errorMessage}`,
+        'Unexpected Error',
+        error instanceof Error ? error.message : 'An unexpected error occurred.',
         [{ text: 'OK' }]
       );
-
-      // Reset to previous state
-      setPushNotifications(!value);
+      setPushNotifications(false);
     } finally {
       setIsProcessingNotifications(false);
     }

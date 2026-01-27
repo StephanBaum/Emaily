@@ -131,6 +131,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // SECURITY: Verify clientState on all notifications
+    const OUTLOOK_CLIENT_STATE = process.env.OUTLOOK_CLIENT_STATE;
+
+    if (OUTLOOK_CLIENT_STATE && body.value && body.value.length > 0) {
+      // Check if any notification has invalid clientState
+      const hasInvalidState = body.value.some(
+        (notification) => {
+          // Microsoft Graph includes clientState in notification if it was set during subscription creation
+          // We need to verify it matches our expected value
+          const clientState = (notification as any).clientState;
+          return clientState && clientState !== OUTLOOK_CLIENT_STATE;
+        }
+      );
+
+      if (hasInvalidState) {
+        return NextResponse.json(
+          {
+            error: "Forbidden",
+            message: "Invalid client state - request may not be from Microsoft Graph"
+          },
+          { status: 403 }
+        );
+      }
+    } else if (OUTLOOK_CLIENT_STATE && (!body.value || body.value.length === 0)) {
+      // If clientState is configured but no notifications provided, log warning
+      console.warn('Outlook webhook: clientState configured but no notifications in request');
+    } else if (!OUTLOOK_CLIENT_STATE) {
+      // If no clientState configured, log warning but allow (dev mode)
+      console.warn('OUTLOOK_CLIENT_STATE not configured - webhook authentication disabled');
+    }
+
     // Log webhook request for debugging
     const webhookLog = await prisma.webhookLog.create({
       data: {

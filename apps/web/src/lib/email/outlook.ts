@@ -441,27 +441,22 @@ export class OutlookService {
   }
 
   /**
-   * Subscribe to mail notifications (webhook)
-   * Note: Requires publicly accessible webhook URL
+   * Create a Microsoft Graph subscription for push notifications
    */
-  async createSubscription(
-    webhookUrl: string,
-    expirationMinutes: number = 4230 // Max ~3 days
-  ): Promise<{ subscriptionId: string; expirationDateTime: string }> {
+  async createSubscription(payload: {
+    changeType: string;
+    notificationUrl: string;
+    resource: string;
+    expirationDateTime: string;
+    clientState?: string;  // Add optional clientState
+  }): Promise<{
+    subscriptionId: string;
+    expirationDateTime: string;
+  }> {
     try {
-      const expirationDateTime = new Date(
-        Date.now() + expirationMinutes * 60 * 1000
-      ).toISOString();
-
       const response = await this.client
-        .api("/subscriptions")
-        .post({
-          changeType: "created,updated",
-          notificationUrl: webhookUrl,
-          resource: "/me/mailFolders('inbox')/messages",
-          expirationDateTime,
-          clientState: "email-ai-client",
-        });
+        .api('/subscriptions')
+        .post(payload);
 
       return {
         subscriptionId: response.id,
