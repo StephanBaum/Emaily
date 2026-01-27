@@ -583,6 +583,44 @@ export function useAuth(): UseAuthReturn {
     }
   }, [state.tokens, state.user, signOut]);
 
+  /**
+   * Monitor token expiry and refresh automatically
+   * Refreshes tokens 5 minutes before expiration
+   */
+  useEffect(() => {
+    // Only set up monitoring if authenticated with valid tokens
+    if (!state.isAuthenticated || !state.tokens?.expiresAt || !state.tokens?.refreshToken) {
+      return;
+    }
+
+    const checkAndRefreshToken = (): void => {
+      const expiresAt = state.tokens?.expiresAt;
+      if (!expiresAt) {
+        return;
+      }
+
+      const now = Date.now();
+      const timeUntilExpiry = expiresAt - now;
+      const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+      // If token expires in less than 5 minutes, refresh it
+      if (timeUntilExpiry < fiveMinutes && timeUntilExpiry > 0) {
+        refreshTokens();
+      }
+    };
+
+    // Check immediately on mount/auth change
+    checkAndRefreshToken();
+
+    // Set up interval to check every minute
+    const intervalId = setInterval(checkAndRefreshToken, 60 * 1000);
+
+    // Cleanup interval on unmount or auth state change
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [state.isAuthenticated, state.tokens, refreshTokens]);
+
   return {
     ...state,
     signInWithGoogle,
