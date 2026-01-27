@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -9,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { useAuthContext } from '../../src/contexts/AuthContext';
 
 /**
  * Settings item props
@@ -92,13 +94,31 @@ function SettingsSection({
  */
 export default function SettingsScreen(): JSX.Element {
   const router = useRouter();
+  const { signOut } = useAuthContext();
   const [pushNotifications, setPushNotifications] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
   const handleSignOut = (): void => {
-    // TODO: Implement sign out
-    router.replace('/(auth)/login');
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              router.replace('/(auth)/login');
+            } catch {
+              Alert.alert('Error', 'Failed to sign out');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
