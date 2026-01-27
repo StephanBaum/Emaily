@@ -79,6 +79,7 @@ export default function ComposeScreen(): JSX.Element {
   const [body, setBody] = useState('');
   const [showCc, setShowCc] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   /**
    * Initialize form fields from URL params (for reply/forward)
@@ -180,11 +181,58 @@ export default function ComposeScreen(): JSX.Element {
     }
   };
 
-  const handleAiAssist = (): void => {
-    // TODO: Implement AI assistance
+  const handleAiAssist = async (): Promise<void> => {
+    if (!isAuthenticated || !tokens?.accessToken) {
+      Alert.alert('Error', 'You must be logged in to use AI assistance');
+      return;
+    }
+
+    if (!body.trim()) {
+      Alert.alert('AI Assist', 'Please write some content first before using AI assistance');
+      return;
+    }
+
+    setIsAiLoading(true);
+
+    try {
+      // Call AI enhance API
+      const response = await fetch(`${API_URL}/api/ai/compose`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          operation: 'enhance',
+          draft: body,
+          subject: subject || undefined,
+          recipient: to || undefined,
+          fixGrammar: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage =
+          errorData?.message || `Failed to enhance (${response.status})`;
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      if (data.enhancedContent) {
+        setBody(data.enhancedContent);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to enhance draft';
+      Alert.alert('AI Assist Failed', message);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
-  const canSend = to.trim().length > 0 && subject.trim().length > 0 && !isSending;
+  const canSend = to.trim().length > 0 && subject.trim().length > 0 && !isSending && !isAiLoading;
+  const canUseAi = body.trim().length > 0 && !isAiLoading && !isSending;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -267,10 +315,15 @@ export default function ComposeScreen(): JSX.Element {
         {/* Action buttons */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={styles.aiButton}
+            style={[styles.aiButton, !canUseAi && styles.aiButtonDisabled]}
             onPress={handleAiAssist}
+            disabled={!canUseAi}
           >
-            <Text style={styles.aiButtonText}>✨ AI Assist</Text>
+            {isAiLoading ? (
+              <ActivityIndicator color="#333" size="small" />
+            ) : (
+              <Text style={styles.aiButtonText}>✨ AI Assist</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -357,6 +410,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
+  },
+  aiButtonDisabled: {
+    backgroundColor: '#e8e8e8',
+    opacity: 0.5,
   },
   aiButtonText: {
     fontSize: 14,
