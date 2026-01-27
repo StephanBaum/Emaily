@@ -197,7 +197,12 @@ export function useEmails(options: FetchEmailsOptions = {}): UseEmailsReturn {
 
       try {
         const queryString = buildQueryString(pageNum);
-        const response = await fetch(`${API_URL}/api/emails?${queryString}`, {
+        // Use search endpoint when search query is provided
+        const endpoint = options.search
+          ? `${API_URL}/api/emails/search?${queryString}`
+          : `${API_URL}/api/emails?${queryString}`;
+
+        const response = await fetch(endpoint, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -232,7 +237,7 @@ export function useEmails(options: FetchEmailsOptions = {}): UseEmailsReturn {
         setError(err instanceof Error ? err : new Error('Failed to fetch emails'));
       }
     },
-    [isAuthenticated, tokens?.accessToken, buildQueryString]
+    [isAuthenticated, tokens?.accessToken, buildQueryString, options.search]
   );
 
   /**
