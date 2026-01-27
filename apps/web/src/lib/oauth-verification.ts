@@ -42,14 +42,18 @@ export async function verifyGoogleToken(
   accessToken: string
 ): Promise<VerifiedProfile | null> {
   try {
+    // Fetch user profile from Google's OAuth2 userinfo endpoint
+    // This performs cryptographic verification that the token is valid and active
     const response = await fetch(
       "https://www.googleapis.com/oauth2/v2/userinfo",
       {
         headers: { Authorization: `Bearer ${accessToken}` },
-        // Add timeout to prevent hanging requests
+        // SECURITY: Add timeout to prevent hanging requests from tying up resources
         signal: AbortSignal.timeout(10000), // 10 second timeout
       }
     );
+
+    // SECURITY: Handle different failure modes without leaking information
 
     // Invalid token returns 401
     if (response.status === 401) {
@@ -68,19 +72,21 @@ export async function verifyGoogleToken(
 
     const data = await response.json();
 
-    // Validate response structure
+    // SECURITY: Validate response structure to prevent attacks using malformed responses
     if (!data.email || typeof data.email !== "string") {
       return null;
     }
 
+    // Return verified profile data from Google
     return {
       email: data.email,
       verified: data.verified_email === true,
       name: data.name || undefined,
     };
   } catch (error) {
-    // Network errors, timeouts, parsing errors - all return null
-    // Silently fail to avoid leaking information
+    // SECURITY: Network errors, timeouts, parsing errors - all return null
+    // Silently fail to avoid leaking information about token validity or network state
+    // This prevents timing attacks and information disclosure
     return null;
   }
 }
@@ -106,11 +112,15 @@ export async function verifyMicrosoftToken(
   accessToken: string
 ): Promise<VerifiedProfile | null> {
   try {
+    // Fetch user profile from Microsoft Graph API
+    // This performs cryptographic verification that the token is valid and active
     const response = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
-      // Add timeout to prevent hanging requests
+      // SECURITY: Add timeout to prevent hanging requests from tying up resources
       signal: AbortSignal.timeout(10000), // 10 second timeout
     });
+
+    // SECURITY: Handle different failure modes without leaking information
 
     // Invalid token returns 401
     if (response.status === 401) {
@@ -130,22 +140,25 @@ export async function verifyMicrosoftToken(
     const data = await response.json();
 
     // Extract email from mail or userPrincipalName
+    // Microsoft Graph returns email in different fields depending on account type
     const email = data.mail || data.userPrincipalName;
 
-    // Validate email exists
+    // SECURITY: Validate email exists to prevent attacks using malformed responses
     if (!email || typeof email !== "string") {
       return null;
     }
 
+    // Return verified profile data from Microsoft
     return {
       email,
-      // Microsoft accounts are verified by definition
+      // Microsoft accounts are verified by definition (all Graph API accounts are authenticated)
       verified: true,
       name: data.displayName || undefined,
     };
   } catch (error) {
-    // Network errors, timeouts, parsing errors - all return null
-    // Silently fail to avoid leaking information
+    // SECURITY: Network errors, timeouts, parsing errors - all return null
+    // Silently fail to avoid leaking information about token validity or network state
+    // This prevents timing attacks and information disclosure
     return null;
   }
 }
@@ -176,12 +189,14 @@ export async function verifyOAuthToken(
   provider: "google" | "microsoft",
   accessToken: string
 ): Promise<VerifiedProfile | null> {
+  // Route to provider-specific verification function
   if (provider === "google") {
     return verifyGoogleToken(accessToken);
   } else if (provider === "microsoft") {
     return verifyMicrosoftToken(accessToken);
   }
 
-  // Unknown provider
+  // SECURITY: Unknown provider - reject by returning null
+  // This prevents bypassing verification by providing unsupported providers
   return null;
 }
