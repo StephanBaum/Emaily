@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import MicrosoftEntraId from "next-auth/providers/microsoft-entra-id";
-import { prisma } from "@email-ai/database";
+import { prisma, encryptOAuthToken } from "@email-ai/database";
 
 /**
  * Gmail API scopes required for email client functionality.
@@ -94,6 +94,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const emailProvider = account.provider === "google" ? "gmail" : "outlook";
 
       try {
+        // Encrypt OAuth tokens before storing in database
+        // access_token is guaranteed to exist due to the check above
+        const encryptedAccessToken = encryptOAuthToken(account.access_token)!;
+        const encryptedRefreshToken = encryptOAuthToken(account.refresh_token);
+
         // Check if EmailAccount already exists for this user and provider
         const existingEmailAccount = await prisma.emailAccount.findFirst({
           where: {
@@ -103,23 +108,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (existingEmailAccount) {
-          // Update existing EmailAccount with new tokens
+          // Update existing EmailAccount with new encrypted tokens
           await prisma.emailAccount.update({
             where: { id: existingEmailAccount.id },
             data: {
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token || existingEmailAccount.refreshToken,
+              accessToken: encryptedAccessToken,
+              refreshToken: encryptedRefreshToken ?? existingEmailAccount.refreshToken,
               updatedAt: new Date(),
             },
           });
         } else {
-          // Create new EmailAccount for email syncing
+          // Create new EmailAccount for email syncing with encrypted tokens
           await prisma.emailAccount.create({
             data: {
               userId: user.id,
               provider: emailProvider,
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token,
+              accessToken: encryptedAccessToken,
+              refreshToken: encryptedRefreshToken ?? undefined,
             },
           });
         }
