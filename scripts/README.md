@@ -273,4 +273,54 @@ node scripts/test-outlook-subscription.js
 
 # 3. Run E2E test
 node scripts/test-e2e-notification-flow.js
+
+# 4. Test notification preferences filtering
+node scripts/test-notification-preferences.js
+```
+
+### Notification Preferences Filtering Test
+**File**: `test-notification-preferences.js`
+
+```bash
+node scripts/test-notification-preferences.js
+```
+
+Tests all notification preference modes and filtering logic to ensure users receive only desired notifications.
+
+**What it tests:**
+1. ✅ Notifications disabled - no notifications sent
+2. ✅ Priority-only mode with low-priority email - filtered out
+3. ✅ Priority-only mode with high-priority email - sent
+4. ✅ Do-not-disturb hours - blocked during DND
+5. ✅ All emails mode - all notifications sent
+6. ✅ Overnight DND hours logic verification
+
+**Filtering Logic:**
+- **Notifications Enabled/Disabled** - Master toggle
+- **Priority-Only Mode** - Only priority ≤ 3 (high priority)
+- **Do-Not-Disturb Hours** - Block during specified time range (supports overnight)
+
+**Prerequisites:**
+- Connected email account (Gmail or Outlook)
+- Database accessible
+- Development server running (`pnpm dev`)
+- Mobile device registered (optional but recommended)
+
+**Documentation**: [docs/notification-preferences-testing.md](../docs/notification-preferences-testing.md)
+
+**Expected Output:**
+```
+🧪 Notification Preferences Filtering Test Suite
+================================================
+
+Tests Passed: 6/6
+
+✅ PASS - Test 1: Notifications Disabled
+✅ PASS - Test 2: Priority-Only (Low Priority)
+✅ PASS - Test 3: Priority-Only (High Priority)
+✅ PASS - Test 4: Do-Not-Disturb Hours
+✅ PASS - Test 5: All Emails Mode
+✅ PASS - Test 6: Overnight DND Logic
+
+🎉 All tests passed! Notification preferences filtering works correctly.
 ```
