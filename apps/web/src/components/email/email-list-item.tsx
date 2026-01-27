@@ -31,6 +31,7 @@ export interface EmailListItemProps {
   onMarkRead?: (emailId: string) => void;
   onMarkUnread?: (emailId: string) => void;
   onToggleStar?: (emailId: string, isStarred: boolean) => void;
+  searchTerm?: string;
   className?: string;
 }
 
@@ -90,6 +91,40 @@ function formatRelativeTime(date: Date | string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/**
+ * Escapes HTML characters to prevent XSS attacks
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Highlights search terms in text with HTML sanitization
+ * Returns an object with __html property for use with dangerouslySetInnerHTML
+ */
+function highlightText(text: string, searchTerm?: string): { __html: string } {
+  if (!searchTerm || !searchTerm.trim()) {
+    return { __html: escapeHtml(text) };
+  }
+
+  // Escape the text to prevent XSS
+  const escapedText = escapeHtml(text);
+  const escapedSearchTerm = escapeHtml(searchTerm.trim());
+
+  // Create a regex to find the search term (case-insensitive)
+  const regex = new RegExp(`(${escapedSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+
+  // Wrap matches in a mark tag with yellow background
+  const highlighted = escapedText.replace(
+    regex,
+    '<mark class="bg-yellow-200 dark:bg-yellow-500/30 rounded px-0.5">$1</mark>'
+  );
+
+  return { __html: highlighted };
 }
 
 /**
@@ -324,6 +359,7 @@ export function EmailListItem({
   onMarkRead,
   onMarkUnread,
   onToggleStar,
+  searchTerm,
   className,
 }: EmailListItemProps) {
   const handleClick = React.useCallback(() => {
@@ -382,9 +418,8 @@ export function EmailListItem({
                 "truncate text-sm",
                 !email.isRead && "font-semibold"
               )}
-            >
-              {email.sender}
-            </span>
+              dangerouslySetInnerHTML={highlightText(email.sender, searchTerm)}
+            />
             <div className="flex items-center gap-2 shrink-0 pr-24 group-hover:pr-32">
               {email.isStarred && (
                 <span className="text-yellow-500">{Icons.starFilled}</span>
@@ -401,17 +436,20 @@ export function EmailListItem({
               "text-sm truncate",
               !email.isRead && "font-medium"
             )}
-          >
-            {email.subject || "(No subject)"}
-          </h3>
+            dangerouslySetInnerHTML={highlightText(
+              email.subject || "(No subject)",
+              searchTerm
+            )}
+          />
         </div>
       </CardHeader>
 
       <CardContent className="px-4 pb-4 pt-0 pl-[72px]">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-muted-foreground text-sm line-clamp-2 flex-1">
-            {email.preview}
-          </p>
+          <p
+            className="text-muted-foreground text-sm line-clamp-2 flex-1"
+            dangerouslySetInnerHTML={highlightText(email.preview, searchTerm)}
+          />
           {email.category && (
             <Badge
               variant={getCategoryVariant(email.category)}
