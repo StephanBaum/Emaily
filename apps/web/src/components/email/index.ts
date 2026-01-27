@@ -23,3 +23,13 @@ export {
   type DraftIntentDialogProps,
 } from "./compose-toolbar";
 export { InboxZero, type InboxZeroProps } from "./inbox-zero";
+export {
+  SearchBar,
+  type SearchBarProps,
+  type SearchHistoryEntry,
+} from "./search-bar";
+export {
+  SearchFilters,
+  type SearchFiltersProps,
+  type SearchFilters as SearchFiltersType,
+} from "./search-filters";
