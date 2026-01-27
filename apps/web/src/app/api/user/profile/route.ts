@@ -21,6 +21,7 @@ interface UserProfileResponse {
   emailVerified: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  provider: string;
 }
 
 /**
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const userId = session.user.id;
 
-    // Fetch user profile
+    // Fetch user profile WITH oauth account provider
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -60,6 +61,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        accounts: {
+          select: {
+            provider: true,
+          },
+          take: 1, // Get first OAuth account
+        },
       },
     });
 
@@ -78,6 +85,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      provider: user.accounts[0]?.provider || 'google',
     };
 
     return NextResponse.json(response);
@@ -148,6 +156,12 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        accounts: {
+          select: {
+            provider: true,
+          },
+          take: 1,
+        },
       },
     });
 
@@ -159,6 +173,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       emailVerified: updatedUser.emailVerified,
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
+      provider: updatedUser.accounts[0]?.provider || 'google',
     };
 
     return NextResponse.json(response);

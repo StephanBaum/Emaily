@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useAISettings } from '../../src/hooks/useAISettings';
 
 /**
  * AI Provider Settings Screen
@@ -25,9 +27,16 @@ import { useRouter } from 'expo-router';
  */
 export default function AIProviderScreen(): JSX.Element {
   const router = useRouter();
+  const { settings, isLoading, isUpdating, updateSettings } = useAISettings();
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+
+  // Load existing API key when settings load
+  useEffect(() => {
+    if (settings?.openAiApiKey) {
+      setApiKey(settings.openAiApiKey); // Will be masked like "sk-...xyz1"
+    }
+  }, [settings]);
 
   /**
    * Handle save API key
@@ -47,12 +56,8 @@ export default function AIProviderScreen(): JSX.Element {
       return;
     }
 
-    setIsSaving(true);
     try {
-      // TODO: Implement actual API key storage (secure storage)
-      // For now, just simulate a save operation
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      await updateSettings({ openAiApiKey: apiKey });
       Alert.alert('Success', 'API key saved successfully', [
         {
           text: 'OK',
@@ -64,16 +69,14 @@ export default function AIProviderScreen(): JSX.Element {
         'Error',
         error instanceof Error ? error.message : 'Failed to save API key'
       );
-    } finally {
-      setIsSaving(false);
     }
-  }, [apiKey, router]);
+  }, [apiKey, updateSettings, router]);
 
   /**
    * Handle cancel and go back
    */
   const handleCancel = useCallback((): void => {
-    if (apiKey.trim()) {
+    if (apiKey.trim() && apiKey !== settings?.openAiApiKey) {
       Alert.alert(
         'Discard Changes?',
         'You have unsaved changes. Are you sure you want to go back?',
@@ -92,7 +95,19 @@ export default function AIProviderScreen(): JSX.Element {
     } else {
       router.back();
     }
-  }, [apiKey, router]);
+  }, [apiKey, settings, router]);
+
+  // Show loading state while fetching settings
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={styles.loadingText}>Loading AI settings...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -175,17 +190,17 @@ export default function AIProviderScreen(): JSX.Element {
           <Pressable
             style={[styles.button, styles.cancelButton]}
             onPress={handleCancel}
-            disabled={isSaving}
+            disabled={isUpdating}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </Pressable>
           <Pressable
             style={[styles.button, styles.saveButton]}
             onPress={handleSave}
-            disabled={isSaving}
+            disabled={isUpdating}
           >
             <Text style={styles.saveButtonText}>
-              {isSaving ? 'Saving...' : 'Save'}
+              {isUpdating ? 'Saving...' : 'Save'}
             </Text>
           </Pressable>
         </View>
@@ -334,5 +349,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: '#666',
   },
 });

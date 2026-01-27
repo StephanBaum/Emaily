@@ -10,17 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-
-/**
- * Connected account type definition
- */
-interface ConnectedAccount {
-  id: string;
-  provider: string;
-  email: string;
-  connectedAt: string;
-  status: 'active' | 'disconnected' | 'error';
-}
+import { useConnectedAccounts, type ConnectedAccount } from '../../src/hooks/useConnectedAccounts';
 
 /**
  * Props for AccountItem component
@@ -39,10 +29,18 @@ function AccountItem({
   onDisconnect,
   isDisconnecting,
 }: AccountItemProps): JSX.Element {
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
   const handleDisconnect = useCallback((): void => {
     Alert.alert(
       'Disconnect Account',
-      `Are you sure you want to disconnect ${account.email}?`,
+      `Are you sure you want to disconnect this ${account.provider} account?`,
       [
         {
           text: 'Cancel',
@@ -55,7 +53,7 @@ function AccountItem({
         },
       ]
     );
-  }, [account.email, account.id, onDisconnect]);
+  }, [account.provider, account.id, onDisconnect]);
 
   return (
     <View style={styles.accountItem}>
@@ -67,9 +65,9 @@ function AccountItem({
         </View>
         <View style={styles.accountDetails}>
           <Text style={styles.providerName}>{account.provider}</Text>
-          <Text style={styles.accountEmail}>{account.email}</Text>
+          <Text style={styles.accountEmail}>Account ID: {account.id.slice(0, 8)}...</Text>
           <Text style={styles.connectedDate}>
-            Connected {account.connectedAt}
+            Connected {formatDate(account.createdAt)}
           </Text>
         </View>
       </View>
@@ -134,26 +132,13 @@ function LoadingState(): JSX.Element {
  */
 export default function ConnectedAccountsScreen(): JSX.Element {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    accounts,
+    isLoading,
+    error,
+    disconnectAccount,
+  } = useConnectedAccounts();
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
-
-  // Mock data - in a real app, this would come from an API or context
-  const [accounts, setAccounts] = useState<ConnectedAccount[]>([
-    {
-      id: '1',
-      provider: 'Gmail',
-      email: 'user@gmail.com',
-      connectedAt: 'Jan 15, 2025',
-      status: 'active',
-    },
-    {
-      id: '2',
-      provider: 'Outlook',
-      email: 'user@outlook.com',
-      connectedAt: 'Jan 10, 2025',
-      status: 'active',
-    },
-  ]);
 
   /**
    * Handle account disconnection
@@ -161,25 +146,19 @@ export default function ConnectedAccountsScreen(): JSX.Element {
   const handleDisconnect = useCallback(
     async (accountId: string): Promise<void> => {
       setDisconnectingId(accountId);
-
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Remove account from list
-        setAccounts((prev) => prev.filter((acc) => acc.id !== accountId));
-
+        await disconnectAccount(accountId);
         Alert.alert('Success', 'Account disconnected successfully');
       } catch (error) {
         Alert.alert(
           'Error',
-          'Failed to disconnect account. Please try again.'
+          error instanceof Error ? error.message : 'Failed to disconnect account'
         );
       } finally {
         setDisconnectingId(null);
       }
     },
-    []
+    [disconnectAccount]
   );
 
   /**
@@ -201,6 +180,18 @@ export default function ConnectedAccountsScreen(): JSX.Element {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <LoadingState />
+      </SafeAreaView>
+    );
+  }
+
+  // Add error state check
+  if (error && accounts.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Failed to load accounts</Text>
+          <Text style={styles.errorSubtext}>{error.message}</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -447,5 +438,23 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 15,
     color: '#666',
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#dc2626',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

@@ -122,11 +122,11 @@ export function useUserProfile(): UseUserProfileReturn {
         throw new Error(errorData.error || `Failed to fetch profile: ${response.status}`);
       }
 
-      const data: UserProfileApiResponse = await response.json();
+      const data: UserProfile = await response.json();
 
       if (!isMountedRef.current) return;
 
-      setProfile(data.profile);
+      setProfile(data);
       setError(null);
     } catch (err) {
       if (!isMountedRef.current) return;
@@ -205,11 +205,11 @@ export function useUserProfile(): UseUserProfileReturn {
           throw new Error(errorData.error || `Failed to update profile: ${response.status}`);
         }
 
-        const responseData: UserProfileApiResponse = await response.json();
+        const responseData: UserProfile = await response.json();
 
         if (!isMountedRef.current) return;
 
-        setProfile(responseData.profile);
+        setProfile(responseData);
         setError(null);
       } catch (err) {
         // Rollback on error

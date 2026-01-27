@@ -44,3 +44,11 @@ export {
   type UseConnectedAccountsActions,
   type UseConnectedAccountsReturn,
 } from './useConnectedAccounts';
+
+export {
+  useAISettings,
+  default as useAISettingsDefault,
+  type AISettings,
+  type AISettingsUpdate,
+  type UseAISettingsReturn,
+} from './useAISettings';
