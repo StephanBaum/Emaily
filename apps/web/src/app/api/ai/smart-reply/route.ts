@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import {
   generateSmartReplies,
   generateSmartReplyWithTone,
@@ -52,6 +53,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         { error: "Unauthorized", message: "You must be signed in to use AI features" },
         { status: 401 }
+      );
+    }
+
+    // Check rate limit
+    const rateLimitResult = await rateLimit(
+      session.user.id,
+      "/api/ai/smart-reply",
+      RATE_LIMITS.AI
+    );
+
+    if (!rateLimitResult.success) {
+      const retryAfter = Math.ceil(
+        (rateLimitResult.reset.getTime() - Date.now()) / 1000
+      );
+
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          message: `Too many requests. Please try again in ${retryAfter} seconds.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfter),
+            "X-RateLimit-Limit": String(RATE_LIMITS.AI.limit),
+            "X-RateLimit-Remaining": String(rateLimitResult.remaining),
+            "X-RateLimit-Reset": rateLimitResult.reset.toISOString(),
+          },
+        }
       );
     }
 
