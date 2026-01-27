@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -9,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { useAuthContext } from '../../src/contexts/AuthContext';
 
 /**
  * Settings item props
