@@ -35,3 +35,12 @@ export {
   type UseUserProfileActions,
   type UseUserProfileReturn,
 } from './useUserProfile';
+
+export {
+  useConnectedAccounts,
+  default as useConnectedAccountsDefault,
+  type ConnectedAccount,
+  type UseConnectedAccountsState,
+  type UseConnectedAccountsActions,
+  type UseConnectedAccountsReturn,
+} from './useConnectedAccounts';
