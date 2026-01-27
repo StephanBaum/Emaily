@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import {
   createSyncService,
   syncAllUserAccounts as _syncAllUserAccounts,
@@ -74,6 +75,20 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
     }
 
     const userId = session.user.id;
+
+    // Check rate limit
+    const rateLimitResult = await rateLimit(userId, "/api/emails/sync", RATE_LIMITS.EMAIL);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateLimitResult.reset.getTime() - Date.now()) / 1000))
+          }
+        }
+      );
+    }
 
     // Get user's email accounts with email counts
     const accounts = await prisma.emailAccount.findMany({
@@ -172,6 +187,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const userId = session.user.id;
+
+    // Check rate limit
+    const rateLimitResult = await rateLimit(userId, "/api/emails/sync", RATE_LIMITS.EMAIL);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateLimitResult.reset.getTime() - Date.now()) / 1000))
+          }
+        }
+      );
+    }
 
     // Parse request body
     let body: SyncRequest = {};
