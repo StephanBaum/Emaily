@@ -110,13 +110,13 @@ export default function SettingsScreen(): JSX.Element {
             label="Email Account"
             value="user@example.com"
             onPress={() => {
-              // TODO: Navigate to account details
+              router.push('/settings/account-details');
             }}
           />
           <SettingsItem
             label="Connected Accounts"
             onPress={() => {
-              // TODO: Navigate to connected accounts
+              router.push('/settings/connected-accounts');
             }}
           />
         </SettingsSection>
@@ -143,7 +143,7 @@ export default function SettingsScreen(): JSX.Element {
             label="AI Provider"
             value="OpenAI"
             onPress={() => {
-              // TODO: Navigate to AI provider settings
+              router.push('/settings/ai-provider');
             }}
           />
         </SettingsSection>
