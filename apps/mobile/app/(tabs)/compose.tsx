@@ -1,5 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,6 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
+import Constants from 'expo-constants';
+import { useAuthContext } from '../../src/contexts/AuthContext';
+
+/**
+ * API URL from app configuration
+ */
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
 /**
  * Compose mode - new email, reply, or forward
@@ -62,12 +71,14 @@ function getForwardSubject(subject: string): string {
 export default function ComposeScreen(): JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<ComposeParams>();
+  const { tokens, isAuthenticated } = useAuthContext();
 
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showCc, setShowCc] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   /**
    * Initialize form fields from URL params (for reply/forward)
@@ -109,16 +120,71 @@ export default function ComposeScreen(): JSX.Element {
     }
   }, [params]);
 
-  const handleSend = (): void => {
-    // TODO: Implement send functionality
-    router.back();
+  const handleSend = async (): Promise<void> => {
+    if (!isAuthenticated || !tokens?.accessToken) {
+      Alert.alert('Error', 'You must be logged in to send emails');
+      return;
+    }
+
+    if (!canSend) {
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      // Parse recipients (comma-separated emails)
+      const toRecipients = to
+        .split(',')
+        .map((email) => email.trim())
+        .filter(Boolean);
+
+      const ccRecipients = cc
+        .split(',')
+        .map((email) => email.trim())
+        .filter(Boolean);
+
+      // Build request payload
+      const payload = {
+        to: toRecipients,
+        cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+        subject: subject.trim(),
+        body: body.trim() || ' ', // Ensure non-empty body
+      };
+
+      // Send email via API
+      const response = await fetch(`${API_URL}/api/emails/send`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage =
+          errorData?.error || `Failed to send email (${response.status})`;
+        throw new Error(errorMessage);
+      }
+
+      // Success - navigate back
+      router.back();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to send email';
+      Alert.alert('Send Failed', message);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleAiAssist = (): void => {
     // TODO: Implement AI assistance
   };
 
-  const canSend = to.trim().length > 0 && subject.trim().length > 0;
+  const canSend = to.trim().length > 0 && subject.trim().length > 0 && !isSending;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -212,7 +278,11 @@ export default function ComposeScreen(): JSX.Element {
             onPress={handleSend}
             disabled={!canSend}
           >
-            <Text style={styles.sendButtonText}>Send</Text>
+            {isSending ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.sendButtonText}>Send</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
