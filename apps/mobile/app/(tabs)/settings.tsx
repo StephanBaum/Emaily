@@ -94,6 +94,7 @@ function SettingsSection({
  */
 export default function SettingsScreen(): JSX.Element {
   const router = useRouter();
+  const { signOut } = useAuthContext();
   const [pushNotifications, setPushNotifications] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
