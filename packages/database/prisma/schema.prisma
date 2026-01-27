@@ -100,3 +100,16 @@ model Email {
   @@index([category])
   @@index([threadId])
 }
+
+model RateLimitLog {
+  id           String   @id @default(cuid())
+  identifier   String // userId or IP address
+  endpoint     String // API endpoint path
+  requestCount Int      @default(1)
+  windowStart  DateTime // Rate limit window start time
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([identifier, windowStart])
+  @@index([endpoint])
+}
