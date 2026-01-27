@@ -25,3 +25,30 @@ export {
   type UseEmailsActions,
   type UseEmailsReturn,
 } from './useEmails';
+
+export {
+  useUserProfile,
+  default as useUserProfileDefault,
+  type UserProfile,
+  type UserProfileUpdate,
+  type UseUserProfileState,
+  type UseUserProfileActions,
+  type UseUserProfileReturn,
+} from './useUserProfile';
+
+export {
+  useConnectedAccounts,
+  default as useConnectedAccountsDefault,
+  type ConnectedAccount,
+  type UseConnectedAccountsState,
+  type UseConnectedAccountsActions,
+  type UseConnectedAccountsReturn,
+} from './useConnectedAccounts';
+
+export {
+  useAISettings,
+  default as useAISettingsDefault,
+  type AISettings,
+  type AISettingsUpdate,
+  type UseAISettingsReturn,
+} from './useAISettings';

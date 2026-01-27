@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import { useAuthContext } from '@/src/contexts/AuthContext';
 
 /**
  * Settings item props
@@ -92,12 +94,13 @@ function SettingsSection({
  */
 export default function SettingsScreen(): JSX.Element {
   const router = useRouter();
+  const { user, signOut } = useAuthContext();
   const [pushNotifications, setPushNotifications] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  const handleSignOut = (): void => {
-    // TODO: Implement sign out
+  const handleSignOut = async (): Promise<void> => {
+    await signOut();
     router.replace('/(auth)/login');
   };
 
@@ -108,15 +111,15 @@ export default function SettingsScreen(): JSX.Element {
         <SettingsSection title="Account">
           <SettingsItem
             label="Email Account"
-            value="user@example.com"
+            value={user?.email || 'Not signed in'}
             onPress={() => {
-              // TODO: Navigate to account details
+              router.push('/settings/account-details');
             }}
           />
           <SettingsItem
             label="Connected Accounts"
             onPress={() => {
-              // TODO: Navigate to connected accounts
+              router.push('/settings/connected-accounts');
             }}
           />
         </SettingsSection>
@@ -143,7 +146,7 @@ export default function SettingsScreen(): JSX.Element {
             label="AI Provider"
             value="OpenAI"
             onPress={() => {
-              // TODO: Navigate to AI provider settings
+              router.push('/settings/ai-provider');
             }}
           />
         </SettingsSection>
@@ -164,13 +167,13 @@ export default function SettingsScreen(): JSX.Element {
           <SettingsItem
             label="Privacy Policy"
             onPress={() => {
-              // TODO: Open privacy policy
+              WebBrowser.openBrowserAsync('https://example.com/privacy');
             }}
           />
           <SettingsItem
             label="Terms of Service"
             onPress={() => {
-              // TODO: Open terms of service
+              WebBrowser.openBrowserAsync('https://example.com/terms');
             }}
           />
         </SettingsSection>

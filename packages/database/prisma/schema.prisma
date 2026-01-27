@@ -18,6 +18,11 @@ model User {
   emailVerified DateTime?      // Auth.js field
   name          String?
   image         String?        // Auth.js field
+
+  // AI Settings
+  openAiApiKey  String?        @db.Text
+  aiProvider    String?        @default("openai")
+
   accounts      Account[]      // Auth.js OAuth accounts
   sessions      Session[]      // Auth.js sessions
   emailAccounts EmailAccount[] // Email provider connections
