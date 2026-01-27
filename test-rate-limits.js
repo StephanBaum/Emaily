@@ -18,6 +18,7 @@
  * - Test auth endpoint rate limit (5 requests per 15 minutes)
  * - Test AI endpoint rate limit (20 requests per minute)
  * - Test email endpoint rate limit (100 requests per minute)
+ * - Test sync endpoint rate limit (10 requests per 5 minutes)
  * - Verify 429 responses include proper headers
  */
 
@@ -236,6 +237,61 @@ async function testEmailEndpoint() {
 }
 
 /**
+ * Test sync endpoint rate limiting (user-based, authentication required)
+ */
+async function testSyncEndpoint() {
+  if (!AUTH_COOKIE) {
+    log('\n=== Skipping Sync Endpoint Test (No Auth Cookie) ===', 'yellow');
+    return null;
+  }
+
+  log('\n=== Testing Sync Endpoint Rate Limiting ===', 'cyan');
+  log('Endpoint: /api/emails/sync', 'blue');
+  log('Limit: 10 requests per 5 minutes (user-based)', 'blue');
+  log('Expected: 11th request should return 429\n', 'blue');
+
+  const results = [];
+
+  for (let i = 1; i <= 11; i++) {
+    log(`Request ${i}/11...`, 'yellow');
+
+    const result = await makeRequest(`${BASE_URL}/api/emails/sync`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': AUTH_COOKIE,
+      },
+    });
+
+    results.push(result);
+
+    if (result.status === 429) {
+      log(`✓ Request ${i} rate limited (429)`, 'green');
+      log(`  Retry-After: ${result.headers['retry-after']} seconds`, 'green');
+      log(`  X-RateLimit-Limit: ${result.headers['x-ratelimit-limit']}`, 'green');
+      log(`  X-RateLimit-Remaining: ${result.headers['x-ratelimit-remaining']}`, 'green');
+      log(`  X-RateLimit-Reset: ${result.headers['x-ratelimit-reset']}`, 'green');
+    } else {
+      log(`  Status: ${result.status}`, 'yellow');
+      log(`  X-RateLimit-Remaining: ${result.headers['x-ratelimit-remaining']}`, 'yellow');
+    }
+  }
+
+  // Verify the 11th request was rate limited
+  const eleventhRequest = results[10];
+  if (eleventhRequest.status === 429) {
+    log('\n✓ Sync endpoint rate limiting PASSED', 'green');
+    log('  11th request correctly returned 429', 'green');
+    log(`  X-RateLimit-Limit should be 10: ${eleventhRequest.headers['x-ratelimit-limit']}`, 'green');
+    return true;
+  } else {
+    log('\n✗ Sync endpoint rate limiting FAILED', 'red');
+    log(`  11th request returned ${eleventhRequest.status} instead of 429`, 'red');
+    return false;
+  }
+}
+
+/**
  * Main test runner
  */
 async function runTests() {
@@ -250,6 +306,7 @@ async function runTests() {
     auth: await testAuthEndpoint(),
     ai: await testAIEndpoint(),
     email: await testEmailEndpoint(),
+    sync: await testSyncEndpoint(),
   };
 
   // Summary
