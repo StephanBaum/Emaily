@@ -13,16 +13,17 @@ datasource db {
 // ============================================
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  emailVerified DateTime?      // Auth.js field
+  id            String          @id @default(cuid())
+  email         String          @unique
+  emailVerified DateTime?       // Auth.js field
   name          String?
-  image         String?        // Auth.js field
-  accounts      Account[]      // Auth.js OAuth accounts
-  sessions      Session[]      // Auth.js sessions
-  emailAccounts EmailAccount[] // Email provider connections
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  image         String?         // Auth.js field
+  accounts      Account[]       // Auth.js OAuth accounts
+  sessions      Session[]       // Auth.js sessions
+  emailAccounts EmailAccount[]  // Email provider connections
+  searchHistory SearchHistory[] // Recent search queries
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 }
 
 model Account {
@@ -101,4 +102,15 @@ model Email {
   @@index([accountId, receivedAt])
   @@index([category])
   @@index([searchVector], type: Gin)
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query     String
+  filters   Json?    // Store filter parameters as JSON
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
