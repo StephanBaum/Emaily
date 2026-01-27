@@ -99,18 +99,14 @@ export function buildHeadlineOptions(config: HighlightConfig = {}): string {
 /**
  * Sanitize highlighted HTML to prevent XSS attacks
  * Only allows <mark> tags, strips all other HTML
+ * Keeps HTML entities encoded to prevent XSS attacks
  */
 export function sanitizeHighlight(html: string): string {
   if (!html) return "";
 
-  // Remove all HTML tags except <mark> and </mark>
-  return html
-    .replace(/<(?!mark>|\/mark>)[^>]+>/g, "")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#x27;/g, "'");
+  // Only allow <mark> and </mark> tags, remove all other HTML
+  // Keep HTML entities encoded to prevent XSS attacks
+  return html.replace(/<(?!mark>|\/mark>)[^>]+>/g, "");
 }
 
 /**
