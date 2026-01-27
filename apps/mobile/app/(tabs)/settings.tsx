@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
 
 /**
  * Settings item props
@@ -164,13 +165,13 @@ export default function SettingsScreen(): JSX.Element {
           <SettingsItem
             label="Privacy Policy"
             onPress={() => {
-              // TODO: Open privacy policy
+              WebBrowser.openBrowserAsync('https://example.com/privacy');
             }}
           />
           <SettingsItem
             label="Terms of Service"
             onPress={() => {
-              // TODO: Open terms of service
+              WebBrowser.openBrowserAsync('https://example.com/terms');
             }}
           />
         </SettingsSection>
