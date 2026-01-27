@@ -16,6 +16,8 @@ export type {
   VerificationToken,
   EmailAccount,
   Email,
+  NotificationPreference,
+  PushSubscription,
   Prisma,
 } from "@prisma/client";
 

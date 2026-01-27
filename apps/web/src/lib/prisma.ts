@@ -25,5 +25,7 @@ export type {
   Session,
   EmailAccount,
   Email,
+  NotificationPreference,
+  PushSubscription,
   Prisma,
 } from "@email-ai/database";
