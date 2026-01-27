@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,7 +10,44 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+/**
+ * Compose mode - new email, reply, or forward
+ */
+type ComposeMode = 'new' | 'reply' | 'forward';
+
+/**
+ * URL parameters passed to compose screen
+ */
+interface ComposeParams {
+  mode?: ComposeMode;
+  replyToId?: string;
+  forwardId?: string;
+  to?: string;
+  subject?: string;
+  body?: string;
+}
+
+/**
+ * Generate reply subject from original
+ */
+function getReplySubject(subject: string): string {
+  if (subject.toLowerCase().startsWith('re:')) {
+    return subject;
+  }
+  return `Re: ${subject}`;
+}
+
+/**
+ * Generate forward subject from original
+ */
+function getForwardSubject(subject: string): string {
+  if (subject.toLowerCase().startsWith('fwd:')) {
+    return subject;
+  }
+  return `Fwd: ${subject}`;
+}
 
 /**
  * Compose screen - create new email
@@ -20,14 +57,57 @@ import { useState } from 'react';
  * - Subject field
  * - Body editor
  * - AI assist button (placeholder)
+ * - Reply/Forward support via URL params
  */
 export default function ComposeScreen(): JSX.Element {
   const router = useRouter();
+  const params = useLocalSearchParams<ComposeParams>();
+
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showCc, setShowCc] = useState(false);
+
+  /**
+   * Initialize form fields from URL params (for reply/forward)
+   */
+  useEffect(() => {
+    const mode = params.mode;
+
+    if (mode === 'reply') {
+      // Pre-fill fields for reply
+      if (params.to) {
+        setTo(params.to);
+      }
+      if (params.subject) {
+        setSubject(getReplySubject(params.subject));
+      }
+      if (params.body) {
+        setBody(params.body);
+      }
+    } else if (mode === 'forward') {
+      // Pre-fill subject for forward (leave To empty)
+      if (params.subject) {
+        setSubject(getForwardSubject(params.subject));
+      }
+      // Forward body would be set here if passed
+      if (params.body) {
+        setBody(params.body);
+      }
+    } else {
+      // New email mode - check for any pre-filled values
+      if (params.to) {
+        setTo(params.to);
+      }
+      if (params.subject) {
+        setSubject(params.subject);
+      }
+      if (params.body) {
+        setBody(params.body);
+      }
+    }
+  }, [params]);
 
   const handleSend = (): void => {
     // TODO: Implement send functionality
