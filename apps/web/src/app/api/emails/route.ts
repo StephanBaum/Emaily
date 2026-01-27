@@ -24,6 +24,8 @@ interface EmailQueryParams {
   isRead?: boolean;
   /** Filter by starred status */
   isStarred?: boolean;
+  /** Filter by attachment status */
+  hasAttachments?: boolean;
   /** Filter by account ID */
   accountId?: string;
   /** Search query for subject/sender */
@@ -66,6 +68,9 @@ function parseQueryParams(searchParams: URLSearchParams): EmailQueryParams {
       : undefined,
     isStarred: searchParams.has("isStarred")
       ? searchParams.get("isStarred") === "true"
+      : undefined,
+    hasAttachments: searchParams.has("hasAttachments")
+      ? searchParams.get("hasAttachments") === "true"
       : undefined,
     accountId: searchParams.get("accountId") || undefined,
     search: searchParams.get("search") || undefined,
@@ -146,6 +151,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
     if (params.isStarred !== undefined) {
       whereClause.isStarred = params.isStarred;
+    }
+    if (params.hasAttachments !== undefined) {
+      whereClause.hasAttachments = params.hasAttachments;
     }
     if (params.search) {
       whereClause.OR = [
