@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginButton } from "@/components/auth/login-button";
+import { ImapLoginDialog } from "@/components/auth/imap-login-dialog";
 
 /**
  * Mail icon component for the hero section
@@ -97,6 +98,20 @@ export default async function Home() {
           <CardContent className="space-y-4">
             <LoginButton provider="google" />
             <LoginButton provider="azure-ad" />
+
+            {/* Separator */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or use custom server
+                </span>
+              </div>
+            </div>
+
+            <ImapLoginDialog />
           </CardContent>
         </Card>
 
