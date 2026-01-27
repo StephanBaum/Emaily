@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createMobileSession } from "@/lib/mobile-session";
+import { verifyOAuthToken } from "@/lib/oauth-verification";
 
 /**
  * Request body for mobile auth sync
@@ -94,6 +95,33 @@ export async function POST(request: NextRequest): Promise<NextResponse<MobileAut
         { status: 400 }
       );
     }
+
+    // SECURITY: Verify the OAuth token with the provider before trusting any claims
+    // This prevents authentication bypass attacks where an attacker provides a valid
+    // token for one account but claims a different email address
+    const verifiedProfile = await verifyOAuthToken(body.provider, body.accessToken);
+
+    if (!verifiedProfile) {
+      // Token verification failed - invalid, expired, or network error
+      // Don't reveal specific reason to prevent information leakage
+      return NextResponse.json(
+        { success: false, error: "Token verification failed" },
+        { status: 401 }
+      );
+    }
+
+    // SECURITY: Verify the email from the token matches the claimed email
+    // Use lowercase comparison to prevent case-sensitivity bypass
+    if (verifiedProfile.email.toLowerCase() !== body.email.toLowerCase()) {
+      // Token is valid but belongs to a different email address
+      // This could be an attack attempt - log for security monitoring
+      return NextResponse.json(
+        { success: false, error: "Email mismatch - token does not belong to claimed email" },
+        { status: 403 }
+      );
+    }
+
+    // Token is verified and email matches - proceed with user creation/update
 
     // Find or create user by email
     let user = await prisma.user.findUnique({
