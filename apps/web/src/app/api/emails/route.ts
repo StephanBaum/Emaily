@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma, type Email } from "@/lib/prisma";
 import { Prisma } from '@email-ai/database';
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Query parameters for email listing
@@ -94,6 +95,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const userId = session.user.id;
+
+    // Check rate limit
+    const rateLimitResult = await rateLimit(userId, "/api/emails", RATE_LIMITS.EMAIL);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateLimitResult.reset.getTime() - Date.now()) / 1000))
+          }
+        }
+      );
+    }
 
     // Parse query parameters
     const params = parseQueryParams(request.nextUrl.searchParams);
@@ -213,6 +228,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const userId = session.user.id;
+
+    // Check rate limit
+    const rateLimitResult = await rateLimit(userId, "/api/emails", RATE_LIMITS.EMAIL);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateLimitResult.reset.getTime() - Date.now()) / 1000))
+          }
+        }
+      );
+    }
 
     // Parse request body
     let body: BatchOperationRequest;
