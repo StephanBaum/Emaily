@@ -259,6 +259,7 @@ async function triggerIncrementalSync(accountId: string, _notifications: Outlook
     provider: account.provider,
     accessToken: account.accessToken,
     refreshToken: account.refreshToken,
+    userId: account.userId,
   });
 
   // Perform incremental sync

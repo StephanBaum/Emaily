@@ -3,7 +3,7 @@
  * Handles syncing emails between email providers and the local database
  */
 
-import type { Email, EmailAccount, Prisma } from "@email-ai/database";
+import type { Email, EmailAccount, Prisma, NotificationPreference, PushSubscription } from "@email-ai/database";
 import { IEmailProvider, createEmailProvider, withRetry, batchExecute } from "./provider";
 import {
   EmailProvider,
@@ -91,6 +91,12 @@ export interface PrismaEmailClient {
     findUnique: (args: { where: { id: string } }) => Promise<EmailAccount | null>;
     update: (args: { where: { id: string }; data: Prisma.EmailAccountUpdateInput }) => Promise<EmailAccount>;
   };
+  notificationPreference: {
+    findFirst: (args: Prisma.NotificationPreferenceFindFirstArgs) => Promise<NotificationPreference | null>;
+  };
+  pushSubscription: {
+    findMany: (args: Prisma.PushSubscriptionFindManyArgs) => Promise<PushSubscription[]>;
+  };
 }
 
 /**
@@ -101,15 +107,18 @@ export class EmailSyncService {
   private provider: IEmailProvider;
   private prisma: PrismaEmailClient;
   private accountId: string;
+  private userId?: string;
 
   constructor(
     prisma: PrismaEmailClient,
     provider: IEmailProvider,
-    accountId: string
+    accountId: string,
+    userId?: string
   ) {
     this.prisma = prisma;
     this.provider = provider;
     this.accountId = accountId;
+    this.userId = userId;
   }
 
   /**
@@ -375,7 +384,119 @@ export class EmailSyncService {
       const newEmail = await this.prisma.email.create({
         data: emailData,
       });
+
+      // Send push notification for new emails if enabled
+      if (this.userId) {
+        this.sendPushNotificationForNewEmail(newEmail, email).catch((error) => {
+          // Log error but don't fail the sync operation
+          console.error("Failed to send push notification:", error);
+        });
+      }
+
       return { email: newEmail, isNew: true };
+    }
+  }
+
+  /**
+   * Send push notification for a new email
+   * Checks notification preferences and do-not-disturb hours
+   * @private
+   */
+  private async sendPushNotificationForNewEmail(
+    savedEmail: Email,
+    normalizedEmail: NormalizedEmail
+  ): Promise<void> {
+    if (!this.userId) return;
+
+    try {
+      // Get notification preferences for this email account
+      const preferences = await this.prisma.notificationPreference.findFirst({
+        where: {
+          userId: this.userId,
+          emailAccountId: this.accountId,
+        },
+      });
+
+      // Check if notifications are enabled
+      if (!preferences || !preferences.notificationEnabled) {
+        return;
+      }
+
+      // Check if priority-only mode is enabled and email priority is low
+      if (preferences.priorityOnly) {
+        // Priority 4 or 5 is considered high priority (1 is highest, 5 is lowest)
+        const isHighPriority = savedEmail.priority && savedEmail.priority <= 3;
+        if (!isHighPriority) {
+          return;
+        }
+      }
+
+      // Check do-not-disturb hours
+      if (preferences.doNotDisturbStart && preferences.doNotDisturbEnd) {
+        if (this.isInDoNotDisturbHours(preferences.doNotDisturbStart, preferences.doNotDisturbEnd)) {
+          return;
+        }
+      }
+
+      // Get active push subscriptions for this user
+      const subscriptions = await this.prisma.pushSubscription.findMany({
+        where: {
+          userId: this.userId,
+          active: true,
+        },
+      });
+
+      if (subscriptions.length === 0) {
+        return;
+      }
+
+      // Prepare notification data
+      const notification = {
+        title: `New email from ${normalizedEmail.from.name || normalizedEmail.from.email}`,
+        body: savedEmail.subject,
+        data: {
+          emailId: savedEmail.id,
+          messageId: savedEmail.messageId,
+          priority: savedEmail.priority,
+          category: savedEmail.category,
+        },
+      };
+
+      // Send push notifications to all registered devices
+      await sendExpoPushNotifications(subscriptions, notification);
+    } catch (error) {
+      // Log error but don't throw - notification failures shouldn't break sync
+      console.error("Error in sendPushNotificationForNewEmail:", error);
+    }
+  }
+
+  /**
+   * Check if current time is within do-not-disturb hours
+   * @private
+   */
+  private isInDoNotDisturbHours(startTime: string, endTime: string): boolean {
+    try {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const startTimeInMinutes = startHour * 60 + startMinute;
+
+      const [endHour, endMinute] = endTime.split(":").map(Number);
+      const endTimeInMinutes = endHour * 60 + endMinute;
+
+      // Handle overnight DND (e.g., 22:00 to 08:00)
+      if (startTimeInMinutes > endTimeInMinutes) {
+        return currentTimeInMinutes >= startTimeInMinutes || currentTimeInMinutes <= endTimeInMinutes;
+      }
+
+      // Normal DND range
+      return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
+    } catch (error) {
+      // If parsing fails, assume not in DND hours
+      return false;
     }
   }
 
@@ -431,6 +552,73 @@ export class EmailSyncService {
 }
 
 /**
+ * Expo push notification data structure
+ */
+interface ExpoPushNotification {
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+}
+
+/**
+ * Send push notifications via Expo Push API
+ * Sends notifications to multiple devices in batch
+ */
+async function sendExpoPushNotifications(
+  subscriptions: PushSubscription[],
+  notification: ExpoPushNotification
+): Promise<void> {
+  const expoPushTokens = subscriptions
+    .filter((sub) => sub.expoToken)
+    .map((sub) => sub.expoToken as string);
+
+  if (expoPushTokens.length === 0) {
+    return;
+  }
+
+  // Prepare messages for Expo Push API
+  const messages = expoPushTokens.map((token) => ({
+    to: token,
+    sound: "default",
+    title: notification.title,
+    body: notification.body,
+    data: notification.data,
+  }));
+
+  try {
+    // Send to Expo Push API
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messages),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Expo Push API error: ${error}`);
+    }
+
+    const result = await response.json();
+
+    // Check for errors in individual push receipts
+    if (result.data) {
+      for (const receipt of result.data) {
+        if (receipt.status === "error") {
+          console.error("Expo push notification error:", receipt.message, receipt.details);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Failed to send Expo push notifications:", error);
+    throw error;
+  }
+}
+
+/**
  * Create an EmailSyncService from account information
  */
 export function createSyncService(
@@ -440,6 +628,7 @@ export function createSyncService(
     provider: string;
     accessToken: string;
     refreshToken?: string | null;
+    userId?: string;
   }
 ): EmailSyncService {
   const tokens: EmailOAuthTokens = {
@@ -448,7 +637,7 @@ export function createSyncService(
   };
 
   const provider = createEmailProvider(account.provider as EmailProvider, tokens);
-  return new EmailSyncService(prisma, provider, account.id);
+  return new EmailSyncService(prisma, provider, account.id, account.userId);
 }
 
 /**
@@ -473,7 +662,10 @@ export async function syncAllUserAccounts(
 
   for (const account of accounts) {
     try {
-      const syncService = createSyncService(prisma, account);
+      const syncService = createSyncService(prisma, {
+        ...account,
+        userId,
+      });
       const result = await syncService.incrementalSync(options);
       results.set(account.id, result);
     } catch (error) {
