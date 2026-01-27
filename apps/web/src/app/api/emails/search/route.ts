@@ -8,6 +8,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma, type Email } from "@/lib/prisma";
+import {
+  buildHeadlineOptions,
+  sanitizeHighlight,
+  DEFAULT_HIGHLIGHT_CONFIG,
+} from "@/lib/email/search-highlight";
 
 /**
  * Query parameters for email search
@@ -37,13 +42,18 @@ interface SearchQueryParams {
   sortBy?: "relevance" | "receivedAt" | "sender" | "subject";
   /** Sort direction */
   sortOrder?: "asc" | "desc";
+  /** Enable search result highlighting */
+  highlight?: boolean;
 }
 
 /**
- * Search result with relevance score
+ * Search result with relevance score and optional highlights
  */
 interface SearchResultEmail extends Email {
   relevanceScore?: number;
+  subjectHighlight?: string;
+  bodyHighlight?: string;
+  senderHighlight?: string;
 }
 
 /**
@@ -99,6 +109,9 @@ function parseSearchParams(searchParams: URLSearchParams): SearchQueryParams {
       (searchParams.get("sortBy") as SearchQueryParams["sortBy"]) || "relevance",
     sortOrder:
       (searchParams.get("sortOrder") as SearchQueryParams["sortOrder"]) || "desc",
+    highlight: searchParams.has("highlight")
+      ? searchParams.get("highlight") === "true"
+      : false,
   };
 }
 
@@ -256,11 +269,25 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
       const total = countResult[0]?.count || 0;
 
-      // Fetch emails with relevance score
+      // Build SELECT fields with optional highlighting
+      let selectFields = `
+        *,
+        ts_rank("searchVector", to_tsquery('english', $${paramIndex - 1})) as "relevanceScore"
+      `;
+
+      if (params.highlight) {
+        const headlineOptions = buildHeadlineOptions(DEFAULT_HIGHLIGHT_CONFIG);
+        selectFields += `,
+        ts_headline('english', COALESCE("subject", ''), to_tsquery('english', $${paramIndex - 1}), '${headlineOptions}') as "subjectHighlight",
+        ts_headline('english', COALESCE("bodyText", ''), to_tsquery('english', $${paramIndex - 1}), '${headlineOptions}') as "bodyHighlight",
+        ts_headline('english', COALESCE("sender", ''), to_tsquery('english', $${paramIndex - 1}), '${headlineOptions}') as "senderHighlight"
+        `;
+      }
+
+      // Fetch emails with relevance score and optional highlights
       const searchQuery2 = `
         SELECT
-          *,
-          ts_rank("searchVector", to_tsquery('english', $${paramIndex - 1})) as "relevanceScore"
+          ${selectFields}
         FROM "Email"
         WHERE ${whereClause} AND ${fullTextFilter}
         ORDER BY ${orderByClause}
@@ -271,10 +298,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       sqlParams.push(params.limit);
       sqlParams.push((params.page! - 1) * params.limit!);
 
-      const emails = await prisma.$queryRawUnsafe<SearchResultEmail[]>(
+      let emails = await prisma.$queryRawUnsafe<SearchResultEmail[]>(
         searchQuery2,
         ...sqlParams
       );
+
+      // Sanitize highlighted results to prevent XSS
+      if (params.highlight) {
+        emails = emails.map((email: SearchResultEmail) => ({
+          ...email,
+          subjectHighlight: email.subjectHighlight
+            ? sanitizeHighlight(email.subjectHighlight)
+            : undefined,
+          bodyHighlight: email.bodyHighlight
+            ? sanitizeHighlight(email.bodyHighlight)
+            : undefined,
+          senderHighlight: email.senderHighlight
+            ? sanitizeHighlight(email.senderHighlight)
+            : undefined,
+        }));
+      }
 
       const response: SearchResponse = {
         emails,
