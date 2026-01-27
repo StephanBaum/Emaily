@@ -25,3 +25,13 @@ export {
   type UseEmailsActions,
   type UseEmailsReturn,
 } from './useEmails';
+
+export {
+  useUserProfile,
+  default as useUserProfileDefault,
+  type UserProfile,
+  type UserProfileUpdate,
+  type UseUserProfileState,
+  type UseUserProfileActions,
+  type UseUserProfileReturn,
+} from './useUserProfile';
