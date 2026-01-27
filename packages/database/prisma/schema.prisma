@@ -77,25 +77,28 @@ model EmailAccount {
 }
 
 model Email {
-  id            String       @id @default(cuid())
-  messageId     String       @unique
+  id            String                   @id @default(cuid())
+  messageId     String                   @unique
   threadId      String?
   subject       String
   sender        String
   recipients    String[]
   body          String
   bodyHtml      String?
-  isRead        Boolean      @default(false)
-  isStarred     Boolean      @default(false)
-  category      String?      // AI-determined category
-  priority      Int?         // AI-determined priority (1-5)
-  summary       String?      // AI-generated summary
+  isRead        Boolean                  @default(false)
+  isStarred     Boolean                  @default(false)
+  hasAttachments Boolean                 @default(false)
+  category      String?                  // AI-determined category
+  priority      Int?                     // AI-determined priority (1-5)
+  summary       String?                  // AI-generated summary
+  searchVector  Unsupported("tsvector")? // Full-text search vector
   accountId     String
-  account       EmailAccount @relation(fields: [accountId], references: [id])
+  account       EmailAccount             @relation(fields: [accountId], references: [id])
   receivedAt    DateTime
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@index([accountId, receivedAt])
   @@index([category])
+  @@index([searchVector], type: Gin)
 }
