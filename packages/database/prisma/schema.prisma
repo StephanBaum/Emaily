@@ -134,3 +134,20 @@ model PushSubscription {
   @@unique([userId, deviceToken])
   @@index([userId, active])
 }
+
+model WebhookLog {
+  id         String   @id @default(cuid())
+  endpoint   String   // The webhook endpoint that was called
+  method     String   // HTTP method (POST, GET, etc.)
+  payload    String   @db.Text // The webhook payload
+  headers    String?  @db.Text // Request headers (JSON)
+  statusCode Int?     // HTTP status code of response
+  response   String?  @db.Text // Response body
+  error      String?  @db.Text // Error message if failed
+  userId     String?  // Optional - if webhook is user-specific
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([endpoint, createdAt])
+  @@index([userId])
+}
