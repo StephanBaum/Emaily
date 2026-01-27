@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Constants from 'expo-constants';
 import { useAuthContext } from '../../src/contexts/AuthContext';
 
@@ -20,6 +20,58 @@ import { useAuthContext } from '../../src/contexts/AuthContext';
  * API URL from app configuration
  */
 const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+
+/**
+ * Storage key for draft persistence
+ */
+const DRAFT_STORAGE_KEY = '@email-ai/compose-draft';
+
+/**
+ * Simple async storage abstraction
+ * Follows same pattern as useAuth.ts
+ */
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+      }
+    } catch {
+      // Silently fail
+    }
+  },
+  async removeItem(key: string): Promise<void> {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(key);
+      }
+    } catch {
+      // Silently fail
+    }
+  },
+};
+
+/**
+ * Draft state interface for persistence
+ */
+interface DraftState {
+  to: string;
+  cc: string;
+  subject: string;
+  body: string;
+  showCc: boolean;
+  timestamp: number;
+}
 
 /**
  * Compose mode - new email, reply, or forward
@@ -81,6 +133,58 @@ export default function ComposeScreen(): JSX.Element {
   const [isSending, setIsSending] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  // Track if component just mounted (to avoid saving draft immediately)
+  const isInitialLoad = useRef(true);
+  // Track if we're loading from params (to prevent draft overwrite)
+  const hasParams = useRef(false);
+  // Debounce timer for saving draft
+  const saveDraftTimer = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Load saved draft on mount (only if no URL params)
+   */
+  useEffect(() => {
+    async function loadDraft(): Promise<void> {
+      try {
+        // Check if we have URL params - if so, skip draft loading
+        const hasUrlParams =
+          params.mode || params.to || params.subject || params.body;
+
+        if (hasUrlParams) {
+          hasParams.current = true;
+          return;
+        }
+
+        // Load saved draft from storage
+        const draftJson = await storage.getItem(DRAFT_STORAGE_KEY);
+        if (draftJson) {
+          const draft = JSON.parse(draftJson) as DraftState;
+
+          // Only restore draft if it's relatively recent (within 7 days)
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          if (draft.timestamp > sevenDaysAgo) {
+            setTo(draft.to);
+            setCc(draft.cc);
+            setSubject(draft.subject);
+            setBody(draft.body);
+            setShowCc(draft.showCc);
+          } else {
+            // Draft too old, clear it
+            await storage.removeItem(DRAFT_STORAGE_KEY);
+          }
+        }
+      } catch {
+        // Silently fail - corrupted draft data
+        await storage.removeItem(DRAFT_STORAGE_KEY);
+      } finally {
+        // Mark initial load complete
+        isInitialLoad.current = false;
+      }
+    }
+
+    loadDraft();
+  }, []);
+
   /**
    * Initialize form fields from URL params (for reply/forward)
    */
@@ -89,6 +193,7 @@ export default function ComposeScreen(): JSX.Element {
 
     if (mode === 'reply') {
       // Pre-fill fields for reply
+      hasParams.current = true;
       if (params.to) {
         setTo(params.to);
       }
@@ -100,6 +205,7 @@ export default function ComposeScreen(): JSX.Element {
       }
     } else if (mode === 'forward') {
       // Pre-fill subject for forward (leave To empty)
+      hasParams.current = true;
       if (params.subject) {
         setSubject(getForwardSubject(params.subject));
       }
@@ -109,6 +215,9 @@ export default function ComposeScreen(): JSX.Element {
       }
     } else {
       // New email mode - check for any pre-filled values
+      if (params.to || params.subject || params.body) {
+        hasParams.current = true;
+      }
       if (params.to) {
         setTo(params.to);
       }
@@ -119,7 +228,46 @@ export default function ComposeScreen(): JSX.Element {
         setBody(params.body);
       }
     }
+
+    // Mark initial load complete after params are processed
+    isInitialLoad.current = false;
   }, [params]);
+
+  /**
+   * Save draft state to storage (debounced)
+   */
+  useEffect(() => {
+    // Don't save during initial load or if we have URL params
+    if (isInitialLoad.current || hasParams.current) {
+      return;
+    }
+
+    // Clear existing timer
+    if (saveDraftTimer.current) {
+      clearTimeout(saveDraftTimer.current);
+    }
+
+    // Debounce save by 1 second
+    saveDraftTimer.current = setTimeout(() => {
+      const draft: DraftState = {
+        to,
+        cc,
+        subject,
+        body,
+        showCc,
+        timestamp: Date.now(),
+      };
+
+      storage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    }, 1000);
+
+    // Cleanup timer on unmount
+    return () => {
+      if (saveDraftTimer.current) {
+        clearTimeout(saveDraftTimer.current);
+      }
+    };
+  }, [to, cc, subject, body, showCc]);
 
   const handleSend = async (): Promise<void> => {
     if (!isAuthenticated || !tokens?.accessToken) {
@@ -170,7 +318,8 @@ export default function ComposeScreen(): JSX.Element {
         throw new Error(errorMessage);
       }
 
-      // Success - navigate back
+      // Success - clear draft and navigate back
+      await storage.removeItem(DRAFT_STORAGE_KEY);
       router.back();
     } catch (error) {
       const message =
