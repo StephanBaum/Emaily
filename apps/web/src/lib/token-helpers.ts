@@ -54,7 +54,8 @@ export async function getDecryptedTokensForUser(
   userId: string,
   provider: EmailProvider
 ): Promise<EmailOAuthTokens> {
-  // Fetch the email account from database
+  // DECRYPTION FLOW STEP 1: Fetch encrypted tokens from the database
+  // The tokens stored in the database are encrypted base64 strings - not usable yet
   const emailAccount = await prisma.emailAccount.findFirst({
     where: {
       userId,
@@ -72,17 +73,23 @@ export async function getDecryptedTokensForUser(
     );
   }
 
-  // Decrypt the tokens
+  // DECRYPTION FLOW STEP 2: Decrypt the tokens for use with email APIs
+  // This converts the encrypted tokens back to plaintext OAuth tokens
+  // that can be used to make Gmail/Outlook API calls
   try {
     const decryptedAccessToken = decryptOAuthToken(emailAccount.accessToken);
     const decryptedRefreshToken = decryptOAuthToken(emailAccount.refreshToken);
 
+    // Validate that we successfully decrypted an access token
+    // Access tokens are required, refresh tokens are optional
     if (!decryptedAccessToken) {
       throw new TokenDecryptionError(
         `Access token decryption returned null for user ${userId}, provider ${provider}`
       );
     }
 
+    // DECRYPTION FLOW STEP 3: Return plaintext tokens ready for API use
+    // These tokens can now be used directly with Gmail/Outlook API clients
     return {
       accessToken: decryptedAccessToken,
       refreshToken: decryptedRefreshToken,
@@ -117,7 +124,7 @@ export async function getDecryptedTokensForUser(
 export async function getDecryptedTokensByAccountId(
   accountId: string
 ): Promise<EmailOAuthTokens> {
-  // Fetch the email account from database
+  // DECRYPTION FLOW STEP 1: Fetch encrypted tokens from database by account ID
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: accountId },
     select: {
@@ -130,7 +137,7 @@ export async function getDecryptedTokensByAccountId(
     throw new TokenNotFoundError(`Email account ${accountId} not found`);
   }
 
-  // Decrypt the tokens
+  // DECRYPTION FLOW STEP 2: Decrypt the encrypted tokens to plaintext
   try {
     const decryptedAccessToken = decryptOAuthToken(emailAccount.accessToken);
     const decryptedRefreshToken = decryptOAuthToken(emailAccount.refreshToken);
@@ -141,6 +148,7 @@ export async function getDecryptedTokensByAccountId(
       );
     }
 
+    // DECRYPTION FLOW STEP 3: Return plaintext tokens for API usage
     return {
       accessToken: decryptedAccessToken,
       refreshToken: decryptedRefreshToken,
@@ -176,7 +184,8 @@ export async function getDecryptedTokensByAccountId(
 export async function getAllDecryptedTokensForUser(
   userId: string
 ): Promise<Record<string, EmailOAuthTokens>> {
-  // Fetch all email accounts for the user
+  // DECRYPTION FLOW STEP 1: Fetch all encrypted tokens for the user's accounts
+  // This retrieves encrypted tokens for all providers (Gmail, Outlook, etc.)
   const emailAccounts = await prisma.emailAccount.findMany({
     where: { userId },
     select: {
@@ -188,7 +197,8 @@ export async function getAllDecryptedTokensForUser(
 
   const result: Record<string, EmailOAuthTokens> = {};
 
-  // Decrypt tokens for each account
+  // DECRYPTION FLOW STEP 2: Decrypt tokens for each account individually
+  // Each account gets its tokens decrypted in sequence to avoid overwhelming the system
   for (const account of emailAccounts) {
     try {
       const decryptedAccessToken = decryptOAuthToken(account.accessToken);
@@ -200,6 +210,8 @@ export async function getAllDecryptedTokensForUser(
         );
       }
 
+      // DECRYPTION FLOW STEP 3: Build result map with plaintext tokens
+      // The result maps each account ID to its decrypted, API-ready tokens
       result[account.id] = {
         accessToken: decryptedAccessToken,
         refreshToken: decryptedRefreshToken,
@@ -239,6 +251,9 @@ export function decryptAccountTokens(account: {
   refreshToken: string | null;
 }): EmailOAuthTokens {
   try {
+    // DECRYPTION FLOW: Decrypt tokens from an already-fetched account object
+    // This is a lightweight helper that skips the database query when you
+    // already have the account data and just need plaintext tokens
     const decryptedAccessToken = decryptOAuthToken(account.accessToken);
     const decryptedRefreshToken = decryptOAuthToken(account.refreshToken);
 
@@ -246,6 +261,7 @@ export function decryptAccountTokens(account: {
       throw new TokenDecryptionError("Access token decryption returned null");
     }
 
+    // Return plaintext tokens ready for API usage
     return {
       accessToken: decryptedAccessToken,
       refreshToken: decryptedRefreshToken,

@@ -24,13 +24,19 @@ import { encryptToken, decryptToken } from "./crypto";
  */
 export function encryptOAuthToken(token: string | null | undefined): string | null {
   // Handle null/undefined tokens gracefully
+  // Refresh tokens are often optional, so we allow null values to pass through
   if (!token) {
     return null;
   }
 
   try {
+    // ENCRYPTION FLOW STEP 1: Encrypt the plaintext token using AES-256-GCM
+    // This converts the sensitive OAuth token into an encrypted base64 string
+    // that's safe to store in the database. The encryption uses a secret key
+    // from the OAUTH_ENCRYPTION_KEY environment variable.
     return encryptToken(token);
   } catch (error) {
+    // Wrap low-level crypto errors with OAuth-specific context for better debugging
     if (error instanceof Error) {
       throw new Error(`OAuth token encryption failed: ${error.message}`);
     }
@@ -54,13 +60,20 @@ export function encryptOAuthToken(token: string | null | undefined): string | nu
  */
 export function decryptOAuthToken(encryptedToken: string | null | undefined): string | null {
   // Handle null/undefined tokens gracefully
+  // Refresh tokens are often optional, so we allow null values to pass through
   if (!encryptedToken) {
     return null;
   }
 
   try {
+    // DECRYPTION FLOW STEP 1: Decrypt the base64 encrypted token using AES-256-GCM
+    // This converts the encrypted string from the database back into the plaintext
+    // OAuth token that can be used for API calls. The decryption verifies the
+    // authentication tag to ensure the token hasn't been tampered with.
     return decryptToken(encryptedToken);
   } catch (error) {
+    // Wrap low-level crypto errors with OAuth-specific context for better debugging
+    // Common failures: wrong encryption key, corrupted data, or tampered tokens
     if (error instanceof Error) {
       throw new Error(`OAuth token decryption failed: ${error.message}`);
     }
@@ -107,7 +120,10 @@ export interface EncryptedTokenPair {
  */
 export function encryptOAuthTokens(tokens: TokenPair): EncryptedTokenPair {
   return {
+    // Encrypt the access token (always required for OAuth)
     accessToken: encryptOAuthToken(tokens.accessToken),
+    // Conditionally encrypt the refresh token if it was provided
+    // Some OAuth providers don't always return refresh tokens (e.g., on re-authentication)
     refreshToken: tokens.refreshToken !== undefined
       ? encryptOAuthToken(tokens.refreshToken)
       : undefined,
@@ -133,7 +149,10 @@ export function encryptOAuthTokens(tokens: TokenPair): EncryptedTokenPair {
  */
 export function decryptOAuthTokens(encryptedTokens: EncryptedTokenPair): TokenPair {
   return {
+    // Decrypt the access token back to plaintext for API use
     accessToken: decryptOAuthToken(encryptedTokens.accessToken),
+    // Conditionally decrypt the refresh token if one was stored
+    // Preserves undefined state if no refresh token exists
     refreshToken: encryptedTokens.refreshToken !== undefined
       ? decryptOAuthToken(encryptedTokens.refreshToken)
       : undefined,
@@ -154,6 +173,8 @@ export function decryptOAuthTokens(encryptedTokens: EncryptedTokenPair): TokenPa
  * const encrypted = batchEncryptTokens(plainTokens);
  */
 export function batchEncryptTokens(tokens: (string | null)[]): (string | null)[] {
+  // Encrypt each token in the array individually
+  // Useful for migration scripts that need to encrypt many existing plaintext tokens
   return tokens.map(token => encryptOAuthToken(token));
 }
 
@@ -172,5 +193,7 @@ export function batchEncryptTokens(tokens: (string | null)[]): (string | null)[]
  * const decrypted = batchDecryptTokens(encryptedTokens);
  */
 export function batchDecryptTokens(encryptedTokens: (string | null)[]): (string | null)[] {
+  // Decrypt each encrypted token in the array individually
+  // Useful for bulk operations that need plaintext tokens for API calls
   return encryptedTokens.map(token => decryptOAuthToken(token));
 }

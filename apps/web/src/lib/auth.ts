@@ -86,6 +86,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
      * Creates or updates EmailAccount for email syncing.
      */
     async signIn({ user, account }) {
+      // Guard: Only proceed if we have a valid OAuth account with tokens
       if (!account || !user?.id || !account.access_token) {
         return;
       }
@@ -94,8 +95,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const emailProvider = account.provider === "google" ? "gmail" : "outlook";
 
       try {
-        // Encrypt OAuth tokens before storing in database
-        // access_token is guaranteed to exist due to the check above
+        // ENCRYPTION FLOW: Encrypt tokens immediately after receiving them from OAuth
+        // This is the critical security step - we NEVER store plaintext tokens in the database.
+        // The tokens come from the OAuth provider (Google/Microsoft) as plaintext,
+        // and we encrypt them before any database write operation.
         const encryptedAccessToken = encryptOAuthToken(account.access_token)!;
         const encryptedRefreshToken = encryptOAuthToken(account.refresh_token);
 
@@ -109,6 +112,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (existingEmailAccount) {
           // Update existing EmailAccount with new encrypted tokens
+          // This happens on re-authentication or when tokens are refreshed
+          // The encrypted tokens are stored directly in the database - no plaintext ever persists
           await prisma.emailAccount.update({
             where: { id: existingEmailAccount.id },
             data: {
@@ -119,6 +124,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
         } else {
           // Create new EmailAccount for email syncing with encrypted tokens
+          // This is the first sign-in for this provider - store the encrypted tokens
+          // The database now contains only encrypted tokens, protecting against DB breaches
           await prisma.emailAccount.create({
             data: {
               userId: user.id,
@@ -150,8 +157,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
       }
-      // Store encrypted OAuth tokens for email API access
-      // Tokens are encrypted to add an extra layer of security beyond JWT signing
+      // ENCRYPTION FLOW: Store encrypted OAuth tokens in JWT for defense-in-depth
+      // Even though JWTs are signed and should be secure, we encrypt the tokens
+      // as an additional security layer. This ensures tokens remain encrypted
+      // at rest in the JWT cookie, preventing token exposure if the JWT secret
+      // is ever compromised or if cookies are accessed through XSS attacks.
       if (account) {
         token.accessToken = encryptOAuthToken(account.access_token);
         token.refreshToken = encryptOAuthToken(account.refresh_token);
