@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -8,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import * as NotificationService from '../../src/services/notifications';
 
 /**
  * Settings item props
@@ -92,9 +94,145 @@ function SettingsSection({
  */
 export default function SettingsScreen(): JSX.Element {
   const router = useRouter();
-  const [pushNotifications, setPushNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [isProcessingNotifications, setIsProcessingNotifications] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+
+  /**
+   * Load initial notification permission status
+   */
+  useEffect(() => {
+    const loadNotificationStatus = async (): Promise<void> => {
+      try {
+        // Check if notifications are supported
+        if (!NotificationService.isPushNotificationSupported()) {
+          return;
+        }
+
+        // Get current permission status
+        const status = await NotificationService.getNotificationPermissionStatus();
+        setPushNotifications(status === 'granted');
+      } catch (error) {
+        // Silently fail - will default to false
+      }
+    };
+
+    loadNotificationStatus();
+  }, []);
+
+  /**
+   * Handle push notification toggle
+   */
+  const handlePushNotificationsChange = async (value: boolean): Promise<void> => {
+    // Prevent multiple simultaneous operations
+    if (isProcessingNotifications) {
+      return;
+    }
+
+    // Check if notifications are supported
+    if (!NotificationService.isPushNotificationSupported()) {
+      Alert.alert(
+        'Not Supported',
+        'Push notifications are only available on physical devices.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setIsProcessingNotifications(true);
+
+    try {
+      if (value) {
+        // Enabling notifications
+        // Step 1: Request permissions
+        const { status, canAskAgain } = await NotificationService.requestPermissions();
+
+        if (status !== 'granted') {
+          // Permission denied
+          Alert.alert(
+            'Permission Denied',
+            canAskAgain
+              ? 'Please enable notifications in your device settings to receive updates.'
+              : 'Notification permissions were denied. Please enable them in your device settings.',
+            [{ text: 'OK' }]
+          );
+          setPushNotifications(false);
+          return;
+        }
+
+        // Step 2: Register device with backend
+        // TODO: Get access token from auth context when available
+        const accessToken = 'demo-token';
+
+        try {
+          const { success } = await NotificationService.registerForPushNotifications(
+            accessToken
+          );
+
+          if (success) {
+            setPushNotifications(true);
+            Alert.alert(
+              'Notifications Enabled',
+              'You will now receive push notifications for important emails.',
+              [{ text: 'OK' }]
+            );
+          }
+        } catch (registrationError) {
+          // Registration failed, but permissions were granted
+          // For now, still enable the toggle since permissions are granted
+          setPushNotifications(true);
+
+          if (registrationError instanceof Error) {
+            Alert.alert(
+              'Registration Warning',
+              `Permissions granted but registration encountered an issue: ${registrationError.message}`,
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      } else {
+        // Disabling notifications
+        // TODO: Get access token from auth context when available
+        const accessToken = 'demo-token';
+
+        try {
+          await NotificationService.unregisterFromPushNotifications(accessToken);
+          setPushNotifications(false);
+          Alert.alert(
+            'Notifications Disabled',
+            'You will no longer receive push notifications.',
+            [{ text: 'OK' }]
+          );
+        } catch (unregisterError) {
+          // Unregistration failed, but still disable locally
+          setPushNotifications(false);
+
+          if (unregisterError instanceof Error) {
+            Alert.alert(
+              'Disabled Locally',
+              `Notifications disabled locally, but unregistration encountered an issue: ${unregisterError.message}`,
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      }
+    } catch (error) {
+      // General error handling
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+
+      Alert.alert(
+        'Error',
+        `Failed to update notification settings: ${errorMessage}`,
+        [{ text: 'OK' }]
+      );
+
+      // Reset to previous state
+      setPushNotifications(!value);
+    } finally {
+      setIsProcessingNotifications(false);
+    }
+  };
 
   const handleSignOut = (): void => {
     // TODO: Implement sign out
@@ -127,7 +265,7 @@ export default function SettingsScreen(): JSX.Element {
             label="Push Notifications"
             hasSwitch
             switchValue={pushNotifications}
-            onSwitchChange={setPushNotifications}
+            onSwitchChange={handlePushNotificationsChange}
           />
         </SettingsSection>
 
