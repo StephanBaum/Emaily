@@ -13,16 +13,17 @@ datasource db {
 // ============================================
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  emailVerified DateTime?      // Auth.js field
-  name          String?
-  image         String?        // Auth.js field
-  accounts      Account[]      // Auth.js OAuth accounts
-  sessions      Session[]      // Auth.js sessions
-  emailAccounts EmailAccount[] // Email provider connections
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  emailVerified           DateTime?                // Auth.js field
+  name                    String?
+  image                   String?                  // Auth.js field
+  accounts                Account[]                // Auth.js OAuth accounts
+  sessions                Session[]                // Auth.js sessions
+  emailAccounts           EmailAccount[]           // Email provider connections
+  notificationPreferences NotificationPreference[] // Notification settings
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model Account {
@@ -65,15 +66,16 @@ model VerificationToken {
 // ============================================
 
 model EmailAccount {
-  id            String    @id @default(cuid())
-  provider      String    // gmail, outlook, etc.
-  accessToken   String    @db.Text
-  refreshToken  String?   @db.Text
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emails        Email[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                      String                   @id @default(cuid())
+  provider                String                   // gmail, outlook, etc.
+  accessToken             String                   @db.Text
+  refreshToken            String?                  @db.Text
+  userId                  String
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails                  Email[]
+  notificationPreferences NotificationPreference[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model Email {
@@ -98,4 +100,21 @@ model Email {
 
   @@index([accountId, receivedAt])
   @@index([category])
+}
+
+model NotificationPreference {
+  id                  String       @id @default(cuid())
+  userId              String
+  emailAccountId      String
+  notificationEnabled Boolean      @default(true)
+  priorityOnly        Boolean      @default(false)
+  doNotDisturbStart   String?      // HH:MM format
+  doNotDisturbEnd     String?      // HH:MM format
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount        EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@unique([userId, emailAccountId])
+  @@index([userId])
 }
