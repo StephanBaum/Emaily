@@ -281,9 +281,53 @@ export function useAuth(): UseAuthReturn {
           if (tokens.expiresAt && tokens.expiresAt < Date.now()) {
             // Tokens expired, try to refresh
             if (tokens.refreshToken) {
-              // TODO: Implement token refresh
-              await storage.removeItem(STORAGE_KEYS.USER);
-              await storage.removeItem(STORAGE_KEYS.TOKENS);
+              try {
+                const discovery =
+                  user.provider === 'google'
+                    ? GOOGLE_DISCOVERY
+                    : MICROSOFT_DISCOVERY;
+                const clientId =
+                  user.provider === 'google'
+                    ? GOOGLE_CLIENT_ID
+                    : MICROSOFT_CLIENT_ID;
+
+                const response = await AuthSession.refreshAsync(
+                  {
+                    clientId,
+                    refreshToken: tokens.refreshToken,
+                  },
+                  discovery
+                );
+
+                const newTokens: AuthTokens = {
+                  accessToken: response.accessToken,
+                  refreshToken: response.refreshToken || tokens.refreshToken,
+                  expiresAt: response.expiresIn
+                    ? Date.now() + response.expiresIn * 1000
+                    : null,
+                };
+
+                await storage.setItem(
+                  STORAGE_KEYS.TOKENS,
+                  JSON.stringify(newTokens)
+                );
+
+                // Sync with backend
+                await syncWithBackend(newTokens, user);
+
+                setState({
+                  user,
+                  tokens: newTokens,
+                  isLoading: false,
+                  isAuthenticated: true,
+                  error: null,
+                });
+                return;
+              } catch {
+                // Token refresh failed, clear stored data
+                await storage.removeItem(STORAGE_KEYS.USER);
+                await storage.removeItem(STORAGE_KEYS.TOKENS);
+              }
             } else {
               // No refresh token, clear stored data
               await storage.removeItem(STORAGE_KEYS.USER);
