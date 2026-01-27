@@ -22,14 +22,22 @@ import {
 /**
  * Microsoft Graph API service class
  * Provides methods for interacting with Outlook/Microsoft 365 mail via Graph API
+ *
+ * Note: OAuth tokens must be decrypted before passing to this constructor.
+ * Use token-helpers.ts utilities (e.g., getDecryptedTokensForUser) to fetch
+ * and decrypt tokens from the database.
  */
 export class OutlookService {
   private client: Client;
 
+  /**
+   * Creates a new Outlook service instance
+   * @param _tokens - Decrypted OAuth tokens for Microsoft Graph API access
+   */
   constructor(private _tokens: EmailOAuthTokens) {
     this.client = Client.init({
       authProvider: (done) => {
-        done(null, tokens.accessToken);
+        done(null, this._tokens.accessToken);
       },
     });
   }
