@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EmailList, InboxZero, type Email } from "@/components/email";
+import { EmailList, InboxZero, type Email, SearchBar, SearchFilters, type SearchFiltersType, type SearchHistoryEntry } from "@/components/email";
 import { ContentContainer } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ const CATEGORY_FILTERS: CategoryFilter[] = [
 async function fetchEmails(params: {
   category?: string;
   filter?: string;
+  query?: string;
+  searchFilters?: SearchFiltersType;
 }): Promise<Email[]> {
   const searchParams = new URLSearchParams();
 
@@ -58,6 +60,33 @@ async function fetchEmails(params: {
       default:
         // For sent, drafts - would need additional handling
         break;
+    }
+  }
+
+  // Add search query
+  if (params.query) {
+    searchParams.set("q", params.query);
+  }
+
+  // Add search filters
+  if (params.searchFilters) {
+    if (params.searchFilters.sender) {
+      searchParams.set("sender", params.searchFilters.sender);
+    }
+    if (params.searchFilters.dateFrom) {
+      searchParams.set("dateFrom", params.searchFilters.dateFrom);
+    }
+    if (params.searchFilters.dateTo) {
+      searchParams.set("dateTo", params.searchFilters.dateTo);
+    }
+    if (params.searchFilters.hasAttachments !== undefined) {
+      searchParams.set("hasAttachments", String(params.searchFilters.hasAttachments));
+    }
+    if (params.searchFilters.category) {
+      searchParams.set("category", params.searchFilters.category);
+    }
+    if (params.searchFilters.isRead !== undefined) {
+      searchParams.set("isRead", String(params.searchFilters.isRead));
     }
   }
 
@@ -263,7 +292,14 @@ export default function InboxPage() {
   // Get current filter from URL params
   const urlFilter = searchParams.get("filter") || "";
   const urlCategory = searchParams.get("category") || "all";
+  const urlQuery = searchParams.get("q") || "";
   const [activeCategory, setActiveCategory] = React.useState(urlCategory);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = React.useState(urlQuery);
+  const [searchFilters, setSearchFilters] = React.useState<SearchFiltersType>({});
+  const [showFilters, setShowFilters] = React.useState(false);
+  const [recentSearches, setRecentSearches] = React.useState<SearchHistoryEntry[]>([]);
 
   // Email actions hook with optimistic updates
   const {
@@ -380,6 +416,8 @@ export default function InboxPage() {
     try {
       const fetchedEmails = await fetchEmails({
         filter: urlFilter,
+        query: searchQuery,
+        searchFilters,
       });
       setEmails(fetchedEmails);
 
@@ -389,7 +427,11 @@ export default function InboxPage() {
         const syncSuccess = await triggerSync(true);
         if (syncSuccess) {
           // Reload emails after sync
-          const syncedEmails = await fetchEmails({ filter: urlFilter });
+          const syncedEmails = await fetchEmails({
+            filter: urlFilter,
+            query: searchQuery,
+            searchFilters,
+          });
           setEmails(syncedEmails);
         }
       }
@@ -398,7 +440,7 @@ export default function InboxPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [urlFilter, hasInitialSynced, triggerSync]);
+  }, [urlFilter, searchQuery, searchFilters, hasInitialSynced, triggerSync]);
 
   // Load emails on mount and when filter changes
   React.useEffect(() => {
@@ -413,6 +455,29 @@ export default function InboxPage() {
       router.push("/");
     }
   }, [status, router]);
+
+  // Initialize search filters from URL params
+  React.useEffect(() => {
+    const filters: SearchFiltersType = {};
+    const sender = searchParams.get("sender");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    const hasAttachments = searchParams.get("hasAttachments");
+    const filterCategory = searchParams.get("filterCategory");
+    const isRead = searchParams.get("isRead");
+
+    if (sender) filters.sender = sender;
+    if (dateFrom) filters.dateFrom = dateFrom;
+    if (dateTo) filters.dateTo = dateTo;
+    if (hasAttachments) filters.hasAttachments = hasAttachments === "true";
+    if (filterCategory) filters.category = filterCategory;
+    if (isRead) filters.isRead = isRead === "true";
+
+    if (Object.keys(filters).length > 0) {
+      setSearchFilters(filters);
+      setShowFilters(true);
+    }
+  }, [searchParams]);
 
   // Handle category filter change
   const handleCategoryChange = React.useCallback((category: string) => {
@@ -476,6 +541,102 @@ export default function InboxPage() {
     await loadEmails();
   }, [triggerSync, loadEmails]);
 
+  // Handle search query change
+  const handleSearch = React.useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+
+      // Update URL params
+      const params = new URLSearchParams(searchParams.toString());
+      if (query) {
+        params.set("q", query);
+      } else {
+        params.delete("q");
+      }
+      router.push(`/inbox?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  // Handle search filters change
+  const handleFiltersChange = React.useCallback(
+    (filters: SearchFiltersType) => {
+      setSearchFilters(filters);
+
+      // Update URL params with filter values
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (filters.sender) {
+        params.set("sender", filters.sender);
+      } else {
+        params.delete("sender");
+      }
+
+      if (filters.dateFrom) {
+        params.set("dateFrom", filters.dateFrom);
+      } else {
+        params.delete("dateFrom");
+      }
+
+      if (filters.dateTo) {
+        params.set("dateTo", filters.dateTo);
+      } else {
+        params.delete("dateTo");
+      }
+
+      if (filters.hasAttachments !== undefined) {
+        params.set("hasAttachments", String(filters.hasAttachments));
+      } else {
+        params.delete("hasAttachments");
+      }
+
+      if (filters.category) {
+        params.set("filterCategory", filters.category);
+      } else {
+        params.delete("filterCategory");
+      }
+
+      if (filters.isRead !== undefined) {
+        params.set("isRead", String(filters.isRead));
+      } else {
+        params.delete("isRead");
+      }
+
+      router.push(`/inbox?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  // Handle recent search selection
+  const handleSelectRecent = React.useCallback(
+    (entry: SearchHistoryEntry) => {
+      setSearchQuery(entry.query);
+      if (entry.filters) {
+        setSearchFilters(entry.filters);
+      }
+    },
+    []
+  );
+
+  // Fetch search history
+  React.useEffect(() => {
+    const fetchSearchHistory = async () => {
+      try {
+        const response = await fetch("/api/search/history");
+        if (response.ok) {
+          const history = await response.json();
+          setRecentSearches(history);
+        }
+      } catch (err) {
+        // Silently fail - search history is not critical
+      }
+    };
+
+    if (status === "authenticated") {
+      fetchSearchHistory();
+    }
+  }, [status]);
+
   // Show loading state while checking auth
   if (status === "loading") {
     return (
@@ -506,6 +667,23 @@ export default function InboxPage() {
         onCategoryChange={handleCategoryChange}
         emailCounts={emailCounts}
       />
+
+      {/* Search UI */}
+      <div className="mb-6 space-y-4">
+        <SearchBar
+          value={searchQuery}
+          onSearch={handleSearch}
+          onSelectRecent={handleSelectRecent}
+          recentSearches={recentSearches}
+          placeholder="Search emails..."
+        />
+        <SearchFilters
+          filters={searchFilters}
+          onFiltersChange={handleFiltersChange}
+          isExpanded={showFilters}
+          onExpandChange={setShowFilters}
+        />
+      </div>
 
       {error ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
