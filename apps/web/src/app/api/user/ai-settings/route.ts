@@ -79,9 +79,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[API] GET /api/user/ai-settings failed:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", message },
+      { error: "Internal Server Error", message: "Failed to fetch AI settings" },
       { status: 500 }
     );
   }
@@ -117,7 +117,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     // Validate that at least one field is provided
-    if (!body.aiProvider && !body.openAiApiKey && body.aiProvider !== "" && body.openAiApiKey !== "") {
+    if (body.aiProvider === undefined && body.openAiApiKey === undefined) {
       return NextResponse.json(
         { error: "Bad Request", message: "At least one field (aiProvider or openAiApiKey) must be provided" },
         { status: 400 }
@@ -172,9 +172,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[API] PATCH /api/user/ai-settings failed:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", message },
+      { error: "Internal Server Error", message: "Failed to update AI settings" },
       { status: 500 }
     );
   }

@@ -178,9 +178,9 @@ export default function AIProviderScreen(): JSX.Element {
           <Text style={styles.sectionTitle}>Security Notice</Text>
           <View style={styles.noticeContent}>
             <Text style={styles.noticeText}>
-              Your API key is stored securely on your device and is never shared
-              with our servers. It will only be used to make direct requests to
-              OpenAI on your behalf.
+              Your API key is transmitted securely over HTTPS and stored on our
+              servers. It is only used to make requests to OpenAI on your behalf
+              and is never shared with third parties.
             </Text>
           </View>
         </View>

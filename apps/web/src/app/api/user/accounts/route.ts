@@ -46,9 +46,9 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[API] GET /api/user/accounts failed:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", message },
+      { error: "Internal Server Error", message: "Failed to fetch accounts" },
       { status: 500 }
     );
   }

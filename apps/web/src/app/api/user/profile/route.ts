@@ -85,14 +85,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      provider: user.accounts[0]?.provider || 'google',
+      provider: user.accounts[0]?.provider || 'unknown',
     };
+
+    if (!user.accounts[0]?.provider) {
+      console.warn(`[API] User ${userId} has no linked OAuth accounts`);
+    }
 
     return NextResponse.json(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[API] GET /api/user/profile failed:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", message },
+      { error: "Internal Server Error", message: "Failed to fetch profile" },
       { status: 500 }
     );
   }
@@ -128,11 +132,31 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     // Validate that at least one field is provided
-    if (!body.name && !body.image && body.name !== "" && body.image !== "") {
+    if (body.name === undefined && body.image === undefined) {
       return NextResponse.json(
         { error: "Bad Request", message: "At least one field (name or image) must be provided" },
         { status: 400 }
       );
+    }
+
+    // Validate name length if provided
+    if (body.name !== undefined && body.name && body.name.length > 255) {
+      return NextResponse.json(
+        { error: "Bad Request", message: "Name must be 255 characters or less" },
+        { status: 400 }
+      );
+    }
+
+    // Validate image URL format if provided
+    if (body.image !== undefined && body.image) {
+      try {
+        new URL(body.image);
+      } catch {
+        return NextResponse.json(
+          { error: "Bad Request", message: "Image must be a valid URL" },
+          { status: 400 }
+        );
+      }
     }
 
     // Build update data
@@ -173,14 +197,14 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       emailVerified: updatedUser.emailVerified,
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
-      provider: updatedUser.accounts[0]?.provider || 'google',
+      provider: updatedUser.accounts[0]?.provider || 'unknown',
     };
 
     return NextResponse.json(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[API] PATCH /api/user/profile failed:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", message },
+      { error: "Internal Server Error", message: "Failed to update profile" },
       { status: 500 }
     );
   }

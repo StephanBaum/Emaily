@@ -40,6 +40,14 @@ export async function DELETE(
     const { accountId } = await context.params;
     const userId = session.user.id;
 
+    // Validate accountId format (should be a cuid)
+    if (!accountId || accountId.length < 20 || accountId.length > 30) {
+      return NextResponse.json(
+        { error: "Bad Request", message: "Invalid account ID format" },
+        { status: 400 }
+      );
+    }
+
     // Verify account exists and belongs to user
     const account = await prisma.emailAccount.findUnique({
       where: { id: accountId },
@@ -76,9 +84,9 @@ export async function DELETE(
       provider: account.provider,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[API] DELETE /api/user/accounts/[accountId]/disconnect failed:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", message },
+      { error: "Internal Server Error", message: "Failed to disconnect account" },
       { status: 500 }
     );
   }

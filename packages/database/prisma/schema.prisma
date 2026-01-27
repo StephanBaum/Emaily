@@ -79,6 +79,8 @@ model EmailAccount {
   emails        Email[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
 }
 
 model Email {
