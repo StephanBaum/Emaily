@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
+import { useAuthContext } from '@/src/contexts/AuthContext';
 
 /**
  * Settings item props
@@ -93,12 +94,13 @@ function SettingsSection({
  */
 export default function SettingsScreen(): JSX.Element {
   const router = useRouter();
+  const { user, signOut } = useAuthContext();
   const [pushNotifications, setPushNotifications] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  const handleSignOut = (): void => {
-    // TODO: Implement sign out
+  const handleSignOut = async (): Promise<void> => {
+    await signOut();
     router.replace('/(auth)/login');
   };
 
@@ -109,7 +111,7 @@ export default function SettingsScreen(): JSX.Element {
         <SettingsSection title="Account">
           <SettingsItem
             label="Email Account"
-            value="user@example.com"
+            value={user?.email || 'Not signed in'}
             onPress={() => {
               router.push('/settings/account-details');
             }}
