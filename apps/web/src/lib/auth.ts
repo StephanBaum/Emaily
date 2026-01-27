@@ -141,15 +141,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     /**
      * JWT callback - called when JWT is created or updated
+     *
+     * Encrypts OAuth tokens before storing in JWT for additional security.
+     * Even though JWTs are signed, encrypting tokens adds defense-in-depth
+     * by ensuring tokens remain encrypted at rest in the JWT cookie.
      */
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
       }
-      // Store OAuth access token for email API access
+      // Store encrypted OAuth tokens for email API access
+      // Tokens are encrypted to add an extra layer of security beyond JWT signing
       if (account) {
-        token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
+        token.accessToken = encryptOAuthToken(account.access_token);
+        token.refreshToken = encryptOAuthToken(account.refresh_token);
         token.provider = account.provider;
       }
       return token;
