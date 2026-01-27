@@ -14,3 +14,6 @@ export type { InboxScreenProps } from './InboxScreen';
 
 export { EmailDetailScreen, default as EmailDetailScreenDefault } from './EmailDetailScreen';
 export type { EmailDetailScreenProps } from './EmailDetailScreen';
+
+export { SearchScreen, default as SearchScreenDefault } from './SearchScreen';
+export type { SearchScreenProps } from './SearchScreen';

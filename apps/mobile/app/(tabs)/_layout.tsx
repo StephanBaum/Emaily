@@ -1,5 +1,5 @@
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 /**
  * Tab icon component
@@ -20,6 +20,26 @@ function TabIcon({
     <View style={[styles.iconContainer, focused && styles.iconFocused]}>
       <Text style={[styles.icon, { color }]}>{icon}</Text>
     </View>
+  );
+}
+
+/**
+ * Search button component for header
+ *
+ * Displays a search icon that navigates to the search screen when pressed.
+ */
+function SearchButton(): JSX.Element {
+  const router = useRouter();
+
+  return (
+    <Pressable
+      style={styles.searchButton}
+      onPress={() => router.push('/search')}
+      accessibilityRole="button"
+      accessibilityLabel="Search emails"
+    >
+      <Text style={styles.searchIcon}>🔍</Text>
+    </Pressable>
   );
 }
 
@@ -52,6 +72,7 @@ export default function TabsLayout(): JSX.Element {
             <TabIcon icon="📥" color={color} focused={focused} />
           ),
           headerTitle: 'Inbox',
+          headerRight: () => <SearchButton />,
         }}
       />
       <Tabs.Screen
@@ -114,5 +135,12 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 22,
+  },
+  searchButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  searchIcon: {
+    fontSize: 20,
   },
 });
