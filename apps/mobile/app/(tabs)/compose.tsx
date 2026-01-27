@@ -298,7 +298,8 @@ export default function ComposeScreen(): JSX.Element {
         to: toRecipients,
         cc: ccRecipients.length > 0 ? ccRecipients : undefined,
         subject: subject.trim(),
-        body: body.trim() || ' ', // Ensure non-empty body
+        bodyText: body.trim() || ' ', // Plain text body - API expects bodyText or bodyHtml
+        inReplyTo: params.replyToId, // Include for replies to maintain thread
       };
 
       // Send email via API
