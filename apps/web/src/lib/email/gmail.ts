@@ -21,11 +21,19 @@ import {
 /**
  * Gmail API service class
  * Provides methods for interacting with Gmail API using OAuth tokens
+ *
+ * Note: OAuth tokens must be decrypted before passing to this constructor.
+ * Use token-helpers.ts utilities (e.g., getDecryptedTokensForUser) to fetch
+ * and decrypt tokens from the database.
  */
 export class GmailService {
   private gmail: gmail_v1.Gmail;
   private oauth2Client: ReturnType<typeof google.auth.OAuth2.prototype>;
 
+  /**
+   * Creates a new Gmail service instance
+   * @param _tokens - Decrypted OAuth tokens for Gmail API access
+   */
   constructor(private _tokens: EmailOAuthTokens) {
     this.oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -33,9 +41,9 @@ export class GmailService {
     );
 
     this.oauth2Client.setCredentials({
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-      expiry_date: tokens.expiresAt,
+      access_token: this._tokens.accessToken,
+      refresh_token: this._tokens.refreshToken,
+      expiry_date: this._tokens.expiresAt,
     });
 
     this.gmail = google.gmail({ version: "v1", auth: this.oauth2Client });
@@ -631,6 +639,20 @@ export class GmailService {
 
 /**
  * Create a Gmail service instance from OAuth tokens
+ *
+ * Note: Tokens must be decrypted before calling this function.
+ * Use token-helpers.ts utilities to fetch and decrypt tokens from the database:
+ *
+ * @example
+ * ```typescript
+ * import { getDecryptedTokensForUser } from '@/lib/token-helpers';
+ *
+ * const tokens = await getDecryptedTokensForUser(userId, 'gmail');
+ * const gmailService = createGmailService(tokens);
+ * ```
+ *
+ * @param tokens - Decrypted OAuth tokens for Gmail API access
+ * @returns GmailService instance ready to make API calls
  */
 export function createGmailService(tokens: EmailOAuthTokens): GmailService {
   return new GmailService(tokens);
