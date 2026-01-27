@@ -17,7 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, encryptOAuthToken } from "@email-ai/database";
 import { createMobileSession } from "@/lib/mobile-session";
 
 /**
@@ -113,6 +113,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<MobileAut
     // Map provider to email provider type
     const emailProvider = mapProviderToEmailProvider(body.provider);
 
+    // Encrypt OAuth tokens before storing in database
+    // accessToken is guaranteed to exist due to validation above
+    const encryptedAccessToken = encryptOAuthToken(body.accessToken)!;
+    const encryptedRefreshToken = encryptOAuthToken(body.refreshToken);
+
     // Find existing email account or create new one
     let emailAccount = await prisma.emailAccount.findFirst({
       where: {
@@ -122,23 +127,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<MobileAut
     });
 
     if (emailAccount) {
-      // Update existing email account with new tokens
+      // Update existing email account with new encrypted tokens
       emailAccount = await prisma.emailAccount.update({
         where: { id: emailAccount.id },
         data: {
-          accessToken: body.accessToken,
-          refreshToken: body.refreshToken || emailAccount.refreshToken,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken ?? emailAccount.refreshToken,
           updatedAt: new Date(),
         },
       });
     } else {
-      // Create new email account
+      // Create new email account with encrypted tokens
       emailAccount = await prisma.emailAccount.create({
         data: {
           userId: user.id,
           provider: emailProvider,
-          accessToken: body.accessToken,
-          refreshToken: body.refreshToken || null,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken ?? undefined,
         },
       });
     }
