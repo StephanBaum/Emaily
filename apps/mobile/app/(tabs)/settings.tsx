@@ -100,8 +100,25 @@ export default function SettingsScreen(): JSX.Element {
   const [darkMode, setDarkMode] = useState(false);
 
   const handleSignOut = (): void => {
-    // TODO: Implement sign out
-    router.replace('/(auth)/login');
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              router.replace('/(auth)/login');
+            } catch {
+              Alert.alert('Error', 'Failed to sign out');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
