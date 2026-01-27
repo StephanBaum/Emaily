@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import {
   categorizeUncategorizedEmails,
@@ -139,6 +140,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const userId = session.user.id;
+
+    // Check rate limit
+    const rateLimitResult = await rateLimit(
+      session.user.id,
+      "/api/ai/categorize-batch",
+      RATE_LIMITS.AI
+    );
+
+    if (!rateLimitResult.success) {
+      const retryAfter = Math.ceil(
+        (rateLimitResult.reset.getTime() - Date.now()) / 1000
+      );
+
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          message: `Too many requests. Please try again in ${retryAfter} seconds.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfter),
+            "X-RateLimit-Limit": String(RATE_LIMITS.AI.limit),
+            "X-RateLimit-Remaining": String(rateLimitResult.remaining),
+            "X-RateLimit-Reset": rateLimitResult.reset.toISOString(),
+          },
+        }
+      );
+    }
 
     // Parse request body
     let body: BatchCategorizeRequest = {};
