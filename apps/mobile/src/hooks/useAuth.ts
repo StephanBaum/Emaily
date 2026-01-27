@@ -566,6 +566,9 @@ export function useAuth(): UseAuthReturn {
 
       await storage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(newTokens));
 
+      // Sync with backend
+      await syncWithBackend(newTokens, state.user);
+
       setState((prev) => ({
         ...prev,
         tokens: newTokens,
