@@ -6,7 +6,10 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
-    "test:watch": "turbo test:watch"
+    "test:watch": "turbo test:watch",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down",
+    "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f"
   },
   "devDependencies": {
     "turbo": "^2.8.3"
