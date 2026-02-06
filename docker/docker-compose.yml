@@ -2,12 +2,13 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: emailautomation-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-emailautomation}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emailautomation}
       POSTGRES_DB: ${POSTGRES_DB:-emailautomation}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +20,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: emailautomation-redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,10 +32,10 @@ services:
       retries: 5
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.5.4
     container_name: emailautomation-ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
 
