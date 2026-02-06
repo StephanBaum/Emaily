@@ -1,0 +1,70 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "disableBypassPermissionsMode": "disable",
+
+    "deny": [
+      "Bash(sudo:*)",
+      "Bash(su:*)",
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf /*:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(chmod 777:*)",
+      "Bash(chmod -R 777:*)",
+      "Bash(> /dev/sd:*)",
+      "Bash(mkfs:*)",
+      "Bash(dd if=:*)",
+
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*_rsa)",
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Read(**/.gnupg/**)",
+      "Read(**/*secret*)",
+      "Read(**/*credential*)"
+    ],
+
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(npm publish:*)",
+      "Bash(pnpm publish:*)",
+      "Bash(docker push:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(aws:*)",
+      "Bash(gcloud:*)",
+      "Bash(az:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(netlify deploy --prod:*)"
+    ],
+
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Bash",
+      "Glob",
+      "Grep",
+      "LS",
+      "Task",
+      "Skill(superpowers:*)",
+      "TodoWrite",
+      "WebFetch",
+      "WebSearch",
+      "NotebookEdit"
+    ]
+  },
+
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  }
+}

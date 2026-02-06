@@ -67,7 +67,7 @@ export interface Email {
 }
 
 // Tag types
-export type TagAiAction = "none" | "draft" | "research_draft" | "auto_reply" | "archive" | "notify";
+export type TagAIAction = "none" | "draft" | "research_draft" | "auto_reply" | "archive" | "notify";
 export type TagAppliedBy = "manual" | "auto" | "ai";
 
 export interface Tag {
@@ -75,7 +75,7 @@ export interface Tag {
   teamId: string;
   name: string;
   color: string;
-  aiAction: TagAiAction;
+  aiAction: TagAIAction;
   createdAt: Date;
   updatedAt: Date;
 }
