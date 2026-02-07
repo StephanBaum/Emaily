@@ -15,9 +15,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTags } from "@/hooks/use-tags";
 import { useMailboxes } from "@/hooks/use-mailboxes";
-import { ChevronDown, X, Mail } from "lucide-react";
+import { ChevronDown, X, Mail, Tag } from "lucide-react";
 
 interface FilterToolbarProps {
   status?: string;
@@ -135,53 +142,98 @@ export function FilterToolbar({
 
       {/* Tag Multi-Select (full mode only) */}
       {!isTagView && tags && tags.length > 0 && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1"
-            >
-              Tags
-              {selectedTagIds.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1">
-                  {selectedTagIds.length}
-                </Badge>
-              )}
-              <ChevronDown className="h-3 w-3 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-56 p-2">
-            <div className="space-y-1">
-              {tags.map((tag) => {
-                const isSelected = selectedTagIds.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => handleTagToggle(tag.id)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                      isSelected
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent/50"
-                    )}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    <span className="flex-1 text-left truncate">
-                      {tag.name}
-                    </span>
-                    {isSelected && (
-                      <span className="text-xs font-medium">&#10003;</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-1.5">
+          {/* Selected tag badges */}
+          {selectedTagIds.map((id) => {
+            const tag = tags.find((t) => t.id === id);
+            if (!tag) return null;
+            return (
+              <Badge
+                key={tag.id}
+                variant="secondary"
+                className="group cursor-default text-xs pr-1.5 gap-1"
+                style={{
+                  backgroundColor: `${tag.color}20`,
+                  color: tag.color,
+                }}
+              >
+                {tag.name}
+                <button
+                  onClick={() => handleTagToggle(tag.id)}
+                  className="shrink-0 opacity-60 hover:opacity-100"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            );
+          })}
+
+          {/* Add tag / clear button group */}
+          <div className="flex items-center rounded-md border border-transparent hover:[&>*]:first:rounded-l-md hover:[&>*]:last:rounded-r-md">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className={cn(
+                    "inline-flex items-center gap-1 h-7 px-2 text-xs text-muted-foreground rounded-md hover:bg-accent transition-colors",
+                    activeFilterCount > 0 && "rounded-r-none"
+                  )}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  {selectedTagIds.length === 0 ? "Filter by tag" : "+"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-56 p-2">
+                <div className="space-y-1">
+                  {tags.map((tag) => {
+                    const isSelected = selectedTagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() => handleTagToggle(tag.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                          isSelected
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/50"
+                        )}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        <span className="flex-1 text-left truncate">
+                          {tag.name}
+                        </span>
+                        {isSelected && (
+                          <span className="text-xs font-medium">&#10003;</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {activeFilterCount > 0 && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center justify-center h-7 px-1.5 rounded-l-none rounded-r-md text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs">
+                    <TooltipArrow />
+                    Clear all filters
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Mailbox Dropdown (full mode only) */}
@@ -214,12 +266,24 @@ export function FilterToolbar({
 
       {/* Active tag badges (in tag view or multi-select) */}
       {isTagView && tags && (
-        <div className="flex items-center gap-1">
-          {tagId && (
-            <Badge variant="secondary" className="text-xs">
-              {tags.find((t) => t.id === tagId)?.name || "Tag"}
-            </Badge>
-          )}
+        <div className="flex items-center gap-1.5">
+          {tagId && (() => {
+            const tag = tags.find((t) => t.id === tagId);
+            return tag ? (
+              <Badge
+                variant="secondary"
+                className="text-xs"
+                style={{
+                  backgroundColor: `${tag.color}20`,
+                  color: tag.color,
+                }}
+              >
+                {tag.name}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">Tag</Badge>
+            );
+          })()}
           {group && (
             <Badge variant="secondary" className="text-xs">
               {group}
@@ -228,18 +292,6 @@ export function FilterToolbar({
         </div>
       )}
 
-      {/* Clear Filters */}
-      {activeFilterCount > 0 && !isTagView && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1 text-muted-foreground"
-          onClick={clearFilters}
-        >
-          <X className="h-3 w-3" />
-          Clear
-        </Button>
-      )}
     </div>
   );
 }
