@@ -17,7 +17,8 @@
       "WebFetch",
       "WebSearch",
       "NotebookEdit",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "mcp__playwright__browser_click"
     ],
     "deny": [
       "Bash(sudo:*)",
