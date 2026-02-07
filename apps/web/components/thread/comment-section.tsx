@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -36,6 +36,11 @@ export function CommentSection({ threadId, initialComments, compact = false }: C
   const { data: session } = useSession();
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState("");
+
+  // Sync server-rendered props to local state when they change (e.g. after router.refresh())
+  useEffect(() => {
+    setComments(initialComments);
+  }, [initialComments]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);

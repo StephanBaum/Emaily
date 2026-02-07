@@ -1,7 +1,32 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, type DragEvent } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSWRConfig } from "swr";
+import {
+  useGroupOrder,
+  useCollapsedGroups,
+  useTagOrder,
+} from "@/hooks/use-tag-groups";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +82,9 @@ async function safeJson(res: Response) {
   }
 }
 
+// Prefix to distinguish group drag IDs from tag IDs
+const GROUP_PREFIX = "group::";
+
 export default function TagsPage() {
   const { mutate: globalMutate } = useSWRConfig();
   const [tags, setTags] = useState<TagData[]>([]);
@@ -69,16 +97,15 @@ export default function TagsPage() {
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [emptyGroups, setEmptyGroups] = useState<string[]>([]);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const { isCollapsed, toggleGroup } = useCollapsedGroups();
+  const { sortGroups, setOrder: setGroupOrder } = useGroupOrder();
+  const { sortTags, setTagOrder } = useTagOrder();
   const newGroupInputRef = useRef<HTMLInputElement>(null);
-
-  // Drag state
-  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   // Rename group
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const renameInputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null!);
 
   // Tag form state
   const [name, setName] = useState("");
@@ -87,6 +114,16 @@ export default function TagsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [createInGroup, setCreateInGroup] = useState<string | null>(null);
+
+  // DnD state
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchTags = useCallback(async () => {
     try {
@@ -118,60 +155,123 @@ export default function TagsPage() {
   }, [renamingGroup]);
 
   // Derive groups from tags + empty groups
-  const tagGroups = new Map<string, TagData[]>();
-  for (const tag of tags) {
-    const group = tag.tagGroup || "";
-    if (!tagGroups.has(group)) tagGroups.set(group, []);
-    tagGroups.get(group)!.push(tag);
-  }
-  // Add empty groups that were created but have no tags yet
-  for (const g of emptyGroups) {
-    if (!tagGroups.has(g)) tagGroups.set(g, []);
-  }
+  const tagGroups = useMemo(() => {
+    const groups = new Map<string, TagData[]>();
+    for (const tag of tags) {
+      const group = tag.tagGroup || "";
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group)!.push(tag);
+    }
+    for (const g of emptyGroups) {
+      if (!groups.has(g)) groups.set(g, []);
+    }
+    return groups;
+  }, [tags, emptyGroups]);
 
-  const groupNames = Array.from(tagGroups.keys())
-    .filter((k) => k !== "")
-    .sort();
-  const ungroupedTags = tagGroups.get("") || [];
+  const groupNames = useMemo(
+    () => sortGroups(Array.from(tagGroups.keys()).filter((k) => k !== "")),
+    [tagGroups, sortGroups]
+  );
+  const ungroupedTags = useMemo(
+    () => sortTags("", tagGroups.get("") || []),
+    [tagGroups, sortTags]
+  );
 
-  // --- Drag handlers ---
-  function onDragStart(e: DragEvent, tagId: string) {
-    e.dataTransfer.setData("text/plain", tagId);
-    e.dataTransfer.effectAllowed = "move";
-  }
+  // Sortable IDs for dnd-kit
+  const groupSortableIds = useMemo(
+    () => groupNames.map((g) => `${GROUP_PREFIX}${g}`),
+    [groupNames]
+  );
 
-  function onDragOver(e: DragEvent, target: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverTarget(target);
-  }
-
-  function onDragLeave() {
-    setDragOverTarget(null);
-  }
-
-  async function onDrop(e: DragEvent, targetGroup: string | null) {
-    e.preventDefault();
-    setDragOverTarget(null);
-    const tagId = e.dataTransfer.getData("text/plain");
-    if (!tagId) return;
-
+  // Helper: find which group a tag belongs to
+  function findTagGroup(tagId: string): string {
     const tag = tags.find((t) => t.id === tagId);
-    if (!tag || tag.tagGroup === targetGroup) return;
+    return tag?.tagGroup || "";
+  }
 
-    // Optimistic update
-    setTags((prev) =>
-      prev.map((t) => (t.id === tagId ? { ...t, tagGroup: targetGroup } : t))
-    );
+  // --- DnD handlers ---
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
 
-    const res = await fetch(`/api/tags/${tagId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tagGroup: targetGroup }),
-    });
+  function handleDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!over) return;
 
-    if (!res.ok) {
-      fetchTags(); // Revert on failure
+    const activeIdStr = active.id as string;
+    const overIdStr = over.id as string;
+
+    // Only handle tag-over-different-group (cross-container move)
+    if (activeIdStr.startsWith(GROUP_PREFIX)) return;
+
+    const activeGroup = findTagGroup(activeIdStr);
+    let overGroup: string;
+
+    if (overIdStr.startsWith(GROUP_PREFIX)) {
+      // Dragging over a group header => move to that group
+      overGroup = overIdStr.slice(GROUP_PREFIX.length);
+    } else if (overIdStr.startsWith("container::")) {
+      // Dragging over an empty group container
+      overGroup = overIdStr.slice("container::".length);
+    } else {
+      // Dragging over another tag
+      overGroup = findTagGroup(overIdStr);
+    }
+
+    if (activeGroup !== overGroup) {
+      // Move tag to the other group (optimistic)
+      setTags((prev) =>
+        prev.map((t) =>
+          t.id === activeIdStr
+            ? { ...t, tagGroup: overGroup || null }
+            : t
+        )
+      );
+      // Persist to server
+      fetch(`/api/tags/${activeIdStr}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tagGroup: overGroup || null }),
+      });
+    }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over || active.id === over.id) return;
+
+    const activeIdStr = active.id as string;
+    const overIdStr = over.id as string;
+
+    // Group reordering
+    if (activeIdStr.startsWith(GROUP_PREFIX) && overIdStr.startsWith(GROUP_PREFIX)) {
+      const activeGroup = activeIdStr.slice(GROUP_PREFIX.length);
+      const overGroup = overIdStr.slice(GROUP_PREFIX.length);
+      const oldIndex = groupNames.indexOf(activeGroup);
+      const newIndex = groupNames.indexOf(overGroup);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(groupNames, oldIndex, newIndex);
+        setGroupOrder(newOrder);
+      }
+      return;
+    }
+
+    // Tag reordering within the same group
+    if (!activeIdStr.startsWith(GROUP_PREFIX) && !overIdStr.startsWith(GROUP_PREFIX) && !overIdStr.startsWith("container::")) {
+      const activeGroup = findTagGroup(activeIdStr);
+      const overGroup = findTagGroup(overIdStr);
+      if (activeGroup === overGroup) {
+        const groupKey = activeGroup;
+        const groupTags = sortTags(groupKey, tagGroups.get(groupKey) || []);
+        const tagIds = groupTags.map((t) => t.id);
+        const oldIndex = tagIds.indexOf(activeIdStr);
+        const newIndex = tagIds.indexOf(overIdStr);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newTagIds = arrayMove(tagIds, oldIndex, newIndex);
+          setTagOrder(groupKey, newTagIds);
+        }
+      }
     }
   }
 
@@ -184,6 +284,7 @@ export default function TagsPage() {
       return;
     }
     setEmptyGroups((prev) => [...prev, trimmed]);
+    setGroupOrder((prev) => [...prev, trimmed]);
     setCreatingGroup(false);
     setNewGroupName("");
   }
@@ -193,7 +294,6 @@ export default function TagsPage() {
     setRenamingGroup(null);
     if (!trimmed || trimmed === oldName || tagGroups.has(trimmed)) return;
 
-    // Update all tags in this group
     const groupTags = tagGroups.get(oldName) || [];
     setTags((prev) =>
       prev.map((t) =>
@@ -201,6 +301,9 @@ export default function TagsPage() {
       )
     );
     setEmptyGroups((prev) =>
+      prev.map((g) => (g === oldName ? trimmed : g))
+    );
+    setGroupOrder((prev) =>
       prev.map((g) => (g === oldName ? trimmed : g))
     );
 
@@ -217,15 +320,14 @@ export default function TagsPage() {
 
   function handleDeleteGroup(groupName: string) {
     const groupTags = tagGroups.get(groupName) || [];
-    // Move all tags to ungrouped
     setTags((prev) =>
       prev.map((t) =>
         t.tagGroup === groupName ? { ...t, tagGroup: null } : t
       )
     );
     setEmptyGroups((prev) => prev.filter((g) => g !== groupName));
+    setGroupOrder((prev) => prev.filter((g) => g !== groupName));
 
-    // Update tags on server
     groupTags.forEach((tag) =>
       fetch(`/api/tags/${tag.id}`, {
         method: "PATCH",
@@ -233,15 +335,6 @@ export default function TagsPage() {
         body: JSON.stringify({ tagGroup: null }),
       })
     );
-  }
-
-  function toggleGroup(group: string) {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
-      return next;
-    });
   }
 
   // --- Tag CRUD ---
@@ -310,6 +403,14 @@ export default function TagsPage() {
     fetchTags();
   }
 
+  // Active drag item for overlay
+  const activeTag = activeId && !activeId.startsWith(GROUP_PREFIX)
+    ? tags.find((t) => t.id === activeId)
+    : null;
+  const activeGroupName = activeId?.startsWith(GROUP_PREFIX)
+    ? activeId.slice(GROUP_PREFIX.length)
+    : null;
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-14 items-center justify-between border-b px-6">
@@ -353,202 +454,149 @@ export default function TagsPage() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* New group inline input */}
-            {creatingGroup && (
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={newGroupInputRef}
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Group name..."
-                  className="max-w-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateGroup();
-                    if (e.key === "Escape") {
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="space-y-6">
+              {/* New group inline input */}
+              {creatingGroup && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={newGroupInputRef}
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Group name..."
+                    className="max-w-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateGroup();
+                      if (e.key === "Escape") {
+                        setCreatingGroup(false);
+                        setNewGroupName("");
+                      }
+                    }}
+                  />
+                  <Button size="sm" onClick={handleCreateGroup}>
+                    Create
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
                       setCreatingGroup(false);
                       setNewGroupName("");
-                    }
-                  }}
-                />
-                <Button size="sm" onClick={handleCreateGroup}>
-                  Create
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setCreatingGroup(false);
-                    setNewGroupName("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
 
-            {/* Groups */}
-            {groupNames.map((group) => {
-              const groupTags = tagGroups.get(group) || [];
-              const isCollapsed = collapsedGroups.has(group);
-              const isDragOver = dragOverTarget === group;
+              {/* Sortable groups */}
+              <SortableContext
+                items={groupSortableIds}
+                strategy={verticalListSortingStrategy}
+              >
+                {groupNames.map((group) => {
+                  const groupTags = sortTags(group, tagGroups.get(group) || []);
+                  const groupCollapsed = isCollapsed(group);
 
-              return (
-                <div
-                  key={group}
-                  onDragOver={(e) => onDragOver(e, group)}
-                  onDragLeave={onDragLeave}
-                  onDrop={(e) => onDrop(e, group)}
-                  className={`rounded-lg border transition-colors ${
-                    isDragOver
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                      : "border-border"
-                  }`}
-                >
-                  {/* Group header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 rounded-t-lg">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <button onClick={() => toggleGroup(group)} className="shrink-0">
-                        {isCollapsed ? (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </button>
+                  return (
+                    <SortableGroup
+                      key={group}
+                      id={`${GROUP_PREFIX}${group}`}
+                      group={group}
+                      groupTags={groupTags}
+                      isCollapsed={groupCollapsed}
+                      isRenaming={renamingGroup === group}
+                      renameValue={renameValue}
+                      renameInputRef={renameInputRef}
+                      onToggleCollapse={() => toggleGroup(group)}
+                      onRenameStart={() => {
+                        setRenamingGroup(group);
+                        setRenameValue(group);
+                      }}
+                      onRenameChange={setRenameValue}
+                      onRenameSubmit={() => handleRenameGroup(group)}
+                      onRenameCancel={() => setRenamingGroup(null)}
+                      onDeleteGroup={() => handleDeleteGroup(group)}
+                      onCreateTag={() => openCreate(group)}
+                      onEditTag={openEdit}
+                      onDeleteTag={handleDelete}
+                      deleteConfirm={deleteConfirm}
+                      setDeleteConfirm={setDeleteConfirm}
+                      sortTags={sortTags}
+                    />
+                  );
+                })}
+              </SortableContext>
 
-                      {renamingGroup === group ? (
-                        <Input
-                          ref={renameInputRef}
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          className="h-7 max-w-[200px] text-sm"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleRenameGroup(group);
-                            if (e.key === "Escape") setRenamingGroup(null);
-                          }}
-                          onBlur={() => handleRenameGroup(group)}
-                        />
-                      ) : (
-                        <span className="font-medium text-sm truncate">
-                          {group}
-                        </span>
-                      )}
-
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {groupTags.length} {groupTags.length === 1 ? "tag" : "tags"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Add tag to group"
-                        onClick={() => openCreate(group)}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Rename group"
-                        onClick={() => {
-                          setRenamingGroup(group);
-                          setRenameValue(group);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        title="Delete group (tags move to ungrouped)"
-                        onClick={() => handleDeleteGroup(group)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Group tags */}
-                  {!isCollapsed && (
-                    <div className="p-2 min-h-[48px]">
-                      {groupTags.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground italic">
-                          Drag tags here
-                        </p>
-                      ) : (
-                        <div className="space-y-1">
-                          {groupTags.map((tag) => (
-                            <TagCard
-                              key={tag.id}
-                              tag={tag}
-                              onDragStart={onDragStart}
-                              onEdit={openEdit}
-                              onDelete={handleDelete}
-                              deleteConfirm={deleteConfirm}
-                              setDeleteConfirm={setDeleteConfirm}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              {/* Ungrouped */}
+              <div className="rounded-lg border border-border">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 rounded-t-lg">
+                  <span className="font-medium text-sm text-muted-foreground">
+                    Ungrouped
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    title="Add ungrouped tag"
+                    onClick={() => openCreate()}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="p-2 min-h-[48px]">
+                  {ungroupedTags.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground italic">
+                      No ungrouped tags
+                    </p>
+                  ) : (
+                    <SortableContext
+                      items={ungroupedTags.map((t) => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-1">
+                        {ungroupedTags.map((tag) => (
+                          <SortableTagCard
+                            key={tag.id}
+                            tag={tag}
+                            onEdit={openEdit}
+                            onDelete={handleDelete}
+                            deleteConfirm={deleteConfirm}
+                            setDeleteConfirm={setDeleteConfirm}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
                   )}
                 </div>
-              );
-            })}
-
-            {/* Ungrouped */}
-            <div
-              onDragOver={(e) => onDragOver(e, "__ungrouped__")}
-              onDragLeave={onDragLeave}
-              onDrop={(e) => onDrop(e, null)}
-              className={`rounded-lg border transition-colors ${
-                dragOverTarget === "__ungrouped__"
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                  : "border-border"
-              }`}
-            >
-              <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 rounded-t-lg">
-                <span className="font-medium text-sm text-muted-foreground">
-                  Ungrouped
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  title="Add ungrouped tag"
-                  onClick={() => openCreate()}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <div className="p-2 min-h-[48px]">
-                {ungroupedTags.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-muted-foreground italic">
-                    No ungrouped tags
-                  </p>
-                ) : (
-                  <div className="space-y-1">
-                    {ungroupedTags.map((tag) => (
-                      <TagCard
-                        key={tag.id}
-                        tag={tag}
-                        onDragStart={onDragStart}
-                        onEdit={openEdit}
-                        onDelete={handleDelete}
-                        deleteConfirm={deleteConfirm}
-                        setDeleteConfirm={setDeleteConfirm}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
-          </div>
+
+            {/* Drag overlay */}
+            <DragOverlay>
+              {activeTag ? (
+                <div className="rounded-md border bg-background px-3 py-2 shadow-lg opacity-90 flex items-center gap-3">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+                  <span
+                    className="h-3.5 w-3.5 rounded-full"
+                    style={{ backgroundColor: activeTag.color }}
+                  />
+                  <span className="font-medium text-sm">{activeTag.name}</span>
+                </div>
+              ) : activeGroupName ? (
+                <div className="rounded-lg border bg-muted/30 px-4 py-2.5 shadow-lg opacity-90 flex items-center gap-2">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+                  <span className="font-medium text-sm">{activeGroupName}</span>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 
@@ -646,28 +694,212 @@ export default function TagsPage() {
   );
 }
 
-function TagCard({
+// ─── Sortable Group ──────────────────────────────────────────────────────────
+
+function SortableGroup({
+  id,
+  group,
+  groupTags,
+  isCollapsed,
+  isRenaming,
+  renameValue,
+  renameInputRef,
+  onToggleCollapse,
+  onRenameStart,
+  onRenameChange,
+  onRenameSubmit,
+  onRenameCancel,
+  onDeleteGroup,
+  onCreateTag,
+  onEditTag,
+  onDeleteTag,
+  deleteConfirm,
+  setDeleteConfirm,
+  sortTags,
+}: {
+  id: string;
+  group: string;
+  groupTags: TagData[];
+  isCollapsed: boolean;
+  isRenaming: boolean;
+  renameValue: string;
+  renameInputRef: React.RefObject<HTMLInputElement | null>;
+  onToggleCollapse: () => void;
+  onRenameStart: () => void;
+  onRenameChange: (value: string) => void;
+  onRenameSubmit: () => void;
+  onRenameCancel: () => void;
+  onDeleteGroup: () => void;
+  onCreateTag: () => void;
+  onEditTag: (tag: TagData) => void;
+  onDeleteTag: (id: string) => void;
+  deleteConfirm: string | null;
+  setDeleteConfirm: (id: string | null) => void;
+  sortTags: <T extends { id: string; name: string }>(groupKey: string, tags: T[]) => T[];
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  const tagIds = groupTags.map((t) => t.id);
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-lg border border-border">
+      {/* Group header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 rounded-t-lg">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button
+            className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+          </button>
+          <button onClick={onToggleCollapse} className="shrink-0">
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+
+          {isRenaming ? (
+            <Input
+              ref={renameInputRef as React.RefObject<HTMLInputElement>}
+              value={renameValue}
+              onChange={(e) => onRenameChange(e.target.value)}
+              className="h-7 max-w-[200px] text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onRenameSubmit();
+                if (e.key === "Escape") onRenameCancel();
+              }}
+              onBlur={onRenameSubmit}
+            />
+          ) : (
+            <span className="font-medium text-sm truncate">
+              {group}
+            </span>
+          )}
+
+          <span className="text-xs text-muted-foreground shrink-0">
+            {groupTags.length} {groupTags.length === 1 ? "tag" : "tags"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Add tag to group"
+            onClick={onCreateTag}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Rename group"
+            onClick={onRenameStart}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            title="Delete group (tags move to ungrouped)"
+            onClick={onDeleteGroup}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Group tags */}
+      {!isCollapsed && (
+        <div className="p-2 min-h-[48px]">
+          {groupTags.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground italic">
+              Drag tags here
+            </p>
+          ) : (
+            <SortableContext items={tagIds} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {groupTags.map((tag) => (
+                  <SortableTagCard
+                    key={tag.id}
+                    tag={tag}
+                    onEdit={onEditTag}
+                    onDelete={onDeleteTag}
+                    deleteConfirm={deleteConfirm}
+                    setDeleteConfirm={setDeleteConfirm}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sortable Tag Card ───────────────────────────────────────────────────────
+
+function SortableTagCard({
   tag,
-  onDragStart,
   onEdit,
   onDelete,
   deleteConfirm,
   setDeleteConfirm,
 }: {
   tag: TagData;
-  onDragStart: (e: DragEvent, tagId: string) => void;
   onEdit: (tag: TagData) => void;
   onDelete: (id: string) => void;
   deleteConfirm: string | null;
   setDeleteConfirm: (id: string | null) => void;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: tag.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, tag.id)}
-      className="group flex items-center gap-3 rounded-md border bg-background px-3 py-2 cursor-grab active:cursor-grabbing hover:bg-accent/50 transition-colors"
+      ref={setNodeRef}
+      style={style}
+      className="group flex items-center gap-3 rounded-md border bg-background px-3 py-2 hover:bg-accent/50 transition-colors"
     >
-      <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+      <button
+        className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+      </button>
       <span
         className="h-3.5 w-3.5 rounded-full shrink-0"
         style={{ backgroundColor: tag.color }}

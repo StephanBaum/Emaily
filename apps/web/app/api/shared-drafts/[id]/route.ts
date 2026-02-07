@@ -119,8 +119,8 @@ export async function PATCH(
     }
   }
 
-  // If updating body, save a version
-  if (draftBody !== undefined && draftBody !== draft.body) {
+  // If updating body, save a version (skip if previous body was empty)
+  if (draftBody !== undefined && draftBody !== draft.body && draft.body.trim()) {
     await prisma.draftVersion.create({
       data: {
         sharedDraftId: id,

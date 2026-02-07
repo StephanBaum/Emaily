@@ -26,7 +26,8 @@ async function fetcher(url: string) {
 export function useTags() {
   const { data, error, isLoading, mutate } = useSWR<TagData[]>(
     "/api/tags",
-    fetcher
+    fetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true }
   );
 
   return {

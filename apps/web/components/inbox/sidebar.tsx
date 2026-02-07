@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
+import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
 import { useState } from "react";
 
 export function Sidebar() {
@@ -40,23 +41,13 @@ export function Sidebar() {
   const { mailboxes, isLoading } = useMailboxes();
   const { tags, isLoading: tagsLoading } = useTags();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const { isCollapsed, toggleGroup } = useCollapsedGroups();
+  const { sortGroups } = useGroupOrder();
+  const { sortTags } = useTagOrder();
 
   const activeTag = searchParams.get("tag");
   const activeTags = searchParams.get("tags");
   const activeGroup = searchParams.get("group");
-
-  function toggleGroup(group: string) {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(group)) {
-        next.delete(group);
-      } else {
-        next.add(group);
-      }
-      return next;
-    });
-  }
 
   function getGroupHref(groupName: string, groupTags: TagData[]) {
     const ids = groupTags.map((t) => t.id).join(",");
@@ -90,9 +81,9 @@ export function Sidebar() {
   );
 
   const ungrouped = grouped[""] || [];
-  const groupNames = Object.keys(grouped)
-    .filter((k) => k !== "")
-    .sort();
+  const groupNames = sortGroups(
+    Object.keys(grouped).filter((k) => k !== "")
+  );
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-sidebar">
@@ -193,8 +184,9 @@ export function Sidebar() {
               {[...groupNames, ...(ungrouped.length > 0 ? ["__other__"] : [])].map((groupKey) => {
                 const isOther = groupKey === "__other__";
                 const displayName = isOther ? "Other" : groupKey;
-                const groupTags = isOther ? ungrouped : (grouped[groupKey] || []);
-                const isCollapsed = collapsedGroups.has(groupKey);
+                const rawGroupTags = isOther ? ungrouped : (grouped[groupKey] || []);
+                const groupTags = sortTags(groupKey, rawGroupTags);
+                const collapsed = isCollapsed(groupKey);
                 const groupActive = isGroupActive(displayName);
                 const groupThreadCount = groupTags.reduce(
                   (sum, t) => sum + t._count.threads,
@@ -211,7 +203,7 @@ export function Sidebar() {
                         }}
                         className="shrink-0 p-1 rounded hover:bg-sidebar-accent/50 transition-colors"
                       >
-                        {isCollapsed ? (
+                        {collapsed ? (
                           <ChevronRight className="h-3 w-3 text-muted-foreground" />
                         ) : (
                           <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -235,7 +227,7 @@ export function Sidebar() {
                       </Link>
                     </div>
 
-                    {!isCollapsed && (
+                    {!collapsed && (
                       <div className="ml-2 space-y-0.5">
                         {groupTags.map((tag) => (
                           <TagNavItem

@@ -63,7 +63,10 @@ export function useThreads(params?: {
 
   const url = `/api/threads${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
-  const { data, error, isLoading, mutate } = useSWR<Thread[]>(url, fetcher);
+  const { data, error, isLoading, mutate } = useSWR<Thread[]>(url, fetcher, {
+    refreshInterval: 30000,
+    revalidateOnFocus: true,
+  });
 
   return {
     threads: data,
@@ -76,7 +79,8 @@ export function useThreads(params?: {
 export function useThread(id: string) {
   const { data, error, isLoading, mutate } = useSWR<Thread>(
     id ? `/api/threads/${id}` : null,
-    fetcher
+    fetcher,
+    { refreshInterval: 15000, revalidateOnFocus: true }
   );
 
   return {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSWRConfig } from "swr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ interface TagPickerProps {
 
 export function TagPicker({ threadId, currentTags }: TagPickerProps) {
   const router = useRouter();
+  const { mutate: globalMutate } = useSWRConfig();
   const [open, setOpen] = useState(false);
   const [allTags, setAllTags] = useState<TagData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,6 +84,9 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
       });
     }
 
+    // Revalidate SWR caches so sidebar/thread list update
+    globalMutate("/api/tags");
+    globalMutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
     router.refresh();
   }
 
@@ -96,6 +101,8 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
       method: "DELETE",
     });
 
+    globalMutate("/api/tags");
+    globalMutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
     router.refresh();
   }
 
@@ -153,6 +160,7 @@ export function TagMenuPopover({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const { mutate: globalMutate } = useSWRConfig();
   const [allTags, setAllTags] = useState<TagData[]>([]);
   const [loading, setLoading] = useState(false);
   const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
@@ -206,6 +214,8 @@ export function TagMenuPopover({
       });
     }
 
+    globalMutate("/api/tags");
+    globalMutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
     router.refresh();
   }
 

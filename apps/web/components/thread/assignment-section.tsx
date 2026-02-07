@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -80,6 +80,11 @@ export function AssignmentSection({
   const { data: session } = useSession();
   const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync server-rendered props to local state
+  useEffect(() => {
+    setAssignments(initialAssignments);
+  }, [initialAssignments]);
 
   function getInitials(name: string) {
     return name

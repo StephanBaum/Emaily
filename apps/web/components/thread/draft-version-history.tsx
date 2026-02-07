@@ -22,12 +22,14 @@ interface DraftVersionHistoryProps {
   draftId: string;
   currentBody: string;
   onRestore: (body: string) => void;
+  refreshKey?: number;
 }
 
 export function DraftVersionHistory({
   draftId,
   currentBody,
   onRestore,
+  refreshKey,
 }: DraftVersionHistoryProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,8 +49,9 @@ export function DraftVersionHistory({
   }, [draftId]);
 
   useEffect(() => {
+    setIsLoading(true);
     fetchVersions();
-  }, [fetchVersions]);
+  }, [fetchVersions, refreshKey]);
 
   function getInitials(name: string) {
     return name

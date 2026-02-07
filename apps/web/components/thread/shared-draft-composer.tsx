@@ -10,12 +10,11 @@ import {
   Paperclip,
   Send,
   X,
-  Lock,
-  Unlock,
   History,
   FileEdit,
   Users,
 } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DraftVersionHistory } from "./draft-version-history";
 
 interface Mailbox {
@@ -69,6 +68,9 @@ export function SharedDraftComposer({
   const router = useRouter();
   const [draft, setDraft] = useState<SharedDraft | null>(existingDraft || null);
   const [isExpanded, setIsExpanded] = useState(!!existingDraft);
+  const [mode, setMode] = useState<"personal" | "shared">(
+    existingDraft ? "shared" : "personal"
+  );
   const [body, setBody] = useState(existingDraft?.body || "");
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -76,6 +78,7 @@ export function SharedDraftComposer({
   const [isLocking, setIsLocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [lastSavedBody, setLastSavedBody] = useState(existingDraft?.body || "");
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,6 +112,14 @@ export function SharedDraftComposer({
     };
   }, [body, draft?.isLockedByMe, lastSavedBody]);
 
+  // Auto-acquire lock when an existing shared draft is opened
+  useEffect(() => {
+    if (draft && isExpanded && mode === "shared" && !draft.isLockedByMe && !draft.isLocked) {
+      acquireLock();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft?.id, isExpanded, mode]);
+
   // Cleanup on unmount - release lock
   useEffect(() => {
     return () => {
@@ -118,6 +129,15 @@ export function SharedDraftComposer({
       }
     };
   }, [draft?.id, draft?.isLockedByMe]);
+
+  function getInitials(name: string) {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }
 
   async function createDraft() {
     setIsCreating(true);
@@ -132,7 +152,7 @@ export function SharedDraftComposer({
           mailboxId: mailbox.id,
           subject: replySubject,
           toAddresses: [replyTo],
-          body: "",
+          body: body || "",
         }),
       });
 
@@ -148,7 +168,9 @@ export function SharedDraftComposer({
         isLockedByMe: true,
         lockedBy: null,
       });
+      setLastSavedBody(body || "");
       setIsExpanded(true);
+      setMode("shared");
       onDraftCreated?.(newDraft);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create draft");
@@ -222,6 +244,7 @@ export function SharedDraftComposer({
       if (response.ok) {
         const updatedDraft = await response.json();
         setLastSavedBody(body);
+        setHistoryRefreshKey((k) => k + 1);
         onDraftUpdated?.(updatedDraft);
       }
     } catch (err) {
@@ -282,27 +305,67 @@ export function SharedDraftComposer({
     }
   }
 
+  async function handlePersonalSend() {
+    if (!body.trim()) return;
+
+    setIsSending(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/emails/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: thread.id,
+          mailboxId: mailbox.id,
+          to: [replyTo],
+          subject: replySubject,
+          body: body.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to send email");
+      }
+
+      setBody("");
+      setIsExpanded(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send email");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
   function handleVersionRestore(newBody: string) {
     setBody(newBody);
     setShowHistory(false);
   }
 
-  // No draft exists - show start draft button
-  if (!draft && !isExpanded) {
+  // Collapsed state - show reply prompt and shared draft button
+  if (!isExpanded) {
     return (
       <div className="border-t p-4">
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             className="flex-1 justify-start text-muted-foreground"
-            onClick={() => setIsExpanded(true)}
+            onClick={() => {
+              setMode("personal");
+              setIsExpanded(true);
+            }}
           >
             Click to reply...
           </Button>
           <Button
             variant="secondary"
             size="sm"
-            onClick={createDraft}
+            onClick={() => {
+              setMode("shared");
+              createDraft();
+            }}
             disabled={isCreating}
           >
             {isCreating ? (
@@ -317,29 +380,98 @@ export function SharedDraftComposer({
     );
   }
 
-  // Starting a new draft (no shared draft yet)
-  if (!draft && isExpanded) {
+  // Personal reply mode (no shared draft)
+  if (mode === "personal" && !draft) {
     return (
-      <div className="border-t p-4">
-        <p className="mb-3 text-sm text-muted-foreground">
-          Create a shared draft for team collaboration, or reply directly.
-        </p>
-        <div className="flex gap-2">
+      <div className="border-t">
+        <div className="flex items-center justify-between px-4 py-2">
+          <div className="text-sm text-muted-foreground">
+            Replying to <span className="font-medium">{replyTo}</span>
+          </div>
           <Button
-            variant="secondary"
-            onClick={createDraft}
-            disabled={isCreating}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => {
+              setIsExpanded(false);
+              setBody("");
+              setError(null);
+            }}
           >
-            {isCreating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Users className="mr-2 h-4 w-4" />
-            )}
-            Start Shared Draft
+            <X className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" onClick={() => setIsExpanded(false)}>
-            Cancel
-          </Button>
+        </div>
+
+        <Separator />
+
+        <div className="p-4">
+          <textarea
+            className="min-h-[150px] w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Write your reply..."
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            autoFocus
+          />
+
+          {error && (
+            <div className="mt-2 text-sm text-destructive">{error}</div>
+          )}
+
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled>
+                <Paperclip className="mr-2 h-4 w-4" />
+                Attach
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setMode("shared");
+                  createDraft();
+                }}
+                disabled={isCreating}
+              >
+                {isCreating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Users className="mr-2 h-4 w-4" />
+                )}
+                Share Draft
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsExpanded(false);
+                  setBody("");
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePersonalSend}
+                disabled={!body.trim() || isSending}
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -363,72 +495,60 @@ export function SharedDraftComposer({
           draftId={draft.id}
           currentBody={body}
           onRestore={handleVersionRestore}
+          refreshKey={historyRefreshKey}
         />
       </div>
     );
   }
 
+  const lockedByOther = draft?.isLocked && !draft?.isLockedByMe;
+
   // Draft exists - show composer
   return (
     <div className="border-t">
-      {/* Header with lock status */}
+      {/* Header with shared draft badge and editor info */}
       <div className="flex items-center justify-between px-4 py-2 bg-muted/30">
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="gap-1">
             <FileEdit className="h-3 w-3" />
             Shared Draft
           </Badge>
-          {draft?.isLocked && (
-            <Badge
-              variant={draft.isLockedByMe ? "default" : "destructive"}
-              className="gap-1"
-            >
-              <Lock className="h-3 w-3" />
-              {draft.isLockedByMe
-                ? "You're editing"
-                : `Locked by ${draft.lockedBy?.name}`}
-            </Badge>
-          )}
           {isSaving && (
             <span className="text-xs text-muted-foreground">Saving...</span>
           )}
+          {isLocking && (
+            <span className="text-xs text-muted-foreground">
+              <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+              Connecting...
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          {/* Show who's editing via avatar */}
+          {lockedByOther && draft.lockedBy && (
+            <div className="flex items-center gap-1.5 mr-1" title={`${draft.lockedBy.name} is editing`}>
+              <Avatar className="h-6 w-6 ring-2 ring-orange-400">
+                <AvatarFallback className="text-[10px] bg-orange-100 text-orange-700">
+                  {getInitials(draft.lockedBy.name)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-muted-foreground">
+                {draft.lockedBy.name} is editing
+              </span>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            onClick={() => setShowHistory(true)}
+            onClick={() => {
+              setHistoryRefreshKey((k) => k + 1);
+              setShowHistory(true);
+            }}
             title="Version history"
           >
             <History className="h-4 w-4" />
           </Button>
-          {draft?.isLockedByMe ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={releaseLock}
-              title="Release lock"
-            >
-              <Unlock className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={acquireLock}
-              disabled={isLocking || (draft?.isLocked && !draft?.isLockedByMe)}
-              title="Acquire lock to edit"
-            >
-              {isLocking ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Lock className="h-4 w-4" />
-              )}
-            </Button>
-          )}
         </div>
       </div>
 
@@ -452,18 +572,19 @@ export function SharedDraftComposer({
       <Separator />
 
       <div className="p-4">
-        <textarea
-          className="min-h-[150px] w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed"
-          placeholder={
-            draft?.isLockedByMe
-              ? "Write your reply..."
-              : "Acquire lock to edit..."
-          }
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          disabled={!draft?.isLockedByMe}
-          autoFocus={draft?.isLockedByMe}
-        />
+        {lockedByOther ? (
+          <div className="min-h-[100px] w-full rounded-md border bg-muted/50 px-3 py-2 text-sm whitespace-pre-wrap">
+            {body || <span className="text-muted-foreground italic">Draft is empty</span>}
+          </div>
+        ) : (
+          <textarea
+            className="min-h-[150px] w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Write your reply..."
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            autoFocus
+          />
+        )}
 
         {error && (
           <div className="mt-2 text-sm text-destructive">{error}</div>
@@ -496,23 +617,25 @@ export function SharedDraftComposer({
             >
               Close
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={!body.trim() || isSending || !draft?.isLockedByMe}
-            >
-              {isSending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Send
-                </>
-              )}
-            </Button>
+            {!lockedByOther && (
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={!body.trim() || isSending}
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>
