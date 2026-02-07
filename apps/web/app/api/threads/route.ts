@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const mailboxId = searchParams.get("mailboxId");
-  const status = searchParams.get("status") || "open";
+  const status = searchParams.get("status");
   const tagId = searchParams.get("tagId");
   const tagIds = searchParams.get("tagIds");
   const query = searchParams.get("q")?.trim();
@@ -28,8 +28,17 @@ export async function GET(request: NextRequest) {
     mailboxId: mailboxId
       ? { in: accessibleMailboxIds.includes(mailboxId) ? [mailboxId] : [] }
       : { in: accessibleMailboxIds },
-    status,
   };
+
+  // Status filtering:
+  // - status=all or tag filter with no explicit status -> show all statuses
+  // - status=open/archived/snoozed -> filter by that status
+  // - no status param and no tag filter -> default to "open" (inbox behavior)
+  if (status && status !== "all") {
+    where.status = status;
+  } else if (!status && !tagId && !tagIds) {
+    where.status = "open";
+  }
 
   // Filter by tag(s) if specified
   if (tagIds) {

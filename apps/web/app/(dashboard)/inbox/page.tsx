@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { ThreadList } from "@/components/inbox/thread-list";
 import { SearchBar } from "@/components/inbox/search-bar";
+import { FilterToolbar } from "@/components/inbox/filter-toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface InboxPageProps {
@@ -17,6 +18,8 @@ interface InboxPageProps {
 export default async function InboxPage({ searchParams }: InboxPageProps) {
   const params = await searchParams;
 
+  const isTagView = Boolean(params.tag || params.tags);
+
   const title = params.group
     ? params.group
     : params.tag
@@ -27,17 +30,30 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     ? "Snoozed"
     : "Inbox";
 
+  // Determine the status to pass to ThreadList:
+  // - Tag view with no explicit status -> show all statuses
+  // - Explicit status param -> use that
+  // - Default inbox -> "open"
+  const effectiveStatus = params.status || (isTagView ? "all" : "open");
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-14 items-center justify-between border-b px-6">
-        <h1 className="text-lg font-semibold">{title}</h1>
+      <header className="flex h-14 items-center justify-between border-b px-6 gap-4">
+        <h1 className="text-lg font-semibold shrink-0">{title}</h1>
+        <FilterToolbar
+          status={params.status}
+          tagId={params.tag}
+          tagIds={params.tags}
+          mailboxId={params.mailbox}
+          group={params.group}
+        />
         <SearchBar />
       </header>
       <div className="flex-1 overflow-auto">
         <Suspense fallback={<ThreadListSkeleton />}>
           <ThreadList
             mailboxId={params.mailbox}
-            status={params.status || "open"}
+            status={effectiveStatus}
             tagId={params.tag}
             tagIds={params.tags}
             query={params.q}
