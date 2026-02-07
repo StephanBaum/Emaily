@@ -73,7 +73,6 @@ export function SearchBar() {
   if (!isExpanded) {
     return (
       <Button
-        variant="secondary"
         size="sm"
         className="h-8 gap-1.5"
         onClick={() => setIsExpanded(true)}
