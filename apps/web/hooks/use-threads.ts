@@ -54,6 +54,7 @@ export function useThreads(params?: {
   status?: string;
   tagId?: string;
   tagIds?: string;
+  query?: string;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.mailboxId) searchParams.set("mailboxId", params.mailboxId);
@@ -63,6 +64,7 @@ export function useThreads(params?: {
   }
   if (params?.tagIds) searchParams.set("tagIds", params.tagIds);
   else if (params?.tagId) searchParams.set("tagId", params.tagId);
+  if (params?.query && params.query.length >= 2) searchParams.set("q", params.query);
 
   const url = `/api/threads${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 

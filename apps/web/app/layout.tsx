@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
-  title: "Email Automation",
+  title: "Emaily",
   description: "Collaborative AI-powered email client",
 };
 
@@ -13,7 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        {children}
+      </body>
     </html>
   );
 }
