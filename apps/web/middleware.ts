@@ -6,13 +6,6 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   const isAuthPage = nextUrl.pathname.startsWith("/login");
-  const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
-  const isPublicApi = nextUrl.pathname.startsWith("/api/health");
-
-  // Allow auth API routes
-  if (isApiAuth || isPublicApi) {
-    return NextResponse.next();
-  }
 
   // Redirect logged-in users away from auth pages
   if (isAuthPage && isLoggedIn) {
@@ -33,11 +26,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for:
+     * - api routes (they handle their own auth)
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt (public files)
      * - public folder files
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*$).*)",
   ],
 };
