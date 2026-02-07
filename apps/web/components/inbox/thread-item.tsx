@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Paperclip, Reply } from "lucide-react";
+import { Archive, Bot, Clock, Paperclip, Reply } from "lucide-react";
 
 interface ThreadEmail {
   id: string;
@@ -48,9 +48,10 @@ interface Thread {
 
 interface ThreadItemProps {
   thread: Thread;
+  showStatus?: boolean;
 }
 
-export function ThreadItem({ thread }: ThreadItemProps) {
+export function ThreadItem({ thread, showStatus }: ThreadItemProps) {
   const latestEmail = thread.emails[0];
   const isUnread = thread.seenBy.length === 0;
   const senderName = latestEmail?.fromName || latestEmail?.fromAddress || "Unknown";
@@ -109,6 +110,16 @@ export function ThreadItem({ thread }: ThreadItemProps) {
           >
             {thread.subject}
           </span>
+          {showStatus && thread.status === "archived" && (
+            <span className="flex items-center gap-0.5 flex-shrink-0 text-xs text-muted-foreground">
+              <Archive className="h-3 w-3" />
+            </span>
+          )}
+          {showStatus && thread.status === "snoozed" && (
+            <span className="flex items-center gap-0.5 flex-shrink-0 text-xs text-amber-500">
+              <Clock className="h-3 w-3" />
+            </span>
+          )}
           {thread.hasSentReply && (
             <Reply className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
           )}

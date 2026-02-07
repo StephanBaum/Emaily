@@ -57,7 +57,10 @@ export function useThreads(params?: {
 }) {
   const searchParams = new URLSearchParams();
   if (params?.mailboxId) searchParams.set("mailboxId", params.mailboxId);
-  if (params?.status) searchParams.set("status", params.status);
+  // Pass status through to API (including "all"); omit to let API use defaults
+  if (params?.status && params.status !== "open") {
+    searchParams.set("status", params.status);
+  }
   if (params?.tagIds) searchParams.set("tagIds", params.tagIds);
   else if (params?.tagId) searchParams.set("tagId", params.tagId);
 

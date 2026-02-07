@@ -51,6 +51,8 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds }: Thread
         <p className="text-sm text-muted-foreground">
           {tagId || tagIds
             ? "No threads with this tag"
+            : status === "all"
+            ? "No threads found"
             : status === "open"
             ? "Your inbox is empty"
             : `No ${status} threads`}
@@ -59,10 +61,13 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds }: Thread
     );
   }
 
+  // Show status badges when viewing mixed statuses
+  const showStatus = status === "all" || Boolean(tagId || tagIds);
+
   return (
     <div className="divide-y">
       {threads.map((thread) => (
-        <ThreadItem key={thread.id} thread={thread} />
+        <ThreadItem key={thread.id} thread={thread} showStatus={showStatus} />
       ))}
     </div>
   );
