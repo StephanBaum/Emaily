@@ -337,6 +337,7 @@ model Tag {
   color     String   @default("#6366f1")
   aiAction  String   @default("none") // none, draft, research_draft, auto_reply, archive, notify
   autoRules Json?    @map("auto_rules") // TagRule conditions
+  tagGroup  String?  @map("tag_group") // Sidebar grouping (e.g. "Internal", "Projects")
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

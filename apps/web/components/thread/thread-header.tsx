@@ -1,8 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +19,7 @@ import {
   Trash2,
   Inbox,
 } from "lucide-react";
+import { TagPicker, TagMenuPopover } from "./tag-picker";
 
 interface ThreadTag {
   tag: {
@@ -39,8 +40,14 @@ interface ThreadHeaderProps {
   thread: Thread;
 }
 
+function truncateSubject(subject: string, maxLength = 256): string {
+  if (subject.length <= maxLength) return subject;
+  return subject.slice(0, maxLength) + "\u2026";
+}
+
 export function ThreadHeader({ thread }: ThreadHeaderProps) {
   const router = useRouter();
+  const [tagMenuOpen, setTagMenuOpen] = useState(false);
 
   async function updateStatus(status: string) {
     await fetch(`/api/threads/${thread.id}`, {
@@ -53,35 +60,24 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 min-w-0 flex-1 mr-4">
         <Button
           variant="ghost"
           size="icon"
+          className="shrink-0"
           onClick={() => router.push("/inbox")}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-lg font-semibold">{thread.subject}</h1>
-          <div className="mt-1 flex items-center gap-2">
-            {thread.tags.map(({ tag }) => (
-              <Badge
-                key={tag.id}
-                variant="secondary"
-                className="text-xs"
-                style={{
-                  backgroundColor: `${tag.color}20`,
-                  color: tag.color,
-                }}
-              >
-                {tag.name}
-              </Badge>
-            ))}
-          </div>
+        <div className="flex items-center gap-3 min-w-0 flex-wrap">
+          <h1 className="text-lg font-semibold shrink-0 max-w-prose">
+            {truncateSubject(thread.subject)}
+          </h1>
+          <TagPicker threadId={thread.id} currentTags={thread.tags} />
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {thread.status === "open" ? (
           <>
             <Button
@@ -112,24 +108,37 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
           </Button>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Tag className="mr-2 h-4 w-4" />
-              Add Tag
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => {
+                  setTimeout(() => setTagMenuOpen(true), 150);
+                }}
+              >
+                <Tag className="mr-2 h-4 w-4" />
+                Add Tag
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <TagMenuPopover
+            threadId={thread.id}
+            currentTags={thread.tags}
+            open={tagMenuOpen}
+            onOpenChange={setTagMenuOpen}
+          />
+        </div>
       </div>
     </header>
   );

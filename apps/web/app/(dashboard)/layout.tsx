@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/inbox/sidebar";
@@ -17,7 +18,9 @@ export default async function DashboardLayout({
   return (
     <SessionProvider session={session}>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar />
+        <Suspense>
+          <Sidebar />
+        </Suspense>
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </SessionProvider>

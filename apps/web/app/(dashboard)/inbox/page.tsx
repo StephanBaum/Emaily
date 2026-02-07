@@ -6,28 +6,37 @@ interface InboxPageProps {
   searchParams: Promise<{
     mailbox?: string;
     status?: string;
+    tag?: string;
+    tags?: string;
+    group?: string;
   }>;
 }
 
 export default async function InboxPage({ searchParams }: InboxPageProps) {
   const params = await searchParams;
 
+  const title = params.group
+    ? params.group
+    : params.tag
+    ? "Tagged Threads"
+    : params.status === "archived"
+    ? "Archived"
+    : params.status === "snoozed"
+    ? "Snoozed"
+    : "Inbox";
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-14 items-center border-b px-6">
-        <h1 className="text-lg font-semibold">
-          {params.status === "archived"
-            ? "Archived"
-            : params.status === "snoozed"
-            ? "Snoozed"
-            : "Inbox"}
-        </h1>
+        <h1 className="text-lg font-semibold">{title}</h1>
       </header>
       <div className="flex-1 overflow-auto">
         <Suspense fallback={<ThreadListSkeleton />}>
           <ThreadList
             mailboxId={params.mailbox}
             status={params.status || "open"}
+            tagId={params.tag}
+            tagIds={params.tags}
           />
         </Suspense>
       </div>

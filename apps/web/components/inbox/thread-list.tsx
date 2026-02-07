@@ -8,10 +8,12 @@ import { Inbox } from "lucide-react";
 interface ThreadListProps {
   mailboxId?: string;
   status?: string;
+  tagId?: string;
+  tagIds?: string;
 }
 
-export function ThreadList({ mailboxId, status = "open" }: ThreadListProps) {
-  const { threads, isLoading, isError } = useThreads({ mailboxId, status });
+export function ThreadList({ mailboxId, status = "open", tagId, tagIds }: ThreadListProps) {
+  const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds });
 
   if (isLoading) {
     return (
@@ -47,7 +49,9 @@ export function ThreadList({ mailboxId, status = "open" }: ThreadListProps) {
         <Inbox className="mb-4 h-12 w-12 text-muted-foreground" />
         <p className="text-lg font-medium">No threads found</p>
         <p className="text-sm text-muted-foreground">
-          {status === "open"
+          {tagId || tagIds
+            ? "No threads with this tag"
+            : status === "open"
             ? "Your inbox is empty"
             : `No ${status} threads`}
         </p>

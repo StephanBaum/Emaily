@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const mailboxId = searchParams.get("mailboxId");
   const status = searchParams.get("status") || "open";
+  const tagId = searchParams.get("tagId");
+  const tagIds = searchParams.get("tagIds");
 
   // Get mailbox IDs the user has access to
   const accessibleMailboxes = await prisma.mailboxAccess.findMany({
@@ -27,6 +29,16 @@ export async function GET(request: NextRequest) {
       : { in: accessibleMailboxIds },
     status,
   };
+
+  // Filter by tag(s) if specified
+  if (tagIds) {
+    const ids = tagIds.split(",").filter(Boolean);
+    if (ids.length > 0) {
+      where.tags = { some: { tagId: { in: ids } } };
+    }
+  } else if (tagId) {
+    where.tags = { some: { tagId } };
+  }
 
   const threads = await prisma.thread.findMany({
     where,

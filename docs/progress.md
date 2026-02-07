@@ -251,6 +251,65 @@ See `docs/plans/2026-02-06-email-client-implementation.md` for the full plan.
 
 ---
 
+## Phase 6.5: Test Email Data (AI Preparation) [COMPLETE]
+
+### Task 6.5.1: Diverse Email Seed Script [DONE]
+- Created `packages/database/prisma/seed-emails.ts` with 19 threads / ~30 emails
+- Added `pnpm db:seed:emails` script to `packages/database/package.json`
+- Covers email categories: newsletter, promo/sale, SaaS notifications (password reset, GitHub PR, LinkedIn), shipping, client support (threaded), sales inquiry (threaded), bug report (threaded), feature request, meeting/calendar, cold outreach/spam, internal team discussion (threaded), contract/legal, personal/casual, security alert, client onboarding (threaded), GDPR/compliance
+- Added 9 additional tags for better AI classification coverage: Billing, Feature Request, Bug Report, Notification, Onboarding, Legal, Internal, Spam, Personal
+- All emails include both bodyText and bodyHtml; marketing emails have rich HTML layouts
+- Threaded conversations include proper inReplyTo/references chains and isSent flags
+
+**Usage:**
+```bash
+cd packages/database
+pnpm db:seed          # first: create team, user, mailbox, base tags
+pnpm db:seed:emails   # then: populate with diverse test emails
+```
+
+---
+
+## Phase 6.6: Tag Management & Thread Tagging [COMPLETE]
+
+### Task 6.6.1: Tag CRUD API [DONE]
+- `GET /api/tags` — List all team tags with thread counts
+- `POST /api/tags` — Create tag (name, color, aiAction)
+- `PATCH /api/tags/[id]` — Update tag (name, color, aiAction, active)
+- `DELETE /api/tags/[id]` — Delete tag (cascades ThreadTag)
+- Duplicate name detection (409 on conflict)
+- Files:
+  - `apps/web/app/api/tags/route.ts`
+  - `apps/web/app/api/tags/[id]/route.ts`
+
+### Task 6.6.2: Thread Tag API [DONE]
+- `POST /api/threads/[id]/tags` — Add tag to thread (upsert, appliedBy: "manual")
+- `DELETE /api/threads/[id]/tags?tagId=...` — Remove tag from thread
+- Both verify mailbox access and team ownership
+- Files: `apps/web/app/api/threads/[id]/tags/route.ts`
+
+### Task 6.6.3: Tag Management Page [DONE]
+- Full CRUD UI at `/tags` with create/edit dialog
+- Color picker with 12 preset colors and live preview
+- AI action dropdown (none, draft, research_draft, auto_reply, archive, notify)
+- Thread count per tag, inline delete with confirmation
+- Files: `apps/web/app/(dashboard)/tags/page.tsx`
+
+### Task 6.6.4: Tag Picker on Thread Header [DONE]
+- Replaced static tag badges with interactive TagPicker component
+- Popover with checkbox-style list of all team tags
+- Add/remove tags with optimistic updates
+- Hover-to-reveal X button on applied tags for quick removal
+- Files: `apps/web/components/thread/tag-picker.tsx`, `apps/web/components/thread/thread-header.tsx`
+
+### Task 6.6.5: Sidebar Tag List [DONE]
+- Sidebar now shows all tags with colored dots and thread counts
+- "Manage" link in section header
+- Uses `useTags` SWR hook for data fetching
+- Files: `apps/web/components/inbox/sidebar.tsx`, `apps/web/hooks/use-tags.ts`
+
+---
+
 ## Phase 7: AI Integration [PENDING]
 
 ---

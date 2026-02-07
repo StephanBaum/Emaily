@@ -1,0 +1,270 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Tag, Check, X } from "lucide-react";
+
+interface TagData {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface ThreadTag {
+  tag: TagData;
+}
+
+interface TagPickerProps {
+  threadId: string;
+  currentTags: ThreadTag[];
+}
+
+export function TagPicker({ threadId, currentTags }: TagPickerProps) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [allTags, setAllTags] = useState<TagData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
+    new Set(currentTags.map((t) => t.tag.id))
+  );
+
+  useEffect(() => {
+    setAppliedTagIds(new Set(currentTags.map((t) => t.tag.id)));
+  }, [currentTags]);
+
+  useEffect(() => {
+    if (open) {
+      fetchTags();
+    }
+  }, [open]);
+
+  async function fetchTags() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/tags");
+      if (res.ok) {
+        setAllTags(await res.json());
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleTag(tag: TagData) {
+    const isApplied = appliedTagIds.has(tag.id);
+
+    setAppliedTagIds((prev) => {
+      const next = new Set(prev);
+      if (isApplied) {
+        next.delete(tag.id);
+      } else {
+        next.add(tag.id);
+      }
+      return next;
+    });
+
+    if (isApplied) {
+      await fetch(`/api/threads/${threadId}/tags?tagId=${tag.id}`, {
+        method: "DELETE",
+      });
+    } else {
+      await fetch(`/api/threads/${threadId}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tagId: tag.id }),
+      });
+    }
+
+    router.refresh();
+  }
+
+  async function removeTag(tagId: string) {
+    setAppliedTagIds((prev) => {
+      const next = new Set(prev);
+      next.delete(tagId);
+      return next;
+    });
+
+    await fetch(`/api/threads/${threadId}/tags?tagId=${tagId}`, {
+      method: "DELETE",
+    });
+
+    router.refresh();
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {currentTags.map(({ tag }) => (
+        <Badge
+          key={tag.id}
+          variant="secondary"
+          className="group cursor-default text-xs pr-1.5"
+          style={{
+            backgroundColor: `${tag.color}20`,
+            color: tag.color,
+          }}
+        >
+          {tag.name}
+          <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-150 group-hover:max-w-[20px] group-hover:opacity-100 group-hover:ml-0.5">
+            <button onClick={() => removeTag(tag.id)} className="shrink-0">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </Badge>
+      ))}
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground">
+            <Tag className="mr-1 h-3 w-3" />
+            {currentTags.length === 0 ? "Add tag" : "+"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-52 p-2" align="start">
+          <TagSelectionList
+            tags={allTags}
+            appliedTagIds={appliedTagIds}
+            loading={loading}
+            onToggle={toggleTag}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+/** Standalone tag selection popover for the 3-dot menu */
+export function TagMenuPopover({
+  threadId,
+  currentTags,
+  open,
+  onOpenChange,
+}: {
+  threadId: string;
+  currentTags: ThreadTag[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const [allTags, setAllTags] = useState<TagData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
+    new Set(currentTags.map((t) => t.tag.id))
+  );
+
+  useEffect(() => {
+    setAppliedTagIds(new Set(currentTags.map((t) => t.tag.id)));
+  }, [currentTags]);
+
+  const fetchTags = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/tags");
+      if (res.ok) {
+        setAllTags(await res.json());
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      fetchTags();
+    }
+  }, [open, fetchTags]);
+
+  async function toggleTag(tag: TagData) {
+    const isApplied = appliedTagIds.has(tag.id);
+
+    setAppliedTagIds((prev) => {
+      const next = new Set(prev);
+      if (isApplied) {
+        next.delete(tag.id);
+      } else {
+        next.add(tag.id);
+      }
+      return next;
+    });
+
+    if (isApplied) {
+      await fetch(`/api/threads/${threadId}/tags?tagId=${tag.id}`, {
+        method: "DELETE",
+      });
+    } else {
+      await fetch(`/api/threads/${threadId}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tagId: tag.id }),
+      });
+    }
+
+    router.refresh();
+  }
+
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <div className="absolute top-0 right-0 h-0 w-0" />
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-2" align="end">
+        <TagSelectionList
+          tags={allTags}
+          appliedTagIds={appliedTagIds}
+          loading={loading}
+          onToggle={toggleTag}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Shared tag list UI used by both picker and menu */
+function TagSelectionList({
+  tags,
+  appliedTagIds,
+  loading,
+  onToggle,
+}: {
+  tags: TagData[];
+  appliedTagIds: Set<string>;
+  loading: boolean;
+  onToggle: (tag: TagData) => void;
+}) {
+  if (loading) {
+    return <p className="px-2 py-1 text-sm text-muted-foreground">Loading...</p>;
+  }
+  if (tags.length === 0) {
+    return <p className="px-2 py-1 text-sm text-muted-foreground">No tags yet</p>;
+  }
+  return (
+    <div className="space-y-0.5">
+      {tags.map((tag) => {
+        const isApplied = appliedTagIds.has(tag.id);
+        return (
+          <button
+            key={tag.id}
+            onClick={() => onToggle(tag)}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+          >
+            <span
+              className="h-3 w-3 rounded-full shrink-0"
+              style={{ backgroundColor: tag.color }}
+            />
+            <span className="flex-1 text-left truncate">{tag.name}</span>
+            {isApplied && (
+              <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,16 +26,46 @@ import {
   User,
   RefreshCw,
   ChevronDown,
+  ChevronRight,
   Mail,
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
+import { useTags, type TagData } from "@/hooks/use-tags";
 import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { mailboxes, isLoading } = useMailboxes();
+  const { tags, isLoading: tagsLoading } = useTags();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const activeTag = searchParams.get("tag");
+  const activeTags = searchParams.get("tags");
+  const activeGroup = searchParams.get("group");
+
+  function toggleGroup(group: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  }
+
+  function getGroupHref(groupName: string, groupTags: TagData[]) {
+    const ids = groupTags.map((t) => t.id).join(",");
+    return `/inbox?tags=${ids}&group=${encodeURIComponent(groupName)}`;
+  }
+
+  function isGroupActive(groupName: string) {
+    return activeGroup === groupName;
+  }
 
   async function handleSync() {
     setIsSyncing(true);
@@ -47,6 +77,22 @@ export function Sidebar() {
       setIsSyncing(false);
     }
   }
+
+  // Group tags: { null: [...ungrouped], "Internal": [...], "Projects": [...] }
+  const grouped = (tags || []).reduce<Record<string, TagData[]>>(
+    (acc, tag) => {
+      const key = tag.tagGroup || "";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(tag);
+      return acc;
+    },
+    {}
+  );
+
+  const ungrouped = grouped[""] || [];
+  const groupNames = Object.keys(grouped)
+    .filter((k) => k !== "")
+    .sort();
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-sidebar">
@@ -65,19 +111,23 @@ export function Sidebar() {
             href="/inbox"
             icon={Inbox}
             label="Inbox"
-            isActive={pathname === "/inbox" || pathname.startsWith("/inbox/")}
+            isActive={
+              (pathname === "/inbox" || pathname.startsWith("/inbox/")) &&
+              !activeTag &&
+              !searchParams.get("status")
+            }
           />
           <NavItem
             href="/inbox?status=archived"
             icon={Archive}
             label="Archived"
-            isActive={pathname.includes("archived")}
+            isActive={searchParams.get("status") === "archived"}
           />
           <NavItem
             href="/inbox?status=snoozed"
             icon={Clock}
             label="Snoozed"
-            isActive={pathname.includes("snoozed")}
+            isActive={searchParams.get("status") === "snoozed"}
           />
         </div>
 
@@ -112,16 +162,95 @@ export function Sidebar() {
         <Separator className="my-4" />
 
         {/* Tags */}
-        <div className="space-y-1">
-          <h3 className="mb-2 px-2 text-xs font-semibold uppercase text-sidebar-foreground/60">
-            Tags
-          </h3>
-          <NavItem
-            href="/tags"
-            icon={Tag}
-            label="Manage Tags"
-            isActive={pathname === "/tags"}
-          />
+        <div className="space-y-0.5">
+          <div className="mb-1.5 flex items-center justify-between px-2">
+            <h3 className="text-xs font-semibold uppercase text-sidebar-foreground/60">
+              Tags
+            </h3>
+            <Link
+              href="/tags"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Manage
+            </Link>
+          </div>
+
+          {tagsLoading ? (
+            <div className="space-y-1 px-2">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+            </div>
+          ) : !tags || tags.length === 0 ? (
+            <NavItem
+              href="/tags"
+              icon={Tag}
+              label="Create Tags"
+              isActive={pathname === "/tags"}
+            />
+          ) : (
+            <>
+              {/* All tag groups (named groups + "Other" for ungrouped) */}
+              {[...groupNames, ...(ungrouped.length > 0 ? ["__other__"] : [])].map((groupKey) => {
+                const isOther = groupKey === "__other__";
+                const displayName = isOther ? "Other" : groupKey;
+                const groupTags = isOther ? ungrouped : (grouped[groupKey] || []);
+                const isCollapsed = collapsedGroups.has(groupKey);
+                const groupActive = isGroupActive(displayName);
+                const groupThreadCount = groupTags.reduce(
+                  (sum, t) => sum + t._count.threads,
+                  0
+                );
+
+                return (
+                  <div key={groupKey}>
+                    <div className="flex w-full items-center gap-0.5 rounded-md pr-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleGroup(groupKey);
+                        }}
+                        className="shrink-0 p-1 rounded hover:bg-sidebar-accent/50 transition-colors"
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </button>
+                      <Link
+                        href={getGroupHref(displayName, groupTags)}
+                        className={cn(
+                          "flex-1 flex items-center justify-between rounded-md px-1.5 py-1 text-xs font-medium transition-colors",
+                          groupActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <span className="truncate">{displayName}</span>
+                        {groupThreadCount > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {groupThreadCount}
+                          </span>
+                        )}
+                      </Link>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="ml-2 space-y-0.5">
+                        {groupTags.map((tag) => (
+                          <TagNavItem
+                            key={tag.id}
+                            tag={tag}
+                            isActive={activeTag === tag.id}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       </ScrollArea>
 
@@ -182,6 +311,37 @@ export function Sidebar() {
         </DropdownMenu>
       </div>
     </div>
+  );
+}
+
+function TagNavItem({
+  tag,
+  isActive,
+}: {
+  tag: TagData;
+  isActive: boolean;
+}) {
+  return (
+    <Link
+      href={`/inbox?tag=${tag.id}`}
+      className={cn(
+        "flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors",
+        isActive
+          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+      )}
+    >
+      <span
+        className="h-2.5 w-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: tag.color }}
+      />
+      <span className="flex-1 truncate">{tag.name}</span>
+      {tag._count.threads > 0 && (
+        <span className="text-xs text-muted-foreground">
+          {tag._count.threads}
+        </span>
+      )}
+    </Link>
   );
 }
 
