@@ -1,30 +1,30 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: emailautomation-postgres
+    container_name: emaily-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-emailautomation}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emailautomation}
-      POSTGRES_DB: ${POSTGRES_DB:-emailautomation}
+      POSTGRES_USER: ${POSTGRES_USER:-emaily}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emaily}
+      POSTGRES_DB: ${POSTGRES_DB:-emaily}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - emaily_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-emailautomation}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-emaily}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: emailautomation-redis
+    container_name: emaily-redis
     restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
-      - redis_data:/data
+      - emaily_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -33,7 +33,7 @@ services:
 
   greenmail:
     image: greenmail/standalone:2.0.0
-    container_name: emailautomation-greenmail
+    container_name: emaily-greenmail
     ports:
       - "3025:3025"
       - "3110:3110"
@@ -45,5 +45,5 @@ services:
       - GREENMAIL_OPTS=-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=test:test@localhost.com
 
 volumes:
-  postgres_data:
-  redis_data:
+  emaily_postgres_data:
+  emaily_redis_data:
