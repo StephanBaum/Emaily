@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { ThreadList } from "@/components/inbox/thread-list";
+import { SearchBar } from "@/components/inbox/search-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface InboxPageProps {
@@ -27,8 +28,13 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-14 items-center border-b px-6">
+      <header className="flex h-14 items-center justify-between border-b px-6">
         <h1 className="text-lg font-semibold">{title}</h1>
+        <SearchBar
+          status={params.status}
+          tagId={params.tag}
+          mailboxId={params.mailbox}
+        />
       </header>
       <div className="flex-1 overflow-auto">
         <Suspense fallback={<ThreadListSkeleton />}>
