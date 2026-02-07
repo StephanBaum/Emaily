@@ -10,10 +10,11 @@ interface ThreadListProps {
   status?: string;
   tagId?: string;
   tagIds?: string;
+  query?: string;
 }
 
-export function ThreadList({ mailboxId, status = "open", tagId, tagIds }: ThreadListProps) {
-  const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds });
+export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query }: ThreadListProps) {
+  const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query });
 
   if (isLoading) {
     return (
@@ -49,7 +50,9 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds }: Thread
         <Inbox className="mb-4 h-12 w-12 text-muted-foreground" />
         <p className="text-lg font-medium">No threads found</p>
         <p className="text-sm text-muted-foreground">
-          {tagId || tagIds
+          {query
+            ? `No results for "${query}"`
+            : tagId || tagIds
             ? "No threads with this tag"
             : status === "open"
             ? "Your inbox is empty"

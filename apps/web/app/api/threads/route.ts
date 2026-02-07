@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status") || "open";
   const tagId = searchParams.get("tagId");
   const tagIds = searchParams.get("tagIds");
+  const query = searchParams.get("q")?.trim();
 
   // Get mailbox IDs the user has access to
   const accessibleMailboxes = await prisma.mailboxAccess.findMany({
@@ -38,6 +39,20 @@ export async function GET(request: NextRequest) {
     }
   } else if (tagId) {
     where.tags = { some: { tagId } };
+  }
+
+  // Full-text search via ILIKE on email fields
+  if (query && query.length >= 2) {
+    where.emails = {
+      some: {
+        OR: [
+          { subject: { contains: query, mode: "insensitive" } },
+          { bodyText: { contains: query, mode: "insensitive" } },
+          { fromName: { contains: query, mode: "insensitive" } },
+          { fromAddress: { contains: query, mode: "insensitive" } },
+        ],
+      },
+    };
   }
 
   const threads = await prisma.thread.findMany({

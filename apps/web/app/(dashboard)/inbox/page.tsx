@@ -10,6 +10,7 @@ interface InboxPageProps {
     tag?: string;
     tags?: string;
     group?: string;
+    q?: string;
   }>;
 }
 
@@ -30,11 +31,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     <div className="flex h-full flex-col">
       <header className="flex h-14 items-center justify-between border-b px-6">
         <h1 className="text-lg font-semibold">{title}</h1>
-        <SearchBar
-          status={params.status}
-          tagId={params.tag}
-          mailboxId={params.mailbox}
-        />
+        <SearchBar />
       </header>
       <div className="flex-1 overflow-auto">
         <Suspense fallback={<ThreadListSkeleton />}>
@@ -43,6 +40,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
             status={params.status || "open"}
             tagId={params.tag}
             tagIds={params.tags}
+            query={params.q}
           />
         </Suspense>
       </div>

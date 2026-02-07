@@ -310,6 +310,44 @@ pnpm db:seed:emails   # then: populate with diverse test emails
 
 ---
 
+## Phase 6.7: Filter Toolbar & Full-Text Search [IN PROGRESS]
+
+Plan: `docs/plans/2026-02-07-filters-and-search.md`
+
+### Filter Toolbar (`feature/filter-toolbar` branch) [DONE]
+- Updated `/api/threads` to support `status=all` and smart defaults (tag view shows all statuses)
+- Created `FilterToolbar` component with status tabs (All/Open/Archived/Snoozed), tag multi-select popover, mailbox dropdown
+- Two modes: full mode (inbox) and simplified mode (tag view — status tabs only)
+- Integrated toolbar into inbox page header
+- Added status icons (Archive/Clock) on thread items when viewing mixed statuses
+- Updated `useThreads` hook and `ThreadList` to pass `status=all` correctly
+- Commit: `a69d0f2`
+- Files:
+  - `apps/web/components/inbox/filter-toolbar.tsx` (new)
+  - `apps/web/app/api/threads/route.ts` (modified)
+  - `apps/web/hooks/use-threads.ts` (modified)
+  - `apps/web/app/(dashboard)/inbox/page.tsx` (modified)
+  - `apps/web/components/inbox/thread-list.tsx` (modified)
+  - `apps/web/components/inbox/thread-item.tsx` (modified)
+
+### Full-Text Search (`feature/search` branch) [DONE]
+- SQL migration: tsvector column on emails, GIN index, auto-update trigger (weighted: A=subject, B=sender, C=body)
+- Created `/api/search` endpoint with `ts_rank` relevance scoring and `ts_headline` snippets
+- Created `useSearch` hook with 300ms debounce and SWR caching (min 2 chars)
+- Created `SearchBar` component with dropdown results, keyboard navigation, highlighted snippets
+- Integrated SearchBar into inbox page header
+- Commit: `cd50c6a`
+- Files:
+  - `packages/database/prisma/migrations/001_add_search_vector.sql` (new)
+  - `apps/web/app/api/search/route.ts` (new)
+  - `apps/web/hooks/use-search.ts` (new)
+  - `apps/web/components/inbox/search-bar.tsx` (new)
+  - `apps/web/app/(dashboard)/inbox/page.tsx` (modified)
+
+**Deployment note:** Run the tsvector migration SQL against PostgreSQL before deploying the search feature.
+
+---
+
 ## Phase 7: AI Integration [PENDING]
 
 ---
