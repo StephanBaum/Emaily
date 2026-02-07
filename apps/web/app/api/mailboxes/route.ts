@@ -9,6 +9,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Debug log
+  console.log("[API /mailboxes] Fetching for user:", session.user.id, session.user.email);
+
   const mailboxes = await prisma.mailbox.findMany({
     where: {
       access: {
@@ -36,6 +39,8 @@ export async function GET() {
       displayName: "asc",
     },
   });
+
+  console.log("[API /mailboxes] Found", mailboxes.length, "mailboxes");
 
   return NextResponse.json(mailboxes);
 }

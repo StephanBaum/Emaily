@@ -185,7 +185,69 @@ See `docs/plans/2026-02-06-email-client-implementation.md` for the full plan.
 
 ---
 
-## Phase 6: Collaboration Features [PENDING]
+## Phase 6: Collaboration Features [COMPLETE]
+
+### Task 6.1: Collaboration Side Panel [DONE]
+- Created collapsible side panel for team collaboration
+- Panel contains: Assignments, Comments, Seen By sections
+- Collapsed state persists in localStorage
+- Updated thread detail page to side-by-side layout
+- Files:
+  - `apps/web/components/thread/collaboration-panel.tsx`
+  - `apps/web/app/(dashboard)/thread/[id]/page.tsx` (refactored layout)
+
+### Task 6.2: Assignments API [DONE]
+- `GET /api/threads/[id]/assignments` - List assignments for thread
+- `POST /api/threads/[id]/assignments` - Create assignment
+- `PATCH /api/threads/[id]/assignments/[assignmentId]` - Update status/note/dueDate
+- `DELETE /api/threads/[id]/assignments/[assignmentId]` - Remove assignment
+- `GET /api/team-members` - List team members for picker
+- All routes verify mailbox access and team membership
+- Files:
+  - `apps/web/app/api/threads/[id]/assignments/route.ts`
+  - `apps/web/app/api/threads/[id]/assignments/[assignmentId]/route.ts`
+  - `apps/web/app/api/team-members/route.ts`
+
+### Task 6.3: Assignments UI [DONE]
+- Assignment section in collaboration panel
+- Team member picker dropdown
+- Status badges (open, in_progress, done)
+- Status change dropdown
+- Remove assignment functionality
+- Files: `apps/web/components/thread/assignment-section.tsx`
+
+### Task 6.4: Shared Drafts API [DONE]
+- `POST /api/shared-drafts` - Create draft (auto-acquires lock)
+- `GET /api/shared-drafts/[id]` - Get draft with lock status
+- `PATCH /api/shared-drafts/[id]` - Update body (requires lock, auto-saves version)
+- `DELETE /api/shared-drafts/[id]` - Delete draft
+- `POST /api/shared-drafts/[id]/lock` - Acquire/refresh lock (30 min expiry)
+- `DELETE /api/shared-drafts/[id]/lock` - Release lock
+- `GET /api/shared-drafts/[id]/versions` - Version history
+- `POST /api/shared-drafts/[id]/versions` - Restore a version
+- Files:
+  - `apps/web/app/api/shared-drafts/route.ts`
+  - `apps/web/app/api/shared-drafts/[id]/route.ts`
+  - `apps/web/app/api/shared-drafts/[id]/lock/route.ts`
+  - `apps/web/app/api/shared-drafts/[id]/versions/route.ts`
+
+### Task 6.5: Shared Drafts UI [DONE]
+- SharedDraftComposer replaces ReplyComposer for drafts
+- Lock indicator (who has lock)
+- Auto-save with 30s debounce (creates versions)
+- Lock acquire/release controls
+- Version history panel with preview and restore
+- Integration with send flow
+- Files:
+  - `apps/web/components/thread/shared-draft-composer.tsx`
+  - `apps/web/components/thread/draft-version-history.tsx`
+
+### Task 6.6: Updated Existing Components [DONE]
+- CommentSection: Added `compact` prop for panel display
+- SeenByIndicator: Added `compact` prop for vertical list in panel
+- Files:
+  - `apps/web/components/thread/comment-section.tsx`
+  - `apps/web/components/thread/seen-by-indicator.tsx`
 
 ---
 
@@ -206,15 +268,17 @@ See `docs/plans/2026-02-06-email-client-implementation.md` for the full plan.
 | 3 | COMPLETE | 48 security tests pass |
 | 4 | COMPLETE | 33 mail-engine tests pass (1 skipped) |
 | 5 | COMPLETE | Build passes, dev server runs, 91 tests pass |
-| 6-8 | PENDING | - |
+| 6 | COMPLETE | Build passes, collaboration panel, assignments, shared drafts working |
+| 7-8 | PENDING | - |
 
 ---
 
 ## Test Summary
 
-Total: **91 tests passing** (1 skipped)
+Total: **93 tests passing** (1 skipped)
 - database: 10 tests
 - security: 48 tests
 - mail-engine: 33 tests (1 skipped)
+- web: 2 tests
 
 Run all tests: `pnpm test`

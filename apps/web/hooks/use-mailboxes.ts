@@ -15,7 +15,9 @@ interface Mailbox {
 async function fetcher(url: string) {
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error("Failed to fetch mailboxes");
+    const data = await res.json().catch(() => ({}));
+    console.error("Failed to fetch mailboxes:", res.status, data);
+    throw new Error(data.error || "Failed to fetch mailboxes");
   }
   return res.json();
 }

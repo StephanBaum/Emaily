@@ -4,8 +4,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EmailChain } from "@/components/thread/email-chain";
 import { ThreadHeader } from "@/components/thread/thread-header";
-import { ReplyComposer } from "@/components/thread/reply-composer";
+import { SharedDraftComposer } from "@/components/thread/shared-draft-composer";
+import { CollaborationPanel, PanelSection } from "@/components/thread/collaboration-panel";
+import { CommentSection } from "@/components/thread/comment-section";
+import { SeenByIndicator } from "@/components/thread/seen-by-indicator";
+import { AssignmentSection } from "@/components/thread/assignment-section";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Users, MessageSquare, Eye } from "lucide-react";
 
 interface ThreadPageProps {
   params: Promise<{ id: string }>;
@@ -19,6 +24,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
     notFound();
   }
 
+  // Fetch thread with all related data
   const thread = await prisma.thread.findFirst({
     where: {
       id,
@@ -36,6 +42,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
           id: true,
           emailAddress: true,
           displayName: true,
+          teamId: true,
         },
       },
       emails: {
@@ -57,8 +64,56 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
         },
       },
       assignments: {
+        orderBy: { createdAt: "desc" },
         include: {
           assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          assignedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      seenBy: {
+        orderBy: { seenAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      sharedDrafts: {
+        where: {
+          status: { not: "sent" },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          createdBy: {
             select: {
               id: true,
               name: true,
@@ -74,7 +129,23 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
     notFound();
   }
 
-  // Mark as seen
+  // Fetch team members for assignment picker
+  const teamMembers = await prisma.user.findMany({
+    where: {
+      teamId: thread.mailbox.teamId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  // Mark as seen and refetch updated seenBy list
   await prisma.seenBy.upsert({
     where: {
       threadId_userId: {
@@ -93,15 +164,111 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
     },
   });
 
+  // Refetch seenBy to include current user's updated timestamp
+  const seenBy = await prisma.seenBy.findMany({
+    where: { threadId: thread.id },
+    orderBy: { seenAt: "desc" },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  // Serialize comments for client component
+  const serializedComments = thread.comments.map((comment) => ({
+    ...comment,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString(),
+  }));
+
+  // Serialize seenBy for client component
+  const serializedSeenBy = seenBy.map((seen) => ({
+    ...seen,
+    seenAt: seen.seenAt.toISOString(),
+  }));
+
+  // Serialize assignments for client component
+  const serializedAssignments = thread.assignments.map((assignment) => ({
+    ...assignment,
+    createdAt: assignment.createdAt.toISOString(),
+    updatedAt: assignment.updatedAt.toISOString(),
+    dueDate: assignment.dueDate?.toISOString() || null,
+  }));
+
+  // Get existing shared draft if any
+  const existingDraft = thread.sharedDrafts[0];
+  const serializedDraft = existingDraft
+    ? {
+        ...existingDraft,
+        isLocked:
+          !!existingDraft.lockedById &&
+          !!existingDraft.lockExpiresAt &&
+          new Date(existingDraft.lockExpiresAt) > new Date(),
+        isLockedByMe:
+          existingDraft.lockedById === session.user.id &&
+          !!existingDraft.lockExpiresAt &&
+          new Date(existingDraft.lockExpiresAt) > new Date(),
+        lockedBy: null as { id: string; name: string; email: string } | null,
+        lockExpiresAt: existingDraft.lockExpiresAt?.toISOString() || null,
+      }
+    : null;
+
   return (
     <div className="flex h-full flex-col">
       <ThreadHeader thread={thread} />
-      <div className="flex-1 overflow-auto">
-        <Suspense fallback={<EmailChainSkeleton />}>
-          <EmailChain emails={thread.emails} />
-        </Suspense>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-auto">
+            <Suspense fallback={<EmailChainSkeleton />}>
+              <EmailChain emails={thread.emails} />
+            </Suspense>
+          </div>
+          <SharedDraftComposer
+            thread={thread}
+            mailbox={thread.mailbox}
+            existingDraft={serializedDraft}
+          />
+        </div>
+
+        {/* Collaboration Panel */}
+        <CollaborationPanel>
+          <PanelSection
+            title={`Assignments (${serializedAssignments.length})`}
+            icon={<Users className="h-4 w-4" />}
+          >
+            <AssignmentSection
+              threadId={thread.id}
+              initialAssignments={serializedAssignments}
+              teamMembers={teamMembers}
+            />
+          </PanelSection>
+
+          <PanelSection
+            title={`Comments (${serializedComments.length})`}
+            icon={<MessageSquare className="h-4 w-4" />}
+          >
+            <CommentSection
+              threadId={thread.id}
+              initialComments={serializedComments}
+              compact
+            />
+          </PanelSection>
+
+          <PanelSection
+            title={`Viewed by (${serializedSeenBy.length})`}
+            icon={<Eye className="h-4 w-4" />}
+            defaultOpen={false}
+          >
+            <SeenByIndicator seenBy={serializedSeenBy} compact />
+          </PanelSection>
+        </CollaborationPanel>
       </div>
-      <ReplyComposer thread={thread} mailbox={thread.mailbox} />
     </div>
   );
 }
