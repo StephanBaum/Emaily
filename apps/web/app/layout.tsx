@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Email Automation",
+  title: "Emaily",
   description: "Collaborative AI-powered email client",
 };
 

@@ -91,7 +91,7 @@ export function Sidebar() {
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/inbox" className="flex items-center gap-2 font-semibold">
           <Mail className="h-5 w-5" />
-          <span>Email Client</span>
+          <span>Emaily</span>
         </Link>
       </div>
 
