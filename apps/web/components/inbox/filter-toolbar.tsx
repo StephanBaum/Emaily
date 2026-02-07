@@ -46,8 +46,9 @@ export function FilterToolbar({
   const { tags } = useTags();
   const { mailboxes } = useMailboxes();
 
-  // Simplified mode: when viewing via tag sidebar click (tag or tags param exists)
-  const isTagView = Boolean(tagId || tagIds);
+  // Simplified mode: only when navigating via sidebar (single tag click or group click)
+  // Toolbar multi-select sets `tags` without `group`, so that stays in full mode
+  const isTagView = Boolean(tagId || (tagIds && group));
 
   // Determine active status for the tabs
   const activeStatus = status || (isTagView ? "all" : "open");

@@ -3,7 +3,7 @@
 import { useThreads } from "@/hooks/use-threads";
 import { ThreadItem } from "./thread-item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Inbox } from "lucide-react";
+import { Inbox, Archive, Clock } from "lucide-react";
 
 interface ThreadListProps {
   mailboxId?: string;
@@ -61,14 +61,64 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds }: Thread
     );
   }
 
-  // Show status badges when viewing mixed statuses
-  const showStatus = status === "all" || Boolean(tagId || tagIds);
+  // Show grouped view when viewing mixed statuses
+  const isMixedView = status === "all" || Boolean(tagId || tagIds);
+
+  if (!isMixedView) {
+    return (
+      <div className="divide-y">
+        {threads.map((thread) => (
+          <ThreadItem key={thread.id} thread={thread} />
+        ))}
+      </div>
+    );
+  }
+
+  // Group threads by status for mixed views
+  const grouped = threads.reduce<Record<string, typeof threads>>(
+    (acc, thread) => {
+      const s = thread.status || "open";
+      if (!acc[s]) acc[s] = [];
+      acc[s].push(thread);
+      return acc;
+    },
+    {}
+  );
+
+  const statusOrder = ["open", "snoozed", "archived"] as const;
+  const statusMeta: Record<string, { label: string; icon: typeof Inbox }> = {
+    open: { label: "Open", icon: Inbox },
+    snoozed: { label: "Snoozed", icon: Clock },
+    archived: { label: "Archived", icon: Archive },
+  };
 
   return (
-    <div className="divide-y">
-      {threads.map((thread) => (
-        <ThreadItem key={thread.id} thread={thread} showStatus={showStatus} />
-      ))}
+    <div>
+      {statusOrder.map((s) => {
+        const group = grouped[s];
+        if (!group || group.length === 0) return null;
+        const meta = statusMeta[s];
+        const Icon = meta.icon;
+
+        return (
+          <div key={s}>
+            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-muted/50 px-4 py-1.5 backdrop-blur-sm">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {meta.label}
+              </span>
+              <span className="text-xs text-muted-foreground/60">
+                {group.length}
+              </span>
+            </div>
+            <div className="divide-y">
+              {group.map((thread) => (
+                <ThreadItem key={thread.id} thread={thread} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
