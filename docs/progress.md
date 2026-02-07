@@ -1,0 +1,220 @@
+# Implementation Progress
+
+Progress tracking for the Collaborative AI Email Client implementation.
+
+See `docs/plans/2026-02-06-email-client-implementation.md` for the full plan.
+
+---
+
+## Phase 1: Project Setup & Infrastructure [COMPLETE]
+
+### Task 1.1: Initialize Monorepo [DONE]
+- Created pnpm workspace with turbo
+- Files: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.gitignore`, `.nvmrc`
+
+### Task 1.2: Create Next.js Web App [DONE]
+- Next.js 14 with App Router
+- Tailwind CSS with shadcn/ui-ready configuration
+- Files: `apps/web/` - layout, page, tailwind config, postcss config
+
+### Task 1.3: Create Shared Packages [DONE]
+- `packages/shared/` - TypeScript types for User, Team, Mailbox, Thread, Email, Tag, etc.
+- `packages/database/` - Database package shell (Prisma schema added in Phase 2)
+
+### Task 1.4: Docker Development Environment [DONE]
+- Docker Compose with PostgreSQL (pgvector), Redis, GreenMail
+- Note: Ollama removed - using n8n webhooks for AI processing (more flexible)
+- Files: `docker/docker-compose.yml`, `docker/.env.example`
+
+### Task 1.5: Setup Testing Framework [DONE]
+- Vitest configured at root and package level
+- React Testing Library for web app
+- Files: `vitest.config.ts`, `apps/web/vitest.config.ts`, `packages/*/vitest.config.ts`
+
+---
+
+## Phase 2: Database Schema & Core Models [COMPLETE]
+
+### Task 2.1: Prisma Schema - Core Entities [DONE]
+- Created comprehensive Prisma schema with all entities
+- Models: Team, User, RefreshToken, Mailbox, MailboxAccess, MailboxSync, Thread, Email, Attachment, SearchIndex, Comment, Assignment, SeenBy, SharedDraft, DraftVersion, Tag, ThreadTag, EmailIntent, DraftRequirement, QAPair, Contact, ActivityLog
+- PostgreSQL extensions: pgcrypto, vector (for pgvector)
+- Schema pushed to database - 22 tables created
+- Files:
+  - `packages/database/prisma/schema.prisma`
+  - `packages/database/src/client.ts`
+  - `packages/database/src/index.ts`
+  - `packages/database/.env`
+
+### Task 2.2: Database Tests [DONE]
+- Testcontainers integration for PostgreSQL (pgvector/pgvector:pg16)
+- 10 tests covering: Team, User, Mailbox, Thread, Email, Tags, Comments, Assignments
+- Files:
+  - `packages/database/tests/setup.ts`
+  - `packages/database/tests/models.test.ts`
+  - `packages/database/vitest.config.ts`
+
+---
+
+## Phase 3: Authentication & Security [COMPLETE]
+
+### Task 3.1: Security Package [DONE]
+- Created `packages/security/` with comprehensive security utilities
+- **Password utilities:** bcrypt hashing (12 rounds), strength validation with scoring
+- **TOTP (2FA):** Secret generation, URI for authenticator apps, token verification
+- **JWT Tokens:** Access tokens (15m expiry), refresh tokens (7d expiry), token hashing
+- **Encryption:** AES-256-GCM for sensitive data (IMAP passwords), blind indexing
+- 48 tests covering all security functions
+- Files:
+  - `packages/security/src/password.ts`
+  - `packages/security/src/totp.ts`
+  - `packages/security/src/tokens.ts`
+  - `packages/security/src/encryption.ts`
+  - `packages/security/tests/*.test.ts`
+
+---
+
+## Phase 4: Mail Engine (IMAP/SMTP) [COMPLETE]
+
+### Task 4.1: Mail Engine Package [DONE]
+- Created `packages/mail-engine/` with IMAP, SMTP, and thread matching utilities
+- **IMAP Client:** ImapFlow-based client with connection management, folder listing, email fetching, searching, flag management
+  - Handles reconnection by creating fresh ImapFlow instances
+  - Mailbox locking for safe concurrent operations
+  - Full email parsing with mailparser (body, headers, attachments)
+- **SMTP Client:** Nodemailer-based client for sending emails
+  - Supports plain text and HTML emails
+  - Proper reply threading with In-Reply-To and References headers
+  - CC/BCC support
+- **Thread Matcher:** Email threading logic
+  - Matches by In-Reply-To, References, or normalized subject
+  - Normalizes subjects (removes Re:, Fwd:, [tags], international prefixes)
+  - Thread chain building and participant extraction
+  - Bot detection (noreply, notifications, system headers)
+- **Mailbox Syncer:** Coordinates IMAP sync with database callbacks
+  - Initial and incremental sync modes
+  - Thread matching for incoming emails
+  - Callback-based architecture for database storage
+- 33 tests passing (1 skipped - ImapFlow lock contention with GreenMail)
+- Files:
+  - `packages/mail-engine/src/imap-client.ts`
+  - `packages/mail-engine/src/smtp-client.ts`
+  - `packages/mail-engine/src/thread-matcher.ts`
+  - `packages/mail-engine/src/mailbox-syncer.ts`
+  - `packages/mail-engine/src/index.ts`
+  - `packages/mail-engine/tests/thread-matcher.test.ts`
+  - `packages/mail-engine/tests/mail-integration.test.ts`
+
+---
+
+## Phase 5: Core UI - Inbox & Threads [COMPLETE]
+
+### Task 5.1: shadcn/ui Setup [DONE]
+- Installed shadcn/ui components (Button, Input, Label, Card, Avatar, Badge, Separator, DropdownMenu, Dialog, Tooltip, ScrollArea, Tabs, Skeleton)
+- Configured Tailwind CSS with shadcn theme variables (colors, sidebar, radius)
+- Created `lib/utils.ts` with `cn()` helper
+- Files: `apps/web/components.json`, `apps/web/components/ui/*.tsx`
+
+### Task 5.2: Authentication Setup [DONE]
+- NextAuth v5 (beta) with credentials provider
+- Integration with `@emailautomation/security` for password verification and TOTP
+- JWT session strategy with custom user fields (teamId, role, etc.)
+- Type-safe session with `next-auth.d.ts` module augmentation
+- Files: `apps/web/lib/auth.ts`, `apps/web/app/api/auth/[...nextauth]/route.ts`
+
+### Task 5.3: Prisma Client Setup [DONE]
+- Prisma client re-exported from database package
+- Environment configured with DATABASE_URL, AUTH_SECRET, ENCRYPTION_KEY
+- Files: `apps/web/lib/prisma.ts`, `apps/web/.env.local`
+
+### Task 5.4: Dashboard Layout with Sidebar [DONE]
+- Protected layout with SessionProvider
+- Sidebar with mailbox list, navigation (Inbox, Archived, Snoozed)
+- User menu with sign-out
+- Sync button for manual mail sync
+- Auth middleware with callback URL support
+- Files: `apps/web/app/(dashboard)/layout.tsx`, `apps/web/components/inbox/sidebar.tsx`, `apps/web/middleware.ts`
+
+### Task 5.5: Inbox Page - Thread List [DONE]
+- Thread list with SWR data fetching
+- Thread item with sender, subject, preview, tags, assignments
+- Unread indicator based on SeenBy status
+- Empty state for no threads
+- Files: `apps/web/app/(dashboard)/inbox/page.tsx`, `apps/web/components/inbox/thread-list.tsx`, `apps/web/components/inbox/thread-item.tsx`, `apps/web/hooks/use-threads.ts`
+
+### Task 5.6: Thread Detail Page [DONE]
+- Email chain view with all messages in chronological order
+- Expandable/collapsible email messages
+- Header with archive, snooze, tag actions
+- Sender info, date, recipients display
+- Attachment list display
+- Auto-mark as seen on view
+- Files: `apps/web/app/(dashboard)/thread/[id]/page.tsx`, `apps/web/components/thread/email-chain.tsx`, `apps/web/components/thread/email-message.tsx`, `apps/web/components/thread/thread-header.tsx`
+
+### Task 5.7: Reply Composer [DONE]
+- Expandable reply form
+- Auto-populated reply-to address
+- Send button with loading state
+- Integration with SMTP client for sending
+- Files: `apps/web/components/thread/reply-composer.tsx`
+
+### Task 5.8: API Routes [DONE]
+- `GET /api/mailboxes` - User's accessible mailboxes with thread counts
+- `GET /api/threads` - Thread list with filtering by mailbox/status
+- `GET /api/threads/[id]` - Single thread with emails, comments, assignments
+- `PATCH /api/threads/[id]` - Update thread status
+- `POST /api/emails/send` - Send email via SMTP
+- All routes verify session and check mailbox access
+- Files: `apps/web/app/api/mailboxes/route.ts`, `apps/web/app/api/threads/route.ts`, `apps/web/app/api/threads/[id]/route.ts`, `apps/web/app/api/emails/send/route.ts`
+
+### Task 5.9: Manual Sync [DONE]
+- `POST /api/sync` - Trigger IMAP sync for all accessible mailboxes
+- Uses MailboxSyncer with database callbacks
+- Returns sync results per mailbox
+- Files: `apps/web/app/api/sync/route.ts`
+
+### Database Seed Script [DONE]
+- Creates test team, user (test@example.com / password123), mailbox
+- Connects to GreenMail test server
+- Sample tags and welcome thread
+- Files: `packages/database/prisma/seed.ts`
+
+### Breaking Changes from Phase 3-4
+- Switched from native `bcrypt` to `bcryptjs` for Next.js bundling compatibility
+- Fixed IMAP client bigint handling for uidValidity
+
+---
+
+## Phase 6: Collaboration Features [PENDING]
+
+---
+
+## Phase 7: AI Integration [PENDING]
+
+---
+
+## Phase 8: Polish & Production [PENDING]
+
+---
+
+## Verification Status
+
+| Phase | Status | Verification |
+|-------|--------|--------------|
+| 1 | COMPLETE | `pnpm dev` starts, `pnpm test` passes |
+| 2 | COMPLETE | Schema pushed, 10 database tests pass |
+| 3 | COMPLETE | 48 security tests pass |
+| 4 | COMPLETE | 33 mail-engine tests pass (1 skipped) |
+| 5 | COMPLETE | Build passes, dev server runs, 91 tests pass |
+| 6-8 | PENDING | - |
+
+---
+
+## Test Summary
+
+Total: **91 tests passing** (1 skipped)
+- database: 10 tests
+- security: 48 tests
+- mail-engine: 33 tests (1 skipped)
+
+Run all tests: `pnpm test`

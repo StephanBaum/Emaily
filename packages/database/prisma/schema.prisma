@@ -1,0 +1,456 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, vector]
+}
+
+// ============================================
+// USERS & TEAMS
+// ============================================
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users      User[]
+  mailboxes  Mailbox[]
+  tags       Tag[]
+  contacts   Contact[]
+  qaPairs    QAPair[]
+  activities ActivityLog[]
+
+  @@map("teams")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  totpSecret   String?  @map("totp_secret")
+  totpEnabled  Boolean  @default(false) @map("totp_enabled")
+  role         String   @default("member") // admin, member
+  teamId       String   @map("team_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  team           Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  mailboxAccess  MailboxAccess[]
+  comments       Comment[]
+  assignedTo     Assignment[]     @relation("assigned_to")
+  assignedBy     Assignment[]     @relation("assigned_by")
+  seenBy         SeenBy[]
+  sharedDrafts   SharedDraft[]
+  draftVersions  DraftVersion[]
+  activities     ActivityLog[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  familyId  String   @map("family_id")
+  used      Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// MAILBOXES
+// ============================================
+
+model Mailbox {
+  id              String   @id @default(cuid())
+  emailAddress    String   @map("email_address")
+  displayName     String?  @map("display_name")
+  type            String   @default("personal") // personal, shared
+  teamId          String   @map("team_id")
+  imapHost        String?  @map("imap_host")
+  imapPort        Int?     @map("imap_port")
+  imapUser        String?  @map("imap_user")
+  imapPasswordEnc String?  @map("imap_password_enc") // encrypted
+  smtpHost        String?  @map("smtp_host")
+  smtpPort        Int?     @map("smtp_port")
+  smtpUser        String?  @map("smtp_user")
+  smtpPasswordEnc String?  @map("smtp_password_enc") // encrypted
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  team         Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  access       MailboxAccess[]
+  threads      Thread[]
+  sharedDrafts SharedDraft[]
+  syncState    MailboxSync[]
+
+  @@unique([emailAddress, teamId])
+  @@map("mailboxes")
+}
+
+model MailboxAccess {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  mailboxId  String   @map("mailbox_id")
+  permission String   @default("read") // read, write, admin
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mailboxId])
+  @@map("mailbox_access")
+}
+
+model MailboxSync {
+  id           String    @id @default(cuid())
+  mailboxId    String    @map("mailbox_id")
+  folderName   String    @map("folder_name")
+  lastUid      Int       @default(0) @map("last_uid")
+  lastSyncAt   DateTime? @map("last_sync_at")
+  syncStatus   String    @default("idle") // idle, syncing, error
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  mailbox Mailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+
+  @@unique([mailboxId, folderName])
+  @@map("mailbox_sync")
+}
+
+// ============================================
+// THREADS & EMAILS
+// ============================================
+
+model Thread {
+  id             String   @id @default(cuid())
+  mailboxId      String   @map("mailbox_id")
+  teamId         String   @map("team_id")
+  subject        String
+  status         String   @default("open") // open, archived, snoozed
+  hasSentReply   Boolean  @default(false) @map("has_sent_reply")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  mailbox      Mailbox       @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  emails       Email[]
+  comments     Comment[]
+  assignments  Assignment[]
+  tags         ThreadTag[]
+  seenBy       SeenBy[]
+  sharedDrafts SharedDraft[]
+
+  @@index([mailboxId, status])
+  @@index([lastActivityAt])
+  @@map("threads")
+}
+
+model Email {
+  id             String                 @id @default(cuid())
+  threadId       String                 @map("thread_id")
+  messageId      String                 @map("message_id")
+  inReplyTo      String?                @map("in_reply_to")
+  references     String[]               @default([])
+  imapUid        Int?                   @map("imap_uid")
+  subject        String
+  bodyText       String                 @map("body_text")
+  bodyHtml       String?                @map("body_html")
+  fromAddress    String                 @map("from_address")
+  fromName       String?                @map("from_name")
+  toAddresses    String[]               @map("to_addresses")
+  ccAddresses    String[]               @default([]) @map("cc_addresses")
+  bccAddresses   String[]               @default([]) @map("bcc_addresses")
+  date           DateTime
+  folder         String                 @default("INBOX")
+  isDraft        Boolean                @default(false) @map("is_draft")
+  isSent         Boolean                @default(false) @map("is_sent")
+  isBot          Boolean                @default(false) @map("is_bot")
+  rawHeaders     Json?                  @map("raw_headers")
+  embedding      Unsupported("vector")?
+  embeddingModel String?                @map("embedding_model")
+  embeddedAt     DateTime?              @map("embedded_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  thread      Thread        @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+  intents     EmailIntent[]
+  searchIndex SearchIndex[]
+
+  @@unique([messageId])
+  @@index([threadId])
+  @@index([imapUid])
+  @@map("emails")
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  emailId     String   @map("email_id")
+  filename    String
+  contentType String   @map("content_type")
+  size        Int
+  storagePath String   @map("storage_path")
+  checksum    String?
+  quarantined Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  email Email @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model SearchIndex {
+  id       String @id @default(cuid())
+  emailId  String @map("email_id")
+  token    String // sha256(lowercase(word) + salt)
+  position Int
+
+  email Email @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("search_index")
+}
+
+// ============================================
+// COLLABORATION
+// ============================================
+
+model Comment {
+  id        String   @id @default(cuid())
+  threadId  String   @map("thread_id")
+  userId    String   @map("user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@map("comments")
+}
+
+model Assignment {
+  id           String    @id @default(cuid())
+  threadId     String    @map("thread_id")
+  assignedToId String    @map("assigned_to_id")
+  assignedById String    @map("assigned_by_id")
+  status       String    @default("open") // open, in_progress, done
+  note         String?
+  dueDate      DateTime? @map("due_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  thread     Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  assignedTo User   @relation("assigned_to", fields: [assignedToId], references: [id], onDelete: Cascade)
+  assignedBy User   @relation("assigned_by", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([assignedToId])
+  @@map("assignments")
+}
+
+model SeenBy {
+  id              String   @id @default(cuid())
+  threadId        String   @map("thread_id")
+  userId          String   @map("user_id")
+  lastSeenEmailId String?  @map("last_seen_email_id")
+  seenAt          DateTime @default(now()) @map("seen_at")
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@map("seen_by")
+}
+
+// ============================================
+// SHARED DRAFTS
+// ============================================
+
+model SharedDraft {
+  id            String    @id @default(cuid())
+  threadId      String?   @map("thread_id")
+  mailboxId     String    @map("mailbox_id")
+  createdById   String    @map("created_by_id")
+  toAddresses   String[]  @map("to_addresses")
+  ccAddresses   String[]  @default([]) @map("cc_addresses")
+  bccAddresses  String[]  @default([]) @map("bcc_addresses")
+  subject       String
+  body          String
+  status        String    @default("drafting") // drafting, ready_for_review, sent
+  lockedById    String?   @map("locked_by_id")
+  lockType      String?   @map("lock_type") // editing, generating
+  lockExpiresAt DateTime? @map("lock_expires_at")
+  confidence    Json?     // DraftConfidence
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  thread       Thread?            @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  mailbox      Mailbox            @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  createdBy    User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  versions     DraftVersion[]
+  requirements DraftRequirement[]
+
+  @@index([threadId])
+  @@map("shared_drafts")
+}
+
+model DraftVersion {
+  id            String   @id @default(cuid())
+  sharedDraftId String   @map("shared_draft_id")
+  userId        String   @map("user_id")
+  bodySnapshot  String   @map("body_snapshot")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  sharedDraft SharedDraft @relation(fields: [sharedDraftId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("draft_versions")
+}
+
+// ============================================
+// TAGS & AI
+// ============================================
+
+model Tag {
+  id        String   @id @default(cuid())
+  teamId    String   @map("team_id")
+  name      String
+  color     String   @default("#6366f1")
+  aiAction  String   @default("none") // none, draft, research_draft, auto_reply, archive, notify
+  autoRules Json?    @map("auto_rules") // TagRule conditions
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  team    Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  threads ThreadTag[]
+
+  @@unique([teamId, name])
+  @@map("tags")
+}
+
+model ThreadTag {
+  id        String   @id @default(cuid())
+  threadId  String   @map("thread_id")
+  tagId     String   @map("tag_id")
+  appliedBy String   @default("manual") @map("applied_by") // manual, auto, ai
+  createdAt DateTime @default(now()) @map("created_at")
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, tagId])
+  @@map("thread_tags")
+}
+
+model EmailIntent {
+  id           String   @id @default(cuid())
+  emailId      String   @map("email_id")
+  intents      Json     // EmailIntent[]
+  extractedAt  DateTime @default(now()) @map("extracted_at")
+  modelVersion String?  @map("model_version")
+
+  email        Email              @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  requirements DraftRequirement[]
+
+  @@unique([emailId])
+  @@map("email_intents")
+}
+
+model DraftRequirement {
+  id            String  @id @default(cuid())
+  intentId      String  @map("intent_id")
+  sharedDraftId String  @map("shared_draft_id")
+  intentIndex   Int     @map("intent_index")
+  addressed     Boolean @default(false)
+  source        String? // rag, qa_pair, generated
+
+  intent      EmailIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+  sharedDraft SharedDraft @relation(fields: [sharedDraftId], references: [id], onDelete: Cascade)
+
+  @@map("draft_requirements")
+}
+
+model QAPair {
+  id              String   @id @default(cuid())
+  teamId          String   @map("team_id")
+  triggerPatterns String[] @map("trigger_patterns")
+  idealResponse   String   @map("ideal_response")
+  tags            String[] @default([])
+  usageCount      Int      @default(0) @map("usage_count")
+  successRate     Float    @default(0) @map("success_rate")
+  autoLearned     Boolean  @default(false) @map("auto_learned")
+  approved        Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("qa_pairs")
+}
+
+// ============================================
+// CONTACTS
+// ============================================
+
+model Contact {
+  id              String    @id @default(cuid())
+  teamId          String    @map("team_id")
+  email           String
+  name            String?
+  company         String?
+  tags            String[]  @default([])
+  notes           String?
+  lastContactedAt DateTime? @map("last_contacted_at")
+  autoLearned     Boolean   @default(false) @map("auto_learned")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, email])
+  @@map("contacts")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  teamId     String   @map("team_id")
+  userId     String?  @map("user_id")
+  action     String   // login, logout, email_read, email_sent, etc.
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  metadata   Json     @default("{}")
+  ipAddress  String?  @map("ip_address")
+  checksum   String?  // Hash chain for tamper detection
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, createdAt])
+  @@index([userId])
+  @@map("activity_logs")
+}

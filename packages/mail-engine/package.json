@@ -1,0 +1,25 @@
+{
+  "name": "@emailautomation/mail-engine",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "imapflow": "^1.0.171",
+    "nodemailer": "^6.9.16",
+    "mailparser": "^3.7.2",
+    "quoted-printable": "^1.0.1",
+    "@emailautomation/database": "workspace:*",
+    "@emailautomation/security": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^6.4.17",
+    "@types/mailparser": "^3.4.5",
+    "vitest": "^2.0.0"
+  }
+}

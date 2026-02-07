@@ -4,7 +4,17 @@ const nextConfig = {
   transpilePackages: [
     "@emailautomation/database",
     "@emailautomation/shared",
+    "@emailautomation/security",
+    "@emailautomation/mail-engine",
   ],
+  experimental: {
+    serverComponentsExternalPackages: [
+      "bcrypt",
+      "imapflow",
+      "nodemailer",
+      "mailparser",
+    ],
+  },
 };
 
 module.exports = nextConfig;

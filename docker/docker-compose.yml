@@ -31,14 +31,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ollama:
-    image: ollama/ollama:0.5.4
-    container_name: emailautomation-ollama
-    ports:
-      - "127.0.0.1:11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-
   greenmail:
     image: greenmail/standalone:2.0.0
     container_name: emailautomation-greenmail
@@ -55,4 +47,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  ollama_data:

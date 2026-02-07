@@ -1,2 +1,2 @@
-// Prisma client will be exported here after schema is created
-export {};
+export { prisma } from "./client";
+export * from "@prisma/client";

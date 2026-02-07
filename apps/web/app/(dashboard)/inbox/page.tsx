@@ -1,0 +1,53 @@
+import { Suspense } from "react";
+import { ThreadList } from "@/components/inbox/thread-list";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface InboxPageProps {
+  searchParams: Promise<{
+    mailbox?: string;
+    status?: string;
+  }>;
+}
+
+export default async function InboxPage({ searchParams }: InboxPageProps) {
+  const params = await searchParams;
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="flex h-14 items-center border-b px-6">
+        <h1 className="text-lg font-semibold">
+          {params.status === "archived"
+            ? "Archived"
+            : params.status === "snoozed"
+            ? "Snoozed"
+            : "Inbox"}
+        </h1>
+      </header>
+      <div className="flex-1 overflow-auto">
+        <Suspense fallback={<ThreadListSkeleton />}>
+          <ThreadList
+            mailboxId={params.mailbox}
+            status={params.status || "open"}
+          />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+function ThreadListSkeleton() {
+  return (
+    <div className="divide-y">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-4 p-4">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
