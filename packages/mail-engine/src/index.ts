@@ -25,6 +25,14 @@ export {
   type MatchResult,
 } from "./thread-matcher";
 
+// Spam Analyzer
+export {
+  analyzeSpam,
+  computeSpamScore,
+  SPAM_THRESHOLD_QUARANTINE,
+  SPAM_THRESHOLD_SUSPICIOUS,
+} from "./spam-analyzer";
+
 // Mailbox Syncer
 export {
   MailboxSyncer,
