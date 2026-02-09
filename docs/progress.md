@@ -348,7 +348,182 @@ Plan: `docs/plans/2026-02-07-filters-and-search.md`
 
 ---
 
-## Phase 7: AI Integration [PENDING]
+## Phase 7: AI Integration [IN PROGRESS]
+
+Plan: `docs/plans/2026-02-09-phase7-ai-integration.md`
+Branch: `feature/ai-integration`
+
+### Sub-Phase 7.1: AI Engine Package + Provider Abstraction [DONE]
+- Created `packages/ai-engine/` workspace package
+- Provider interface: `AIProvider` with `complete()`, `embed()`, `isAvailable()`
+- Gemini provider: `@google/generative-ai` SDK, model `gemini-2.5-flash`, embeddings `text-embedding-004`
+- Ollama provider: REST API via `fetch`, model `llama3.2`, embeddings `nomic-embed-text`
+- Config factory: `createProviderFromEnv()` auto-detects from `GEMINI_API_KEY` / `OLLAMA_HOST`
+- Added shared types: `TagRuleCondition`, `TagAutoRules`, `AIProcessingResult`
+- Files:
+  - `packages/ai-engine/package.json`, `tsconfig.json`
+  - `packages/ai-engine/src/providers/provider.ts` (interface)
+  - `packages/ai-engine/src/providers/gemini-provider.ts`
+  - `packages/ai-engine/src/providers/ollama-provider.ts`
+  - `packages/ai-engine/src/config.ts`
+  - `packages/ai-engine/src/index.ts`
+  - `packages/shared/src/types/index.ts` (modified)
+
+### Sub-Phase 7.2: Auto-Tagging Pipeline [DONE]
+- Two-layer system: deterministic rules first, then LLM classification for unmatched tags
+- Rules engine: field/operator/value conditions with AND/OR logic
+- LLM classification: prompt-based tag assignment with confidence scoring
+- Added `autoRules` to tag PATCH endpoint
+- Files:
+  - `packages/ai-engine/src/prompts/auto-tag.ts`
+  - `packages/ai-engine/src/pipeline/auto-tagger.ts`
+  - `apps/web/app/api/tags/[id]/route.ts` (modified)
+
+### Sub-Phase 7.3: Intent Extraction Pipeline [DONE]
+- Decomposes emails into question/request/info intents with priority 1-3
+- Thread context awareness: summarizes previous emails for context
+- Validation: enforces schema, limits to 10 intents, sanitizes text
+- Files:
+  - `packages/ai-engine/src/prompts/intent-extraction.ts`
+  - `packages/ai-engine/src/pipeline/intent-extractor.ts`
+
+### Sub-Phase 7.4: Draft Generation Pipeline [DONE]
+- Confidence-based draft generation addressing extracted intents
+- Q&A pair matching: finds relevant pairs by intent text overlap
+- Confidence scoring: overall, intentCoverage, qaMatchStrength, ragRelevance, toneConsistency
+- Files:
+  - `packages/ai-engine/src/prompts/draft-generation.ts`
+  - `packages/ai-engine/src/pipeline/draft-generator.ts`
+
+### Sub-Phase 7.5: BullMQ Worker + API Integration [DONE]
+- AI worker: `workers/ai-worker/` with BullMQ processor (concurrency 3, rate limit 10/min, 3 retries)
+- Queue client: `enqueueEmailForAI()` for web app to add jobs
+- AI service layer: `processEmailWithAI()` orchestrates full pipeline
+- API endpoints:
+  - `POST /api/ai/process` — manually trigger AI processing for email/thread
+  - `GET /api/ai/status` — provider health check
+  - `GET /api/threads/[id]/intents` — fetch intents for thread
+- Sync route wired: `addEmailToThread` and `createThread` callbacks enqueue AI jobs
+- Added deps to web app: `@emailautomation/ai-engine`, `bullmq`, `ioredis`
+- Files:
+  - `workers/ai-worker/package.json`, `tsconfig.json`
+  - `workers/ai-worker/src/index.ts`, `processor.ts`, `queues.ts`
+  - `apps/web/lib/ai-queue.ts`, `apps/web/lib/ai.ts`
+  - `apps/web/app/api/ai/process/route.ts`
+  - `apps/web/app/api/ai/status/route.ts`
+  - `apps/web/app/api/threads/[id]/intents/route.ts`
+  - `apps/web/app/api/sync/route.ts` (modified)
+  - `apps/web/package.json` (modified)
+  - `apps/web/tsconfig.json` (modified)
+
+### Sub-Phase 7.6: Minimal UI Integration [DONE]
+- IntentPanel component: displays extracted intents grouped by type, color-coded, priority badges
+- Integrated into thread detail page collaboration panel (AI Intents section)
+- AI tag badge: Sparkles icon on thread-item tags where `appliedBy === "ai"`
+- Files:
+  - `apps/web/components/thread/intent-panel.tsx`
+  - `apps/web/app/(dashboard)/thread/[id]/page.tsx` (modified)
+  - `apps/web/components/inbox/thread-item.tsx` (modified)
+
+### Sub-Phase 7.7: AI Integration Overhaul — Action Execution & Bulk Processing [DONE]
+- Extended shared types: `actionsExecuted` on `AIProcessingResult`, `AIActionExecuted`, `AIBulkProcessingResult`, AI activity actions
+- Major rewrite of `apps/web/lib/ai.ts`:
+  - `logAIActivity()` — writes ActivityLog with userId: null for AI actions
+  - `sendAutoReply()` — fetches mailbox SMTP config, sends via SmtpClient.sendReply(), saves sent email
+  - `processAllEmailsWithAI()` — bulk processes all emails without EmailIntent records
+  - Tag action execution: archive (thread status), auto_reply (rule-matched only, confidence 1.0), notify (activity log), draft/research_draft (generate + log)
+- New API routes:
+  - `POST /api/ai/process-all` — bulk AI processing endpoint
+  - `GET /api/threads/[id]/ai-activity` — AI activity log for thread
+- Replaced IntentPanel with AIActivityPanel:
+  - Shows tagged/draft/auto-replied/archived/notified actions with icons and timestamps
+  - Keeps "Analyze with AI" manual trigger button
+- Thread page: swapped IntentPanel → AIActivityPanel, passes confidence/lockType to composer
+- SharedDraftComposer AI draft indicators:
+  - AI Draft badge with Sparkles icon and confidence percentage
+  - Emerald-tinted background on textarea for AI-generated content (clears on edit)
+- Sidebar enhancements:
+  - "Process All with AI" button with progress state
+  - Auto-triggers AI processing after sync when new emails arrive
+- Cleaned up sync route: removed dead `enqueueEmailForAI` calls
+- Updated process endpoint response to include `actionsExecuted`
+- Build passes
+- Files:
+  - `packages/shared/src/types/index.ts` (modified)
+  - `apps/web/lib/ai.ts` (major rewrite)
+  - `apps/web/app/api/ai/process-all/route.ts` (new)
+  - `apps/web/app/api/threads/[id]/ai-activity/route.ts` (new)
+  - `apps/web/components/thread/ai-activity-panel.tsx` (new)
+  - `apps/web/app/(dashboard)/thread/[id]/page.tsx` (modified)
+  - `apps/web/components/thread/shared-draft-composer.tsx` (modified)
+  - `apps/web/components/inbox/sidebar.tsx` (modified)
+  - `apps/web/app/api/sync/route.ts` (modified)
+  - `apps/web/app/api/ai/process/route.ts` (modified)
+
+### Sub-Phase 7.8: Unified Single-Call AI + Agent System [DONE]
+- **Goal:** 1 LLM call per thread (not per email), configurable agents, "Draft with Agent" in composer
+- Database: Added `Agent` and `AgentTagWatch` models, `agentId` FK on `SharedDraft`
+- Shared types: Added `Agent`, `AgentTagWatch`, `UnifiedAIResult` types, updated `AIProcessingResult` (`emailId` → `threadId`, added `agentId`/`agentName`)
+- AI Engine: New `UnifiedThreadProcessor` class with single-call prompt for tags + intents + draft
+  - `packages/ai-engine/src/prompts/unified-thread.ts` — combined prompt (tag classification, intent extraction, draft generation)
+  - `packages/ai-engine/src/pipeline/unified-thread-processor.ts` — single `provider.complete()` call, JSON validation, graceful fallback
+- Orchestration rewrite: `processThreadWithAI()` replaces per-email processing
+  1. Fetch thread with ALL emails
+  2. Deterministic rule matching (0 LLM calls)
+  3. Agent resolution (explicit → default → null)
+  4. Single LLM call via `UnifiedThreadProcessor`
+  5. Batch tag writes, intent save, draft creation with `agentId`
+  6. Tag action execution (archive, auto_reply, notify, draft)
+  - `processEmailWithAI()` → thin wrapper resolving to thread
+  - `processAllThreadsWithAI()` → thread-based bulk with batches of 5
+- API routes:
+  - `POST /api/ai/process` — accepts optional `agentId`, thread-based processing
+  - `POST /api/ai/process-all` — calls `processAllThreadsWithAI()`
+  - `GET /api/agents` — list team agents
+  - `POST /api/agents` — create agent (with tag watches)
+  - `PATCH /api/agents/[id]` — update agent
+  - `DELETE /api/agents/[id]` — delete agent (default agent protected)
+- UI:
+  - `useAgents` SWR hook (`apps/web/hooks/use-agents.ts`)
+  - AIActivityPanel: agent selector dropdown next to "Analyze with AI" button, agent name in results
+  - SharedDraftComposer: "Draft with AI" dropdown in collapsed state, agent name on AI Draft badge
+  - Agent settings CRUD page (`/settings/agents`) with name, role, system prompt, temperature slider, active/default toggles
+  - Sidebar: "AI Agents" link in user dropdown menu
+- Verification: `tsc --noEmit` passes for web app, Prisma schema valid, db:push succeeded
+- Files:
+  - `packages/database/prisma/schema.prisma` (Agent, AgentTagWatch models, SharedDraft.agentId)
+  - `packages/shared/src/types/index.ts` (Agent, AgentTagWatch, UnifiedAIResult types)
+  - `packages/ai-engine/src/prompts/unified-thread.ts` (new)
+  - `packages/ai-engine/src/pipeline/unified-thread-processor.ts` (new)
+  - `packages/ai-engine/src/index.ts` (exports)
+  - `apps/web/lib/ai.ts` (major rewrite — thread-based)
+  - `apps/web/app/api/ai/process/route.ts` (updated)
+  - `apps/web/app/api/ai/process-all/route.ts` (updated)
+  - `apps/web/app/api/agents/route.ts` (new)
+  - `apps/web/app/api/agents/[id]/route.ts` (new)
+  - `apps/web/hooks/use-agents.ts` (new)
+  - `apps/web/components/thread/ai-activity-panel.tsx` (updated)
+  - `apps/web/components/thread/shared-draft-composer.tsx` (updated)
+  - `apps/web/app/(dashboard)/thread/[id]/page.tsx` (updated)
+  - `apps/web/app/(dashboard)/settings/agents/page.tsx` (new)
+  - `apps/web/components/inbox/sidebar.tsx` (updated)
+
+### Sub-Phase 7.9: Bug Fixes — Live Updates, Tag/Draft/Action Correctness [DONE]
+- **Test email injection fix:** Rewrote `test-email-injector.ts` to use nodemailer directly without auth (GreenMail accepts unauthenticated SMTP on port 3025); sync route calls injector before IMAP sync in dev mode
+- **Tag accumulation fix:** `processThreadWithAI()` now clears stale AI-applied tags (tags present on thread but not in new LLM result) before upserting new ones, in a single `prisma.$transaction`
+- **Draft replacement fix:** When an existing SharedDraft exists, now updates its content/agentId instead of skipping creation — allows switching agents to regenerate drafts
+- **Action re-firing fix:** Tag actions (archive, notify, auto_reply) now only execute on newly matched tags from the current run, not on all previously applied tags
+- **Live updates — SharedDraftComposer:** Added `useEffect` to sync `existingDraft` prop changes into local state (draft, body, mode, expanded); polling `router.refresh()` 5x after "Draft with AI" succeeds
+- **Live updates — AIActivityPanel:** Replaced one-shot fetch with continuous polling (5s idle, 2s while processing); auto-calls `router.refresh()` when activity count changes to propagate tag/draft/intent updates across the entire page
+- **Type fixes:** Added `@types/nodemailer` to web app, `@types/node` + `typescript` to ai-engine; both packages pass `tsc --noEmit`
+- Files:
+  - `apps/web/lib/test-email-injector.ts` (rewritten)
+  - `apps/web/app/api/sync/route.ts` (modified — inject before sync)
+  - `apps/web/lib/ai.ts` (tag cleanup, draft update, action scoping)
+  - `apps/web/components/thread/shared-draft-composer.tsx` (useEffect sync + polling)
+  - `apps/web/components/thread/ai-activity-panel.tsx` (continuous polling + auto-refresh)
+  - `apps/web/package.json` (added @types/nodemailer)
+  - `packages/ai-engine/package.json` (added @types/node, typescript)
 
 ---
 
