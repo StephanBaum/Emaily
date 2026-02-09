@@ -143,11 +143,12 @@ model Thread {
   mailboxId      String   @map("mailbox_id")
   teamId         String   @map("team_id")
   subject        String
-  status         String   @default("open") // open, archived, snoozed
-  hasSentReply   Boolean  @default(false) @map("has_sent_reply")
-  lastActivityAt DateTime @default(now()) @map("last_activity_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  status            String   @default("open") // open, archived, snoozed, quarantined
+  senderTrustLevel  String?  @map("sender_trust_level") // cached from Contact: stranger, known, trusted, vip
+  hasSentReply      Boolean  @default(false) @map("has_sent_reply")
+  lastActivityAt    DateTime @default(now()) @map("last_activity_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   mailbox      Mailbox       @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
   emails       Email[]
@@ -182,6 +183,8 @@ model Email {
   isDraft        Boolean                @default(false) @map("is_draft")
   isSent         Boolean                @default(false) @map("is_sent")
   isBot          Boolean                @default(false) @map("is_bot")
+  spamScore      Float?                 @map("spam_score") // 0.0 (ham) to 1.0 (spam)
+  spamAnalysis   Json?                  @map("spam_analysis") // SpamAnalysisResult
   rawHeaders     Json?                  @map("raw_headers")
   embedding      Unsupported("vector")?
   embeddingModel String?                @map("embedding_model")
@@ -335,10 +338,11 @@ model Tag {
   teamId    String   @map("team_id")
   name      String
   color     String   @default("#6366f1")
-  aiAction  String   @default("none") // none, draft, research_draft, auto_reply, archive, notify
-  autoRules Json?    @map("auto_rules") // TagRule conditions
-  tagGroup  String?  @map("tag_group") // Sidebar grouping (e.g. "Internal", "Projects")
-  active    Boolean  @default(true)
+  aiAction      String   @default("none") // none, draft, research_draft, auto_reply, archive, notify
+  autoRules     Json?    @map("auto_rules") // TagRule conditions
+  minTrustLevel String   @default("stranger") @map("min_trust_level") // minimum sender trust for AI to apply: stranger, known, trusted, vip
+  tagGroup      String?  @map("tag_group") // Sidebar grouping (e.g. "Internal", "Projects")
+  active        Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -414,17 +418,21 @@ model QAPair {
 // ============================================
 
 model Contact {
-  id              String    @id @default(cuid())
-  teamId          String    @map("team_id")
-  email           String
-  name            String?
-  company         String?
-  tags            String[]  @default([])
-  notes           String?
-  lastContactedAt DateTime? @map("last_contacted_at")
-  autoLearned     Boolean   @default(false) @map("auto_learned")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(cuid())
+  teamId           String    @map("team_id")
+  email            String
+  name             String?
+  company          String?
+  domain           String?
+  tags             String[]  @default([])
+  notes            String?
+  trustLevel       String    @default("stranger") @map("trust_level") // stranger, known, trusted, vip
+  interactionCount Int       @default(0) @map("interaction_count")
+  repliedToCount   Int       @default(0) @map("replied_to_count")
+  lastContactedAt  DateTime? @map("last_contacted_at")
+  autoLearned      Boolean   @default(false) @map("auto_learned")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 

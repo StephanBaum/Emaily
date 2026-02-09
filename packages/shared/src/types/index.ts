@@ -30,7 +30,7 @@ export interface Mailbox {
 }
 
 // Thread & Email types
-export type ThreadStatus = "open" | "archived" | "snoozed";
+export type ThreadStatus = "open" | "archived" | "snoozed" | "quarantined";
 export type AssignmentStatus = "open" | "in_progress" | "done";
 
 export interface Thread {
@@ -78,6 +78,28 @@ export interface Tag {
   aiAction: TagAIAction;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Trust & Spam types
+export type TrustLevel = "stranger" | "known" | "trusted" | "vip";
+export const TRUST_LEVEL_ORDER: Record<TrustLevel, number> = {
+  stranger: 0,
+  known: 1,
+  trusted: 2,
+  vip: 3,
+};
+
+export interface SpamAnalysisResult {
+  spf: "pass" | "fail" | "softfail" | "none" | "unknown";
+  dkim: "pass" | "fail" | "none" | "unknown";
+  dmarc: "pass" | "fail" | "none" | "unknown";
+  xSpamScore: number | null;
+  xSpamStatus: string | null;
+  googleSpamVerdict: string | null;
+  bulkPrecedence: boolean;
+  fromReplyToMismatch: boolean;
+  headerScore: number;
+  signals: string[];
 }
 
 // AI types
