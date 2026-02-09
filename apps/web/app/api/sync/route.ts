@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { MailboxSyncer, type SyncCallbacks, type EmailToStore, type ThreadToCreate } from "@emailautomation/mail-engine";
+import { MailboxSyncer, type SyncCallbacks, type EmailToStore, type ThreadToCreate, analyzeSpam, SPAM_THRESHOLD_QUARANTINE } from "@emailautomation/mail-engine";
 import { decrypt } from "@emailautomation/security";
+import { upsertContactFromEmail } from "@/lib/contacts";
 
 export async function POST() {
   const session = await auth();
@@ -63,6 +64,13 @@ export async function POST() {
         },
 
         addEmailToThread: async (threadId: string, email: EmailToStore) => {
+          // Spam analysis
+          const spamAnalysis = analyzeSpam({
+            headers: email.headers,
+            fromAddress: email.fromAddress,
+            subject: email.subject,
+          });
+
           await prisma.email.create({
             data: {
               threadId,
@@ -80,6 +88,8 @@ export async function POST() {
               date: email.date,
               folder: email.folder,
               isBot: email.isBot,
+              spamScore: spamAnalysis.headerScore,
+              spamAnalysis: spamAnalysis as Record<string, unknown>,
               rawHeaders: email.headers,
             },
           });
@@ -87,34 +97,69 @@ export async function POST() {
             where: { id: threadId },
             data: { lastActivityAt: new Date() },
           });
+
+          // Auto-learn contact
+          await upsertContactFromEmail(
+            mailbox.teamId,
+            email.fromAddress,
+            email.fromName
+          );
         },
 
         createThread: async (_mailboxId: string, _teamId: string, thread: ThreadToCreate) => {
+          // Analyze first email for spam + contact
+          const firstEmail = thread.emails[0];
+          const spamAnalysis = analyzeSpam({
+            headers: firstEmail.headers,
+            fromAddress: firstEmail.fromAddress,
+            subject: firstEmail.subject,
+          });
+
+          const { trustLevel } = await upsertContactFromEmail(
+            mailbox.teamId,
+            firstEmail.fromAddress,
+            firstEmail.fromName
+          );
+
+          const shouldQuarantine = spamAnalysis.headerScore >= SPAM_THRESHOLD_QUARANTINE;
+
           const newThread = await prisma.thread.create({
             data: {
               mailboxId: mailbox.id,
               teamId: mailbox.teamId,
               subject: thread.subject,
-              status: "open",
+              status: shouldQuarantine ? "quarantined" : "open",
+              senderTrustLevel: trustLevel,
               lastActivityAt: new Date(),
               emails: {
-                create: thread.emails.map((email) => ({
-                  messageId: email.messageId,
-                  inReplyTo: email.inReplyTo,
-                  references: email.references,
-                  imapUid: email.uid,
-                  subject: email.subject,
-                  bodyText: email.bodyText,
-                  bodyHtml: email.bodyHtml,
-                  fromAddress: email.fromAddress,
-                  fromName: email.fromName,
-                  toAddresses: email.toAddresses,
-                  ccAddresses: email.ccAddresses,
-                  date: email.date,
-                  folder: email.folder,
-                  isBot: email.isBot,
-                  rawHeaders: email.headers,
-                })),
+                create: thread.emails.map((email) => {
+                  const emailSpam = email === firstEmail
+                    ? spamAnalysis
+                    : analyzeSpam({
+                        headers: email.headers,
+                        fromAddress: email.fromAddress,
+                        subject: email.subject,
+                      });
+                  return {
+                    messageId: email.messageId,
+                    inReplyTo: email.inReplyTo,
+                    references: email.references,
+                    imapUid: email.uid,
+                    subject: email.subject,
+                    bodyText: email.bodyText,
+                    bodyHtml: email.bodyHtml,
+                    fromAddress: email.fromAddress,
+                    fromName: email.fromName,
+                    toAddresses: email.toAddresses,
+                    ccAddresses: email.ccAddresses,
+                    date: email.date,
+                    folder: email.folder,
+                    isBot: email.isBot,
+                    spamScore: emailSpam.headerScore,
+                    spamAnalysis: emailSpam as Record<string, unknown>,
+                    rawHeaders: email.headers,
+                  };
+                }),
               },
             },
           });
