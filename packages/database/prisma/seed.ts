@@ -35,7 +35,11 @@ async function main() {
   console.log("Created user:", user.email);
 
   // Create mailbox connected to GreenMail test server
-  const encryptionKey = process.env.ENCRYPTION_KEY || "dev-encryption-key-32-chars-min!";
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    console.error("ENCRYPTION_KEY env var is required. Set it to match apps/web/.env.local");
+    process.exit(1);
+  }
   const imapPasswordEnc = encrypt("test", encryptionKey);
   const smtpPasswordEnc = encrypt("test", encryptionKey);
 
@@ -109,6 +113,28 @@ async function main() {
     });
   }
   console.log("Created sample tags");
+
+  // Create default AI agent
+  await prisma.agent.upsert({
+    where: {
+      teamId_name: {
+        teamId: team.id,
+        name: "Emaily",
+      },
+    },
+    update: {},
+    create: {
+      teamId: team.id,
+      name: "Emaily",
+      role: "General Assistant",
+      systemPrompt:
+        "You are Emaily, a friendly and professional email assistant. Write clear, helpful replies that address all questions. Keep a warm but professional tone. Be concise.",
+      temperature: 0.4,
+      active: true,
+      isDefault: true,
+    },
+  });
+  console.log("Created default AI agent: Emaily");
 
   // Create a sample thread with emails for testing
   const thread = await prisma.thread.upsert({

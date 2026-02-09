@@ -26,6 +26,7 @@ model Team {
   contacts   Contact[]
   qaPairs    QAPair[]
   activities ActivityLog[]
+  agents     Agent[]
 
   @@map("teams")
 }
@@ -290,6 +291,7 @@ model SharedDraft {
   threadId      String?   @map("thread_id")
   mailboxId     String    @map("mailbox_id")
   createdById   String    @map("created_by_id")
+  agentId       String?   @map("agent_id")
   toAddresses   String[]  @map("to_addresses")
   ccAddresses   String[]  @default([]) @map("cc_addresses")
   bccAddresses  String[]  @default([]) @map("bcc_addresses")
@@ -306,6 +308,7 @@ model SharedDraft {
   thread       Thread?            @relation(fields: [threadId], references: [id], onDelete: Cascade)
   mailbox      Mailbox            @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
   createdBy    User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  agent        Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
   versions     DraftVersion[]
   requirements DraftRequirement[]
 
@@ -342,8 +345,9 @@ model Tag {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  team    Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  threads ThreadTag[]
+  team         Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  threads      ThreadTag[]
+  agentWatches AgentTagWatch[]
 
   @@unique([teamId, name])
   @@map("tags")
@@ -454,4 +458,41 @@ model ActivityLog {
   @@index([teamId, createdAt])
   @@index([userId])
   @@map("activity_logs")
+}
+
+// ============================================
+// AI AGENTS
+// ============================================
+
+model Agent {
+  id           String   @id @default(cuid())
+  teamId       String   @map("team_id")
+  name         String
+  role         String   @default("") // Short description (e.g. "Customer Support")
+  systemPrompt String   @default("") @map("system_prompt")
+  avatar       String?
+  temperature  Float    @default(0.4)
+  active       Boolean  @default(true)
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  team         Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tagWatches   AgentTagWatch[]
+  sharedDrafts SharedDraft[]
+
+  @@unique([teamId, name])
+  @@map("agents")
+}
+
+model AgentTagWatch {
+  id      String @id @default(cuid())
+  agentId String @map("agent_id")
+  tagId   String @map("tag_id")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, tagId])
+  @@map("agent_tag_watches")
 }

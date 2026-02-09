@@ -95,6 +95,81 @@ export interface DraftConfidence {
   toneConsistency: number;
 }
 
+// Tag auto-rule types
+export type TagRuleOperator = "contains" | "equals" | "startsWith" | "endsWith" | "matches";
+export type TagRuleField = "subject" | "from" | "to" | "body";
+export type TagRuleLogic = "AND" | "OR";
+
+export interface TagRuleCondition {
+  field: TagRuleField;
+  operator: TagRuleOperator;
+  value: string;
+}
+
+export interface TagAutoRules {
+  logic: TagRuleLogic;
+  conditions: TagRuleCondition[];
+}
+
+// Agent types
+export interface Agent {
+  id: string;
+  teamId: string;
+  name: string;
+  role: string;
+  systemPrompt: string;
+  avatar: string | null;
+  temperature: number;
+  active: boolean;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AgentTagWatch {
+  id: string;
+  agentId: string;
+  tagId: string;
+}
+
+// Unified AI result (single LLM call output)
+export interface UnifiedAIResult {
+  tags: { name: string; confidence: number }[];
+  intents: EmailIntent[];
+  draft: {
+    subject: string;
+    body: string;
+    confidence: DraftConfidence;
+  } | null;
+}
+
+// AI processing result
+export interface AIProcessingResult {
+  threadId: string;
+  tagsApplied: { tagId: string; name: string; appliedBy: TagAppliedBy; confidence: number }[];
+  intentsExtracted: EmailIntent[];
+  draftGenerated: boolean;
+  draftId?: string;
+  agentId?: string;
+  agentName?: string;
+  actionsExecuted: AIActionExecuted[];
+  error?: string;
+}
+
+export interface AIActionExecuted {
+  action: TagAIAction;
+  tagId?: string;
+  tagName?: string;
+  detail?: string;
+}
+
+export interface AIBulkProcessingResult {
+  total: number;
+  processed: number;
+  errors: number;
+  results: AIProcessingResult[];
+}
+
 // Activity types
 export type ActivityAction =
   | "login"
@@ -106,7 +181,12 @@ export type ActivityAction =
   | "commented"
   | "archived"
   | "draft_created"
-  | "draft_sent";
+  | "draft_sent"
+  | "ai_tagged"
+  | "ai_draft_generated"
+  | "ai_auto_replied"
+  | "ai_archived"
+  | "ai_notified";
 
 export interface ActivityLog {
   id: string;

@@ -1,0 +1,19 @@
+{
+  "name": "@emailautomation/ai-worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "bullmq": "^5.34.0",
+    "ioredis": "^5.4.2",
+    "@emailautomation/ai-engine": "workspace:*",
+    "@emailautomation/database": "workspace:*",
+    "@emailautomation/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}
