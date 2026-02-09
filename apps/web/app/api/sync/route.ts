@@ -128,7 +128,7 @@ export async function POST() {
               folder: email.folder,
               isBot: email.isBot,
               spamScore: spamAnalysis.headerScore,
-              spamAnalysis: spamAnalysis as Record<string, unknown>,
+              spamAnalysis: JSON.parse(JSON.stringify(spamAnalysis)),
               rawHeaders: email.headers,
             },
           });
@@ -195,7 +195,7 @@ export async function POST() {
                     folder: email.folder,
                     isBot: email.isBot,
                     spamScore: emailSpam.headerScore,
-                    spamAnalysis: emailSpam as Record<string, unknown>,
+                    spamAnalysis: JSON.parse(JSON.stringify(emailSpam)),
                     rawHeaders: email.headers,
                   };
                 }),

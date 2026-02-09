@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name, color, aiAction, tagGroup } = body;
+  const { name, color, aiAction, minTrustLevel, tagGroup } = body;
 
   if (!name?.trim()) {
     return NextResponse.json(
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       color: color || "#6366f1",
       aiAction: aiAction || "none",
+      minTrustLevel: minTrustLevel || "stranger",
       tagGroup: tagGroup?.trim() || null,
     },
     include: {

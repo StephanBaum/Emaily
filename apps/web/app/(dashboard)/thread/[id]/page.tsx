@@ -11,7 +11,8 @@ import { SeenByIndicator } from "@/components/thread/seen-by-indicator";
 import { AssignmentSection } from "@/components/thread/assignment-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AIActivityPanel } from "@/components/thread/ai-activity-panel";
-import { Users, MessageSquare, Eye, Sparkles } from "lucide-react";
+import { SenderInfoPanel } from "@/components/thread/sender-info-panel";
+import { Users, MessageSquare, Eye, Sparkles, ShieldCheck } from "lucide-react";
 
 interface ThreadPageProps {
   params: Promise<{ id: string }>;
@@ -152,6 +153,20 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
     },
   });
 
+  // Look up sender contact for trust panel
+  const latestReceivedEmail = [...thread.emails].reverse().find((e) => !e.isSent);
+  const senderContact = latestReceivedEmail
+    ? await prisma.contact.findUnique({
+        where: {
+          teamId_email: {
+            teamId: thread.mailbox.teamId,
+            email: latestReceivedEmail.fromAddress.toLowerCase(),
+          },
+        },
+        select: { id: true, trustLevel: true },
+      })
+    : null;
+
   // Mark as seen and refetch updated seenBy list
   await prisma.seenBy.upsert({
     where: {
@@ -248,6 +263,23 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
 
         {/* Collaboration Panel */}
         <CollaborationPanel>
+          {latestReceivedEmail && (
+            <PanelSection
+              title="Sender"
+              icon={<ShieldCheck className="h-4 w-4" />}
+            >
+              <SenderInfoPanel
+                threadId={thread.id}
+                senderEmail={latestReceivedEmail.fromAddress}
+                senderName={latestReceivedEmail.fromName}
+                senderTrustLevel={(senderContact?.trustLevel || thread.senderTrustLevel || "stranger") as "stranger" | "known" | "trusted" | "vip"}
+                contactId={senderContact?.id || null}
+                spamScore={latestReceivedEmail.spamScore ?? null}
+                threadStatus={thread.status}
+              />
+            </PanelSection>
+          )}
+
           <PanelSection
             title="AI Activity"
             icon={<Sparkles className="h-4 w-4" />}

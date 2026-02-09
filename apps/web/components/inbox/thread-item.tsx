@@ -5,7 +5,8 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Paperclip, Reply, Sparkles } from "lucide-react";
+import { Bot, Crown, Paperclip, Reply, ShieldQuestion, Sparkles } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ThreadEmail {
   id: string;
@@ -36,6 +37,7 @@ interface Thread {
   id: string;
   subject: string;
   status: string;
+  senderTrustLevel?: string | null;
   hasSentReply: boolean;
   lastActivityAt: string;
   emails: ThreadEmail[];
@@ -90,6 +92,26 @@ export function ThreadItem({ thread }: ThreadItemProps) {
             >
               {senderName}
             </span>
+            {thread.senderTrustLevel === "stranger" && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ShieldQuestion className="h-3.5 w-3.5 flex-shrink-0 text-orange-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>Unknown sender</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {thread.senderTrustLevel === "vip" && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Crown className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>VIP contact</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {latestEmail?.fromAddress.includes("noreply") && (
               <Bot className="h-3 w-3 text-muted-foreground" />
             )}

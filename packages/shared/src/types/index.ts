@@ -91,8 +91,8 @@ export const TRUST_LEVEL_ORDER: Record<TrustLevel, number> = {
 
 export interface SpamAnalysisResult {
   spf: "pass" | "fail" | "softfail" | "none" | "unknown";
-  dkim: "pass" | "fail" | "none" | "unknown";
-  dmarc: "pass" | "fail" | "none" | "unknown";
+  dkim: "pass" | "fail" | "softfail" | "none" | "unknown";
+  dmarc: "pass" | "fail" | "softfail" | "none" | "unknown";
   xSpamScore: number | null;
   xSpamStatus: string | null;
   googleSpamVerdict: string | null;

@@ -58,6 +58,13 @@ const AI_ACTIONS = [
   { value: "notify", label: "Notify team" },
 ];
 
+const TRUST_LEVELS = [
+  { value: "stranger", label: "Any sender" },
+  { value: "known", label: "Known contacts" },
+  { value: "trusted", label: "Trusted contacts" },
+  { value: "vip", label: "VIP only" },
+];
+
 const PRESET_COLORS = [
   "#ef4444", "#f59e0b", "#22c55e", "#06b6d4",
   "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7",
@@ -69,6 +76,7 @@ interface TagData {
   name: string;
   color: string;
   aiAction: string;
+  minTrustLevel: string;
   tagGroup: string | null;
   active: boolean;
   _count: { threads: number };
@@ -111,6 +119,7 @@ export default function TagsPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#6366f1");
   const [aiAction, setAiAction] = useState("none");
+  const [minTrustLevel, setMinTrustLevel] = useState("stranger");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [createInGroup, setCreateInGroup] = useState<string | null>(null);
@@ -343,6 +352,7 @@ export default function TagsPage() {
     setName("");
     setColor(PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)]);
     setAiAction("none");
+    setMinTrustLevel("stranger");
     setCreateInGroup(group ?? null);
     setError("");
     setDialogOpen(true);
@@ -353,6 +363,7 @@ export default function TagsPage() {
     setName(tag.name);
     setColor(tag.color);
     setAiAction(tag.aiAction);
+    setMinTrustLevel(tag.minTrustLevel || "stranger");
     setCreateInGroup(tag.tagGroup);
     setError("");
     setDialogOpen(true);
@@ -378,6 +389,7 @@ export default function TagsPage() {
           name: name.trim(),
           color,
           aiAction,
+          minTrustLevel,
           tagGroup: createInGroup || null,
         }),
       });
@@ -668,6 +680,25 @@ export default function TagsPage() {
               </select>
               <p className="text-xs text-muted-foreground">
                 Action the AI takes when this tag is applied to a thread.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="min-trust">Minimum Sender Trust</Label>
+              <select
+                id="min-trust"
+                value={minTrustLevel}
+                onChange={(e) => setMinTrustLevel(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {TRUST_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Minimum sender trust level for the AI to apply this tag. Prevents sensitive tags on unknown senders.
               </p>
             </div>
 

@@ -30,6 +30,7 @@ import {
   Mail,
   Sparkles,
   Bot,
+  ShieldAlert,
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
@@ -162,6 +163,12 @@ export function Sidebar() {
             icon={Clock}
             label="Snoozed"
             isActive={searchParams.get("status") === "snoozed"}
+          />
+          <NavItem
+            href="/inbox?status=quarantined"
+            icon={ShieldAlert}
+            label="Spam"
+            isActive={searchParams.get("status") === "quarantined"}
           />
         </div>
 

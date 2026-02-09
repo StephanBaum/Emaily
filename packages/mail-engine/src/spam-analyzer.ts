@@ -123,7 +123,6 @@ export function analyzeSpam(input: SpamAnalyzerInput): SpamAnalysisResult {
     googleSpamVerdict,
     bulkPrecedence,
     fromReplyToMismatch,
-    headerScore: 0, // placeholder, computed below
     signals,
   });
 
