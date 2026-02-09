@@ -527,6 +527,78 @@ Branch: `feature/ai-integration`
 
 ---
 
+## Phase 7.10: Spam Defense & Sender Trust [DONE]
+
+Branch: `feature/spam-defense` → merged into `feature/ai-integration`
+
+### Schema + Types
+- Added `trustLevel`, `interactionCount`, `repliedToCount`, `domain` to Contact model
+- Added `spamScore`, `spamAnalysis` (Json) to Email model
+- Added `senderTrustLevel` to Thread model
+- Added `minTrustLevel` to Tag model (gates AI tag application)
+- Added `TrustLevel`, `TRUST_LEVEL_ORDER`, `SpamAnalysisResult` types
+- Added `"quarantined"` to `ThreadStatus`
+
+### Spam Analyzer (`packages/mail-engine/src/spam-analyzer.ts`)
+- Pure-function header analysis: SPF/DKIM/DMARC, SpamAssassin, Google headers, From/Reply-To mismatch, bulk precedence
+- Weighted scoring 0.0-1.0, thresholds: >=0.7 quarantine, 0.4-0.7 suspicious
+
+### Contact & Trust Management (`apps/web/lib/contacts.ts`)
+- `upsertContactFromEmail()` — auto-learn contacts, start as "known"
+- `elevateTrustOnReply()` — upgrade to "trusted" when team replies
+- `getSenderTrustLevel()` — lookup or "stranger" if unknown
+- `PATCH /api/contacts/[id]/trust` — manual trust override (only way to set VIP)
+- `POST /api/contacts/elevate-trust` — client-callable trust elevation
+
+### Sync Integration
+- Spam analysis on every incoming email (addEmailToThread + createThread)
+- Contact auto-learning on every sync
+- Quarantine threads with spamScore >= 0.7
+- Cache senderTrustLevel on new threads
+
+### Trust-Gated AI Processing
+- Quarantine gate: `processThreadWithAI()` returns early for quarantined threads
+- Tag filtering: only AI-applies tags where sender meets `minTrustLevel`
+- Auto-reply block: skips auto_reply for senders below "trusted"
+- Trust context injected into LLM prompt (sender trust description)
+- Bulk processing skips quarantined threads
+
+### Trust Elevation on Reply
+- `sendAutoReply()` in ai.ts elevates trust after successful send
+- Reply composer and shared draft composer fire-and-forget `/api/contacts/elevate-trust`
+
+### UI
+- Sidebar: "Spam" nav item (`ShieldAlert` icon, `?status=quarantined`)
+- Thread list: `ShieldQuestion` (orange) for strangers, `Crown` (amber) for VIP contacts
+- Thread detail: Sender info panel with trust selector, spam score bar, "Mark as Not Spam"
+- Tag management: `minTrustLevel` dropdown (Any sender / Known / Trusted / VIP only)
+- `PATCH /api/threads/[id]/status` — thread status change route
+
+### Files
+- `packages/database/prisma/schema.prisma` (Contact, Email, Thread, Tag fields)
+- `packages/shared/src/types/index.ts` (TrustLevel, SpamAnalysisResult, ThreadStatus)
+- `packages/mail-engine/src/spam-analyzer.ts` (new)
+- `packages/mail-engine/src/index.ts` (exports)
+- `apps/web/lib/contacts.ts` (new)
+- `apps/web/app/api/contacts/[id]/trust/route.ts` (new)
+- `apps/web/app/api/contacts/elevate-trust/route.ts` (new)
+- `apps/web/app/api/threads/[id]/status/route.ts` (new)
+- `apps/web/app/api/sync/route.ts` (modified)
+- `apps/web/lib/ai.ts` (modified — trust gating)
+- `packages/ai-engine/src/pipeline/unified-thread-processor.ts` (ThreadContext.senderTrust)
+- `packages/ai-engine/src/prompts/unified-thread.ts` (senderTrust in prompt)
+- `apps/web/components/inbox/sidebar.tsx` (Spam nav)
+- `apps/web/components/inbox/thread-item.tsx` (trust icons)
+- `apps/web/components/thread/sender-info-panel.tsx` (new)
+- `apps/web/app/(dashboard)/thread/[id]/page.tsx` (sender panel integration)
+- `apps/web/app/(dashboard)/tags/page.tsx` (minTrustLevel field)
+- `apps/web/app/api/tags/route.ts` (minTrustLevel)
+- `apps/web/app/api/tags/[id]/route.ts` (minTrustLevel)
+- `apps/web/components/thread/reply-composer.tsx` (trust elevation)
+- `apps/web/components/thread/shared-draft-composer.tsx` (trust elevation)
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---
