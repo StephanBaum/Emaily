@@ -345,6 +345,13 @@ export function SharedDraftComposer({
         body: JSON.stringify({ status: "sent" }),
       });
 
+      // Elevate sender trust (fire-and-forget)
+      fetch("/api/contacts/elevate-trust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientAddress: replyTo }),
+      }).catch(() => {});
+
       setBody("");
       setDraft(null);
       setIsExpanded(false);
@@ -380,6 +387,13 @@ export function SharedDraftComposer({
         const data = await response.json();
         throw new Error(data.error || "Failed to send email");
       }
+
+      // Elevate sender trust (fire-and-forget)
+      fetch("/api/contacts/elevate-trust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientAddress: replyTo }),
+      }).catch(() => {});
 
       setBody("");
       setIsExpanded(false);

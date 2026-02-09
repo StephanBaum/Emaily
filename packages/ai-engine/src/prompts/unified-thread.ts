@@ -22,6 +22,7 @@ interface ThreadContext {
   teamComments: { author: string; text: string; date: string }[];
   previousDraft: string | null;
   previousActivity: string[];
+  senderTrust?: string;
 }
 
 interface UnifiedPromptOptions {
@@ -77,6 +78,9 @@ export function buildUnifiedThreadPrompt(options: UnifiedPromptOptions): ChatMes
     }
     if (threadContext.previousDraft) {
       parts.push(`Previous draft reply:\n${threadContext.previousDraft}`);
+    }
+    if (threadContext.senderTrust) {
+      parts.push(threadContext.senderTrust);
     }
     if (parts.length > 0) {
       contextBlock = "\n\n--- Existing Context ---\n" + parts.join("\n\n");

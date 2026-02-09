@@ -23,6 +23,7 @@ export interface ThreadContext {
   teamComments: { author: string; text: string; date: string }[];
   previousDraft: string | null;
   previousActivity: string[];
+  senderTrust?: string;
 }
 
 export interface UnifiedProcessOptions {

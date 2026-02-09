@@ -69,6 +69,13 @@ export function ReplyComposer({ thread, mailbox }: ReplyComposerProps) {
         throw new Error(data.error || "Failed to send email");
       }
 
+      // Elevate sender trust (fire-and-forget)
+      fetch("/api/contacts/elevate-trust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientAddress: replyTo }),
+      }).catch(() => {});
+
       setBody("");
       setIsExpanded(false);
       revalidateThreads();

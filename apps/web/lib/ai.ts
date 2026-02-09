@@ -11,7 +11,11 @@ import type {
   AIProcessingResult,
   AIBulkProcessingResult,
   ActivityAction,
+  TrustLevel,
 } from "@emailautomation/shared";
+import { TRUST_LEVEL_ORDER } from "@emailautomation/shared";
+import { getSenderTrustLevel } from "@/lib/contacts";
+import { elevateTrustOnReply } from "@/lib/contacts";
 
 let providerInstance: AIProvider | null = null;
 
@@ -121,6 +125,15 @@ async function sendAutoReply(
       data: { hasSentReply: true, lastActivityAt: new Date() },
     });
 
+    // Elevate sender trust when we reply
+    const thread = await prisma.thread.findUnique({
+      where: { id: email.threadId },
+      select: { teamId: true },
+    });
+    if (thread) {
+      await elevateTrustOnReply(thread.teamId, email.fromAddress);
+    }
+
     return sent;
   } finally {
     smtp.close();
@@ -184,6 +197,12 @@ export async function processThreadWithAI(
       return result;
     }
 
+    // Quarantine gate — don't process quarantined threads
+    if (thread.status === "quarantined") {
+      result.error = "Thread is quarantined (spam)";
+      return result;
+    }
+
     // 2. Fetch team tags + run deterministic rules
     const tags = await prisma.tag.findMany({
       where: { teamId, active: true },
@@ -194,6 +213,9 @@ export async function processThreadWithAI(
       result.error = "No incoming emails in thread";
       return result;
     }
+
+    // Resolve sender trust level
+    const senderTrustLevel = await getSenderTrustLevel(teamId, latestReceivedEmail.fromAddress);
 
     const emailData = {
       subject: latestReceivedEmail.subject,
@@ -265,6 +287,13 @@ export async function processThreadWithAI(
         date: c.createdAt.toISOString(),
       })),
       previousDraft: existingDraft?.body || null,
+      senderTrust: senderTrustLevel === "vip"
+        ? "Sender trust: vip — verified important contact"
+        : senderTrustLevel === "trusted"
+          ? "Sender trust: trusted — team has replied to this sender before"
+          : senderTrustLevel === "known"
+            ? "Sender trust: known — seen before but not yet replied to"
+            : "Sender trust: stranger — unknown sender, be cautious with classifications",
       previousActivity: existingActivity.map((a) => {
         const meta = a.metadata as Record<string, unknown> | null;
         switch (a.action) {
@@ -285,7 +314,13 @@ export async function processThreadWithAI(
     };
 
     // 5. Single LLM call via UnifiedThreadProcessor
-    const unmatchedTags = tags.filter((t) => !ruleMatchedTagIds.has(t.id));
+    // Filter tags by sender trust — only offer tags the sender qualifies for
+    const senderTrustOrder = TRUST_LEVEL_ORDER[senderTrustLevel];
+    const unmatchedTags = tags.filter(
+      (t) =>
+        !ruleMatchedTagIds.has(t.id) &&
+        senderTrustOrder >= TRUST_LEVEL_ORDER[(t.minTrustLevel || "stranger") as TrustLevel]
+    );
     const shouldDraft = tags.some(
       (t) =>
         (t.aiAction === "draft" || t.aiAction === "research_draft" || t.aiAction === "auto_reply") &&
@@ -502,6 +537,8 @@ export async function processThreadWithAI(
           // Safety: only auto-reply for rule-matched tags
           const isRuleMatched = match?.appliedBy === "auto" && match?.confidence === 1.0;
           if (!isRuleMatched) break;
+          // Trust gate: never auto-reply to untrusted senders
+          if (senderTrustOrder < TRUST_LEVEL_ORDER["trusted"]) break;
 
           if (unifiedResult.draft) {
             try {
@@ -609,10 +646,11 @@ export async function processEmailWithAI(
 export async function processAllThreadsWithAI(
   teamId: string
 ): Promise<AIBulkProcessingResult> {
-  // Find threads with unprocessed incoming emails
+  // Find threads with unprocessed incoming emails (skip quarantined)
   const threadsWithUnprocessed = await prisma.thread.findMany({
     where: {
       mailbox: { teamId },
+      status: { not: "quarantined" },
       emails: {
         some: {
           isSent: false,
