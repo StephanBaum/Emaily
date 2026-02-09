@@ -28,11 +28,15 @@ import {
   ChevronDown,
   ChevronRight,
   Mail,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
 import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { revalidateAll } from "@/lib/revalidate";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -41,9 +45,13 @@ export function Sidebar() {
   const { mailboxes, isLoading } = useMailboxes();
   const { tags, isLoading: tagsLoading } = useTags();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiProgress, setAIProgress] = useState<string | null>(null);
   const { isCollapsed, toggleGroup } = useCollapsedGroups();
   const { sortGroups } = useGroupOrder();
   const { sortTags } = useTagOrder();
+
+  const router = useRouter();
 
   const activeTag = searchParams.get("tag");
   const activeTags = searchParams.get("tags");
@@ -58,10 +66,45 @@ export function Sidebar() {
     return activeGroup === groupName;
   }
 
+  async function handleProcessAI() {
+    setIsProcessingAI(true);
+    setAIProgress("Starting...");
+    try {
+      const res = await fetch("/api/ai/process-all", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setAIProgress(`Done: ${data.processed}/${data.total} processed`);
+        setTimeout(() => setAIProgress(null), 3000);
+      } else {
+        setAIProgress("Failed");
+        setTimeout(() => setAIProgress(null), 3000);
+      }
+    } catch (error) {
+      console.error("AI processing failed:", error);
+      setAIProgress(null);
+    } finally {
+      setIsProcessingAI(false);
+      revalidateAll();
+      router.refresh();
+    }
+  }
+
   async function handleSync() {
     setIsSyncing(true);
     try {
-      await fetch("/api/sync", { method: "POST" });
+      const res = await fetch("/api/sync", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        // Immediately refresh all caches so new threads appear
+        revalidateAll();
+        router.refresh();
+        const hasNewEmails = data.results?.some(
+          (r: { newEmails: number }) => r.newEmails > 0
+        );
+        if (hasNewEmails) {
+          handleProcessAI();
+        }
+      }
     } catch (error) {
       console.error("Sync failed:", error);
     } finally {
@@ -246,8 +289,8 @@ export function Sidebar() {
         </div>
       </ScrollArea>
 
-      {/* Sync Button */}
-      <div className="border-t p-3">
+      {/* Sync & AI Buttons */}
+      <div className="border-t p-3 space-y-2">
         <Button
           variant="outline"
           className="w-full justify-start"
@@ -258,6 +301,19 @@ export function Sidebar() {
             className={cn("mr-2 h-4 w-4", isSyncing && "animate-spin")}
           />
           {isSyncing ? "Syncing..." : "Sync Mail"}
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full justify-start"
+          onClick={handleProcessAI}
+          disabled={isProcessingAI}
+        >
+          <Sparkles
+            className={cn("mr-2 h-4 w-4", isProcessingAI && "animate-pulse")}
+          />
+          {isProcessingAI
+            ? aiProgress || "Processing..."
+            : aiProgress || "Process All with AI"}
         </Button>
       </div>
 
@@ -289,6 +345,12 @@ export function Sidebar() {
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
               Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/agents">
+                <Bot className="mr-2 h-4 w-4" />
+                AI Agents
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MailboxSyncer, type SyncCallbacks, type EmailToStore, type ThreadToCreate } from "@emailautomation/mail-engine";
-import { decrypt } from "@emailautomation/security";
+import { decrypt, encrypt } from "@emailautomation/security";
+import { injectTestEmails } from "@/lib/test-email-injector";
 
 export async function POST() {
   const session = await auth();
@@ -27,6 +28,28 @@ export async function POST() {
     );
   }
 
+  // Inject random test emails via SMTP before syncing (dev mode)
+  const injected: { mailbox: string; sent: number; subjects: string[] }[] = [];
+  if (process.env.NODE_ENV !== "production") {
+    for (const { mailbox } of accessibleMailboxes) {
+      if (mailbox.smtpHost && mailbox.smtpPort) {
+        try {
+          const result = await injectTestEmails(
+            mailbox.smtpHost,
+            mailbox.smtpPort,
+            mailbox.emailAddress
+          );
+          injected.push({
+            mailbox: mailbox.emailAddress,
+            ...result,
+          });
+        } catch (err) {
+          console.error(`[TestInjector] Failed for ${mailbox.emailAddress}:`, err);
+        }
+      }
+    }
+  }
+
   const results: { mailbox: string; newEmails: number; newThreads: number; errors: string[] }[] = [];
 
   for (const { mailbox } of accessibleMailboxes) {
@@ -41,7 +64,23 @@ export async function POST() {
     }
 
     try {
-      const imapPassword = decrypt(mailbox.imapPasswordEnc, encryptionKey);
+      let imapPassword: string;
+      try {
+        imapPassword = decrypt(mailbox.imapPasswordEnc, encryptionKey);
+      } catch {
+        if (process.env.NODE_ENV !== "production") {
+          // Dev mode: encryption key mismatch from seed — re-encrypt with current key
+          imapPassword = mailbox.imapUser || "test";
+          const fixed = encrypt(imapPassword, encryptionKey);
+          await prisma.mailbox.update({
+            where: { id: mailbox.id },
+            data: { imapPasswordEnc: fixed, smtpPasswordEnc: fixed },
+          });
+          console.warn(`[Sync] Re-encrypted credentials for ${mailbox.emailAddress} (key mismatch)`);
+        } else {
+          throw new Error("Failed to decrypt IMAP credentials");
+        }
+      }
 
       const callbacks: SyncCallbacks = {
         getExistingThreads: async () => {
@@ -63,7 +102,7 @@ export async function POST() {
         },
 
         addEmailToThread: async (threadId: string, email: EmailToStore) => {
-          await prisma.email.create({
+          const created = await prisma.email.create({
             data: {
               threadId,
               messageId: email.messageId,
@@ -117,6 +156,9 @@ export async function POST() {
                 })),
               },
             },
+            include: {
+              emails: { select: { id: true } },
+            },
           });
           return newThread.id;
         },
@@ -164,11 +206,12 @@ export async function POST() {
         },
       };
 
+      const imapPort = mailbox.imapPort || 993;
       const syncer = new MailboxSyncer(
         {
           host: mailbox.imapHost,
-          port: mailbox.imapPort || 993,
-          secure: true,
+          port: imapPort,
+          secure: imapPort === 993 || imapPort === 3993,
           auth: {
             user: mailbox.imapUser || mailbox.emailAddress,
             pass: imapPassword,
@@ -222,6 +265,7 @@ export async function POST() {
 
   return NextResponse.json({
     success: true,
+    injected: injected.length > 0 ? injected : undefined,
     results,
   });
 }

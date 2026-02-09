@@ -1,5 +1,5 @@
 {
-  "name": "emailautomation",
+  "name": "emaily",
   "private": true,
   "scripts": {
     "dev": "turbo dev",

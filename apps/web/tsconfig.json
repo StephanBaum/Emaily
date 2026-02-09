@@ -16,6 +16,7 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
+      "@emailautomation/ai-engine": ["../../packages/ai-engine/src"],
       "@emailautomation/database": ["../../packages/database/src"],
       "@emailautomation/shared": ["../../packages/shared/src"]
     }

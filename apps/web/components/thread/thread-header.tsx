@@ -20,6 +20,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { TagPicker, TagMenuPopover } from "./tag-picker";
+import { revalidateThreads } from "@/lib/revalidate";
 
 interface ThreadTag {
   tag: {
@@ -55,6 +56,7 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    revalidateThreads();
     router.refresh();
   }
 

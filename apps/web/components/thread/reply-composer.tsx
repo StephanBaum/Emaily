@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Paperclip, Send, X } from "lucide-react";
+import { revalidateThreads } from "@/lib/revalidate";
 
 interface Mailbox {
   id: string;
@@ -70,6 +71,7 @@ export function ReplyComposer({ thread, mailbox }: ReplyComposerProps) {
 
       setBody("");
       setIsExpanded(false);
+      revalidateThreads();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send email");

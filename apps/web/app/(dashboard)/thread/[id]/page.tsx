@@ -10,7 +10,8 @@ import { CommentSection } from "@/components/thread/comment-section";
 import { SeenByIndicator } from "@/components/thread/seen-by-indicator";
 import { AssignmentSection } from "@/components/thread/assignment-section";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, MessageSquare, Eye } from "lucide-react";
+import { AIActivityPanel } from "@/components/thread/ai-activity-panel";
+import { Users, MessageSquare, Eye, Sparkles } from "lucide-react";
 
 interface ThreadPageProps {
   params: Promise<{ id: string }>;
@@ -118,6 +119,12 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
               id: true,
               name: true,
               email: true,
+            },
+          },
+          agent: {
+            select: {
+              id: true,
+              name: true,
             },
           },
         },
@@ -233,11 +240,21 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
             thread={thread}
             mailbox={thread.mailbox}
             existingDraft={serializedDraft}
+            confidence={existingDraft?.confidence as Record<string, number> | null ?? null}
+            lockType={existingDraft?.lockType ?? null}
+            agentName={existingDraft?.agent?.name ?? null}
           />
         </div>
 
         {/* Collaboration Panel */}
         <CollaborationPanel>
+          <PanelSection
+            title="AI Activity"
+            icon={<Sparkles className="h-4 w-4" />}
+          >
+            <AIActivityPanel threadId={thread.id} />
+          </PanelSection>
+
           <PanelSection
             title={`Assignments (${serializedAssignments.length})`}
             icon={<Users className="h-4 w-4" />}

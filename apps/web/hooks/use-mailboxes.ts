@@ -25,7 +25,8 @@ async function fetcher(url: string) {
 export function useMailboxes() {
   const { data, error, isLoading, mutate } = useSWR<Mailbox[]>(
     "/api/mailboxes",
-    fetcher
+    fetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true }
   );
 
   return {

@@ -13,9 +13,19 @@ import {
   History,
   FileEdit,
   Users,
+  Sparkles,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DraftVersionHistory } from "./draft-version-history";
+import { cn } from "@/lib/utils";
+import { useAgents } from "@/hooks/use-agents";
+import { revalidateThreads } from "@/lib/revalidate";
 
 interface Mailbox {
   id: string;
@@ -51,6 +61,9 @@ interface SharedDraftComposerProps {
   thread: Thread;
   mailbox: Mailbox;
   existingDraft?: SharedDraft | null;
+  confidence?: Record<string, number> | null;
+  lockType?: string | null;
+  agentName?: string | null;
   onDraftCreated?: (draft: SharedDraft) => void;
   onDraftUpdated?: (draft: SharedDraft) => void;
 }
@@ -62,15 +75,24 @@ export function SharedDraftComposer({
   thread,
   mailbox,
   existingDraft,
+  confidence,
+  lockType,
+  agentName: initialAgentName,
   onDraftCreated,
   onDraftUpdated,
 }: SharedDraftComposerProps) {
   const router = useRouter();
+  const isAIDraft = lockType === "generating";
+  const overallConfidence = confidence?.overall ?? null;
+  const { agents } = useAgents();
+  const activeAgents = agents?.filter((a) => a.active) ?? [];
+  const [isDraftingWithAI, setIsDraftingWithAI] = useState(false);
   const [draft, setDraft] = useState<SharedDraft | null>(existingDraft || null);
   const [isExpanded, setIsExpanded] = useState(!!existingDraft);
   const [mode, setMode] = useState<"personal" | "shared">(
     existingDraft ? "shared" : "personal"
   );
+  const [isAIEdited, setIsAIEdited] = useState(false);
   const [body, setBody] = useState(existingDraft?.body || "");
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -83,6 +105,35 @@ export function SharedDraftComposer({
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const saveDraftRef = useRef<() => Promise<void>>();
+  const lastDraftIdRef = useRef(existingDraft?.id ?? null);
+  const draftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sync state when existingDraft prop changes (from router.refresh or server re-render)
+  useEffect(() => {
+    const newId = existingDraft?.id ?? null;
+    if (newId && newId !== lastDraftIdRef.current) {
+      lastDraftIdRef.current = newId;
+      setDraft(existingDraft || null);
+      setBody(existingDraft?.body || "");
+      setLastSavedBody(existingDraft?.body || "");
+      setMode("shared");
+      setIsExpanded(true);
+      setIsAIEdited(false);
+    } else if (existingDraft && existingDraft.body !== lastSavedBody && !draft?.isLockedByMe) {
+      // Draft content changed externally (e.g. different agent re-drafted)
+      setDraft(existingDraft);
+      setBody(existingDraft.body || "");
+      setLastSavedBody(existingDraft.body || "");
+      setIsAIEdited(false);
+    }
+  }, [existingDraft?.id, existingDraft?.body]);
+
+  // Clean up draft poll on unmount
+  useEffect(() => {
+    return () => {
+      if (draftPollRef.current) clearInterval(draftPollRef.current);
+    };
+  }, []);
 
   // Get reply recipients from the last email
   const lastEmail = thread.emails[thread.emails.length - 1];
@@ -297,6 +348,7 @@ export function SharedDraftComposer({
       setBody("");
       setDraft(null);
       setIsExpanded(false);
+      revalidateThreads();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send email");
@@ -331,6 +383,7 @@ export function SharedDraftComposer({
 
       setBody("");
       setIsExpanded(false);
+      revalidateThreads();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send email");
@@ -342,6 +395,34 @@ export function SharedDraftComposer({
   function handleVersionRestore(newBody: string) {
     setBody(newBody);
     setShowHistory(false);
+  }
+
+  async function handleDraftWithAI(agentId: string) {
+    setIsDraftingWithAI(true);
+    try {
+      const res = await fetch("/api/ai/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId: thread.id, agentId }),
+      });
+
+      if (res.ok) {
+        // Poll for the draft to appear / update, then refresh the page
+        let polls = 0;
+        draftPollRef.current = setInterval(async () => {
+          polls++;
+          router.refresh();
+          if (polls >= 5) {
+            if (draftPollRef.current) clearInterval(draftPollRef.current);
+            draftPollRef.current = null;
+          }
+        }, 1000);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsDraftingWithAI(false);
+    }
   }
 
   // Collapsed state - show reply prompt and shared draft button
@@ -375,6 +456,40 @@ export function SharedDraftComposer({
             )}
             Start Shared Draft
           </Button>
+          {activeAgents.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isDraftingWithAI}
+                >
+                  {isDraftingWithAI ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  Draft with AI
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {activeAgents.map((agent) => (
+                  <DropdownMenuItem
+                    key={agent.id}
+                    onClick={() => handleDraftWithAI(agent.id)}
+                  >
+                    <Sparkles className="mr-2 h-3.5 w-3.5" />
+                    {agent.name}
+                    {agent.isDefault && (
+                      <Badge variant="secondary" className="ml-2 text-[10px] px-1 py-0">
+                        default
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
     );
@@ -507,12 +622,22 @@ export function SharedDraftComposer({
   return (
     <div className="border-t">
       {/* Header with shared draft badge and editor info */}
-      <div className="flex items-center justify-between px-4 py-2 bg-muted/30">
+      <div className={cn(
+        "flex items-center justify-between px-4 py-2",
+        isAIDraft && !isAIEdited ? "bg-emerald-50/50 dark:bg-emerald-950/20" : "bg-muted/30"
+      )}>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="gap-1">
-            <FileEdit className="h-3 w-3" />
-            Shared Draft
-          </Badge>
+          {isAIDraft && !isAIEdited ? (
+            <Badge variant="secondary" className="gap-1 bg-emerald-100 text-emerald-700 border-emerald-200">
+              <Sparkles className="h-3 w-3" />
+              {initialAgentName || "AI Draft"}{overallConfidence !== null ? ` \u00b7 ${Math.round(overallConfidence * 100)}%` : ""}
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="gap-1">
+              <FileEdit className="h-3 w-3" />
+              Shared Draft
+            </Badge>
+          )}
           {isSaving && (
             <span className="text-xs text-muted-foreground">Saving...</span>
           )}
@@ -578,10 +703,18 @@ export function SharedDraftComposer({
           </div>
         ) : (
           <textarea
-            className="min-h-[150px] w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className={cn(
+              "min-h-[150px] w-full resize-none rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
+              isAIDraft && !isAIEdited
+                ? "bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-200"
+                : "bg-background"
+            )}
             placeholder="Write your reply..."
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(e) => {
+              setBody(e.target.value);
+              if (isAIDraft && !isAIEdited) setIsAIEdited(true);
+            }}
             autoFocus
           />
         )}

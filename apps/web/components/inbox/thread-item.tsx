@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Paperclip, Reply } from "lucide-react";
+import { Bot, Paperclip, Reply, Sparkles } from "lucide-react";
 
 interface ThreadEmail {
   id: string;
@@ -16,6 +16,7 @@ interface ThreadEmail {
 }
 
 interface ThreadTag {
+  appliedBy?: string;
   tag: {
     id: string;
     name: string;
@@ -123,17 +124,20 @@ export function ThreadItem({ thread }: ThreadItemProps) {
 
         {(thread.tags.length > 0 || thread.assignments.length > 0) && (
           <div className="mt-2 flex items-center gap-2">
-            {thread.tags.map(({ tag }) => (
+            {thread.tags.map(({ tag, appliedBy }) => (
               <Badge
                 key={tag.id}
                 variant="secondary"
-                className="text-xs"
+                className="gap-1 text-xs"
                 style={{
                   backgroundColor: `${tag.color}20`,
                   color: tag.color,
                   borderColor: tag.color,
                 }}
               >
+                {appliedBy === "ai" && (
+                  <Sparkles className="h-2.5 w-2.5" />
+                )}
                 {tag.name}
               </Badge>
             ))}

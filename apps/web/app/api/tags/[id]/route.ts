@@ -14,7 +14,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { name, color, aiAction, active, tagGroup } = body;
+  const { name, color, aiAction, autoRules, active, tagGroup } = body;
 
   // Verify tag belongs to user's team
   const tag = await prisma.tag.findFirst({
@@ -50,6 +50,7 @@ export async function PATCH(
       name: name?.trim() ?? undefined,
       color: color ?? undefined,
       aiAction: aiAction ?? undefined,
+      autoRules: autoRules !== undefined ? autoRules : undefined,
       tagGroup: tagGroup !== undefined ? (tagGroup?.trim() || null) : undefined,
       active: active ?? undefined,
     },
