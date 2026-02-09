@@ -83,6 +83,7 @@ Full architecture and implementation plans in `docs/plans/`:
 ## Progress
 
 Document your progress in `docs/progress.md`:
+manage your progrss in different feature branches and make regular git commits when a working status is reached.
 
 Note what features pf the plans you implemented.
 in short technical notations / files that were touched / git commits related to the topic. etc to make it easier to track our progress.
