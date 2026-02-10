@@ -6,13 +6,13 @@ import { EmailChain } from "@/components/thread/email-chain";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { SharedDraftComposer } from "@/components/thread/shared-draft-composer";
 import { CollaborationPanel, PanelSection } from "@/components/thread/collaboration-panel";
-import { CommentSection } from "@/components/thread/comment-section";
+import { CommentPanelSection } from "@/components/thread/comment-panel-section";
 import { SeenByIndicator } from "@/components/thread/seen-by-indicator";
 import { AssignmentSection } from "@/components/thread/assignment-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AIActivityPanel } from "@/components/thread/ai-activity-panel";
 import { SenderInfoPanel } from "@/components/thread/sender-info-panel";
-import { Users, MessageSquare, Eye, Sparkles, ShieldCheck } from "lucide-react";
+import { Users, Eye, Sparkles, ShieldCheck } from "lucide-react";
 
 interface ThreadPageProps {
   params: Promise<{ id: string }>;
@@ -298,16 +298,10 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
             />
           </PanelSection>
 
-          <PanelSection
-            title={`Comments (${serializedComments.length})`}
-            icon={<MessageSquare className="h-4 w-4" />}
-          >
-            <CommentSection
-              threadId={thread.id}
-              initialComments={serializedComments}
-              compact
-            />
-          </PanelSection>
+          <CommentPanelSection
+            threadId={thread.id}
+            initialComments={serializedComments}
+          />
 
           <PanelSection
             title={`Viewed by (${serializedSeenBy.length})`}

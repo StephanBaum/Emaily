@@ -30,9 +30,10 @@ interface CommentSectionProps {
   threadId: string;
   initialComments: Comment[];
   compact?: boolean;
+  onCountChange?: (count: number) => void;
 }
 
-export function CommentSection({ threadId, initialComments, compact = false }: CommentSectionProps) {
+export function CommentSection({ threadId, initialComments, compact = false, onCountChange }: CommentSectionProps) {
   const { data: session } = useSession();
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState("");
@@ -41,6 +42,11 @@ export function CommentSection({ threadId, initialComments, compact = false }: C
   useEffect(() => {
     setComments(initialComments);
   }, [initialComments]);
+
+  // Notify parent of count changes
+  useEffect(() => {
+    onCountChange?.(comments.length);
+  }, [comments.length, onCountChange]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
