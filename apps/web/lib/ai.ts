@@ -516,17 +516,22 @@ export async function processThreadWithAI(
 
       switch (tag.aiAction) {
         case "archive": {
-          if (executedActionKeys.has(`ai_archived:${tag.name}`)) break;
+          // Spam tag → quarantine instead of archive
+          const isSpamTag = tag.name.toLowerCase() === "spam";
+          const targetStatus = isSpamTag ? "quarantined" : "archived";
+          const actionKey = isSpamTag ? "ai_quarantined" : "ai_archived";
+
+          if (executedActionKeys.has(`${actionKey}:${tag.name}`)) break;
           await prisma.thread.update({
             where: { id: threadId },
-            data: { status: "archived" },
+            data: { status: targetStatus },
           });
           result.actionsExecuted.push({
-            action: "archive",
+            action: isSpamTag ? "quarantine" : "archive",
             tagId: tag.id,
             tagName: tag.name,
           });
-          await logAIActivity(teamId, threadId, "ai_archived", {
+          await logAIActivity(teamId, threadId, actionKey, {
             tagName: tag.name,
           });
           break;

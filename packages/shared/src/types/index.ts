@@ -67,7 +67,7 @@ export interface Email {
 }
 
 // Tag types
-export type TagAIAction = "none" | "draft" | "research_draft" | "auto_reply" | "archive" | "notify";
+export type TagAIAction = "none" | "draft" | "research_draft" | "auto_reply" | "archive" | "quarantine" | "notify";
 export type TagAppliedBy = "manual" | "auto" | "ai";
 
 export interface Tag {
@@ -208,6 +208,7 @@ export type ActivityAction =
   | "ai_draft_generated"
   | "ai_auto_replied"
   | "ai_archived"
+  | "ai_quarantined"
   | "ai_notified";
 
 export interface ActivityLog {
