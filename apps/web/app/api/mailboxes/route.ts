@@ -9,14 +9,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Debug log
-  console.log("[API /mailboxes] Fetching for user:", session.user.id, session.user.email);
+  const userId = session.user.id;
 
   const mailboxes = await prisma.mailbox.findMany({
     where: {
       access: {
         some: {
-          userId: session.user.id,
+          userId,
         },
       },
     },
@@ -25,14 +24,12 @@ export async function GET() {
       emailAddress: true,
       displayName: true,
       type: true,
-      _count: {
-        select: {
-          threads: {
-            where: {
-              status: "open",
-            },
-          },
+      threads: {
+        where: {
+          status: "open",
+          seenBy: { none: { userId } },
         },
+        select: { id: true },
       },
     },
     orderBy: {
@@ -40,7 +37,11 @@ export async function GET() {
     },
   });
 
-  console.log("[API /mailboxes] Found", mailboxes.length, "mailboxes");
+  // Transform to expected shape with _count
+  const result = mailboxes.map(({ threads, ...mailbox }) => ({
+    ...mailbox,
+    _count: { threads: threads.length },
+  }));
 
-  return NextResponse.json(mailboxes);
+  return NextResponse.json(result);
 }

@@ -49,6 +49,15 @@ export async function POST(
     return NextResponse.json({ error: "Tag not found" }, { status: 404 });
   }
 
+  // Spam tag → quarantine the thread (bidirectional spam/quarantine sync)
+  const isSpamTag = tag.name.toLowerCase() === "spam";
+  if (isSpamTag && thread.status !== "quarantined") {
+    await prisma.thread.update({
+      where: { id: threadId },
+      data: { status: "quarantined" },
+    });
+  }
+
   // Upsert to avoid duplicate errors
   const threadTag = await prisma.threadTag.upsert({
     where: {
@@ -107,9 +116,36 @@ export async function DELETE(
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
+  // Look up the tag to check if it's the spam tag
+  const tag = await prisma.tag.findUnique({ where: { id: tagId } });
+
   await prisma.threadTag.deleteMany({
     where: { threadId, tagId },
   });
+
+  // Removing spam tag → un-quarantine the thread and elevate sender trust
+  if (tag && tag.name.toLowerCase() === "spam" && thread.status === "quarantined") {
+    await prisma.thread.update({
+      where: { id: threadId },
+      data: { status: "open" },
+    });
+
+    // Learn: elevate sender trust to "known" (not spam)
+    const latestEmail = await prisma.email.findFirst({
+      where: { threadId, isSent: false },
+      orderBy: { date: "desc" },
+    });
+    if (latestEmail) {
+      await prisma.contact.updateMany({
+        where: {
+          teamId: thread.teamId,
+          email: latestEmail.fromAddress.toLowerCase(),
+          trustLevel: "stranger",
+        },
+        data: { trustLevel: "known" },
+      });
+    }
+  }
 
   return NextResponse.json({ success: true });
 }

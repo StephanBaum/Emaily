@@ -52,6 +52,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
+    // Block drafts for quarantined (spam) threads
+    if (thread.status === "quarantined") {
+      return NextResponse.json(
+        { error: "Cannot draft replies to quarantined threads. Mark as not spam first." },
+        { status: 403 }
+      );
+    }
+
     // Check if draft already exists for this thread
     const existingDraft = await prisma.sharedDraft.findFirst({
       where: {

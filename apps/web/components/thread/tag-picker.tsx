@@ -50,7 +50,7 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
   async function fetchTags() {
     setLoading(true);
     try {
-      const res = await fetch("/api/tags");
+      const res = await fetch("/api/tags?context=picker");
       if (res.ok) {
         setAllTags(await res.json());
       }
@@ -174,7 +174,7 @@ export function TagMenuPopover({
   const fetchTags = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tags");
+      const res = await fetch("/api/tags?context=picker");
       if (res.ok) {
         setAllTags(await res.json());
       }

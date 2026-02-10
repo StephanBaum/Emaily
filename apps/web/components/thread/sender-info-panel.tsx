@@ -68,6 +68,17 @@ export function SenderInfoPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "open" }),
       });
+      // Remove spam tag if present
+      const tagsRes = await fetch(`/api/tags?context=picker`);
+      if (tagsRes.ok) {
+        const tags = await tagsRes.json();
+        const spamTag = tags.find((t: { name: string }) => t.name.toLowerCase() === "spam");
+        if (spamTag) {
+          await fetch(`/api/threads/${threadId}/tags?tagId=${spamTag.id}`, {
+            method: "DELETE",
+          });
+        }
+      }
       // Elevate contact trust to known
       if (contactId) {
         await fetch(`/api/contacts/${contactId}/trust`, {

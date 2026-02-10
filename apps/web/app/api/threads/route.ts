@@ -31,10 +31,17 @@ export async function GET(request: NextRequest) {
   };
 
   // Status filtering:
+  // - status=quarantined -> show quarantined OR spam-tagged threads
   // - status=all or tag filter with no explicit status -> show all statuses
   // - status=open/archived/snoozed -> filter by that status
   // - no status param and no tag filter -> default to "open" (inbox behavior)
-  if (status && status !== "all") {
+  if (status === "quarantined") {
+    // Spam category: quarantined threads OR threads tagged "Spam"
+    where.OR = [
+      { status: "quarantined" },
+      { tags: { some: { tag: { name: { equals: "Spam", mode: "insensitive" } } } } },
+    ];
+  } else if (status && status !== "all") {
     where.status = status;
   } else if (!status && !tagId && !tagIds) {
     where.status = "open";

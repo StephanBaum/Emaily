@@ -80,6 +80,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Block replies to quarantined (spam) threads
+    if (thread?.status === "quarantined") {
+      return NextResponse.json(
+        { error: "Cannot reply to quarantined threads. Mark as not spam first." },
+        { status: 403 }
+      );
+    }
+
     if (thread?.emails[0]) {
       inReplyTo = thread.emails[0].messageId;
       references = [...thread.emails[0].references, thread.emails[0].messageId];

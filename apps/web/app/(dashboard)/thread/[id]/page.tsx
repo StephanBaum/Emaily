@@ -251,14 +251,21 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
               <EmailChain emails={thread.emails} />
             </Suspense>
           </div>
-          <SharedDraftComposer
-            thread={thread}
-            mailbox={thread.mailbox}
-            existingDraft={serializedDraft}
-            confidence={existingDraft?.confidence as Record<string, number> | null ?? null}
-            lockType={existingDraft?.lockType ?? null}
-            agentName={existingDraft?.agent?.name ?? null}
-          />
+          {thread.status === "quarantined" ? (
+            <div className="border-t bg-destructive/5 px-6 py-3 text-sm text-destructive flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              This thread is quarantined as spam. Mark as not spam to reply.
+            </div>
+          ) : (
+            <SharedDraftComposer
+              thread={thread}
+              mailbox={thread.mailbox}
+              existingDraft={serializedDraft}
+              confidence={existingDraft?.confidence as Record<string, number> | null ?? null}
+              lockType={existingDraft?.lockType ?? null}
+              agentName={existingDraft?.agent?.name ?? null}
+            />
+          )}
         </div>
 
         {/* Collaboration Panel */}

@@ -2,15 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+// Tags hidden from sidebar navigation (they have dedicated nav items).
+// Still available in tag picker for manual assignment.
+const SIDEBAR_HIDDEN_TAGS = ["spam"];
+
+export async function GET(request: NextRequest) {
   const session = await auth();
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const context = searchParams.get("context"); // "sidebar" or "picker"
+
+  const where: Record<string, unknown> = { teamId: session.user.teamId };
+
+  // Hide spam tag from sidebar (it has its own nav item) but show in picker
+  if (context !== "picker") {
+    where.NOT = { name: { in: SIDEBAR_HIDDEN_TAGS, mode: "insensitive" } };
+  }
+
   const tags = await prisma.tag.findMany({
-    where: { teamId: session.user.teamId },
+    where,
     orderBy: { name: "asc" },
     include: {
       _count: {
