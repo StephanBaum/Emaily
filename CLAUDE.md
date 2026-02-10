@@ -80,6 +80,8 @@ Full architecture and implementation plans in `docs/plans/`:
 - `2026-02-06-email-client-design.md` - Architecture, data model, security, AI pipeline
 - `2026-02-06-email-client-implementation.md` - Phase-by-phase implementation plan
 
+**Always save implementation plans to `docs/plans/`** using the naming convention `YYYY-MM-DD-<feature-name>.md`. Plans should include context, phases, file lists, and verification steps.
+
 ## Progress
 
 Document your progress in `docs/progress.md`:
