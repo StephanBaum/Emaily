@@ -169,6 +169,7 @@ export async function processThreadWithAI(
           include: {
             access: {
               where: { permission: { in: ["write", "admin"] } },
+              include: { user: { select: { name: true, email: true } } },
               take: 1,
             },
           },
@@ -399,6 +400,9 @@ export async function processThreadWithAI(
         replyTo: latestReceivedEmail.fromAddress,
         temperature: agent?.temperature,
         threadContext,
+        agentName: agent?.name,
+        userName: thread.mailbox.access[0]?.user?.name,
+        userEmail: thread.mailbox.access[0]?.user?.email,
       },
       teamId,
       executeAgentTool
@@ -659,13 +663,35 @@ export async function processThreadWithAI(
 
       switch (tag.aiAction) {
         case "archive": {
-          // Triage safety: block archive on high-priority threads
+          // Safety: block archive on high-priority threads
           if (decision.triage.priority === "high") {
             result.actionsExecuted.push({
               action: "archive",
               tagId: tag.id,
               tagName: tag.name,
               detail: "blocked by triage: high priority",
+            });
+            break;
+          }
+
+          // Safety: don't archive if a draft was generated — user should see it first
+          if (result.draftGenerated) {
+            result.actionsExecuted.push({
+              action: "archive",
+              tagId: tag.id,
+              tagName: tag.name,
+              detail: "blocked: draft generated, user should review first",
+            });
+            break;
+          }
+
+          // Safety: don't archive if triage says reply is needed
+          if (decision.triage.needsReply) {
+            result.actionsExecuted.push({
+              action: "archive",
+              tagId: tag.id,
+              tagName: tag.name,
+              detail: "blocked: triage says reply needed",
             });
             break;
           }

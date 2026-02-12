@@ -167,7 +167,9 @@ Respond with ONLY valid JSON in this exact format:
 Rules:
 - tags: Only use tags from the available list. confidence 0.0-1.0. Be selective — only apply tags that truly fit.
 - intents: type must be "question", "request", or "info". priority 1-3.
-- draft: null if not generating. confidence scores all 0.0-1.0.
+- draft: null if not generating. confidence scores all 0.0-1.0. PLAIN TEXT ONLY — no markdown, no bold, no bullet points, no headers.
+- NEVER use placeholder brackets like [name], [company], [detail]. Use actual information from context or omit gracefully.
+- Write complete, ready-to-send emails that require no editing.
 - Be concise and accurate.`;
 
   // Build thread conversation: full body for latest 3, summarized for older

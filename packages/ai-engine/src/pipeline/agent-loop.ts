@@ -22,6 +22,9 @@ export interface AgentLoopOptions {
   replyTo: string;
   temperature?: number;
   threadContext?: ThreadContext;
+  agentName?: string;
+  userName?: string;
+  userEmail?: string;
 }
 
 export interface AgentDecision {
@@ -159,8 +162,14 @@ export class AgentLoop {
 
     const toolsBlock = buildToolDescriptionsBlock();
 
+    const signatureInfo = options.agentName && options.userName
+      ? `\n\nEmail signature: End every draft with a line break, then:\n${options.agentName} (AI) on behalf of ${options.userName}\n${options.userEmail || ""}`
+      : options.userName
+        ? `\n\nEmail signature: End every draft with a line break, then:\nBest regards,\n${options.userName}`
+        : "";
+
     const draftInstruction = options.generateDraft
-      ? `If you decide to generate a draft reply, address it to ${options.replyTo}. Address all extracted intents. Use Q&A material when relevant.`
+      ? `If you decide to generate a draft reply, address it to ${options.replyTo}. Address all extracted intents. Use Q&A material when relevant.${signatureInfo}`
       : `Draft generation is not requested for this thread.`;
 
     return `You are an intelligent email agent that analyzes email threads, classifies them, and optionally drafts replies.
@@ -176,6 +185,12 @@ Available tags:
 ${tagBlock}${qaBlock}${personalityBlock}
 
 ${draftInstruction}
+
+CRITICAL DRAFTING RULES:
+- Write in PLAIN TEXT only. No markdown, no bold (**), no italic (*), no bullet points (- or *), no headers (#). Use plain line breaks and spacing for structure.
+- NEVER use placeholder brackets like [company name], [your name], [specific detail]. Use the actual information from the thread context, sender profile, and knowledge base. If you don't have specific information, write around it naturally or omit the detail entirely.
+- Write complete, ready-to-send emails. The user should not need to edit or fill in any blanks.
+- Be specific and reference actual details from the conversation.
 
 Respond with ONLY valid JSON in this format:
 {
@@ -196,7 +211,7 @@ When readyToDecide is true, include the decision:
     "tags": [{"name": "TagName", "confidence": 0.9}],
     "intents": [{"type": "question", "text": "What is X?", "priority": 1}],
     "triage": {"priority": "medium", "needsReply": true, "reasoning": "..."},
-    "draft": {"subject": "Re: ...", "body": "...", "confidence": {"overall": 0.8, "intentCoverage": 0.9, "qaMatchStrength": 0.7, "ragRelevance": 0.0, "toneConsistency": 0.9}} or null,
+    "draft": {"subject": "Re: ...", "body": "plain text email body", "confidence": {"overall": 0.8, "intentCoverage": 0.9, "qaMatchStrength": 0.7, "ragRelevance": 0.0, "toneConsistency": 0.9}} or null,
     "escalate": false,
     "escalation": null
   }
@@ -206,7 +221,7 @@ Rules:
 - tags: Only use tags from the available list. confidence 0.0-1.0. Be selective.
 - intents: type must be "question", "request", or "info". priority 1-3. Max 10.
 - triage: Assess priority (high/medium/low) and whether a reply is needed.
-- draft: null if not generating or unable. confidence scores all 0.0-1.0.
+- draft: null if not generating or unable. confidence scores all 0.0-1.0. PLAIN TEXT ONLY.
 - escalate: Set true if you are uncertain (overall confidence < 0.4) or cannot handle the email.
 - escalation: Only when escalate is true. Include reason and suggestedAction.
 - Maximum 3 tool requests per iteration, 3 iterations total.
