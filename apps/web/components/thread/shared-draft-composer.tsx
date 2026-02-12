@@ -568,6 +568,40 @@ export function SharedDraftComposer({
                 )}
                 Share Draft
               </Button>
+              {activeAgents.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isDraftingWithAI}
+                    >
+                      {isDraftingWithAI ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-2 h-4 w-4" />
+                      )}
+                      Draft with AI
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {activeAgents.map((agent) => (
+                      <DropdownMenuItem
+                        key={agent.id}
+                        onClick={() => handleDraftWithAI(agent.id)}
+                      >
+                        <Sparkles className="mr-2 h-3.5 w-3.5" />
+                        {agent.name}
+                        {agent.isDefault && (
+                          <Badge variant="secondary" className="ml-2 text-[10px] px-1 py-0">
+                            default
+                          </Badge>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -738,10 +772,46 @@ export function SharedDraftComposer({
         )}
 
         <div className="mt-4 flex items-center justify-between">
-          <Button variant="outline" size="sm" disabled>
-            <Paperclip className="mr-2 h-4 w-4" />
-            Attach
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled>
+              <Paperclip className="mr-2 h-4 w-4" />
+              Attach
+            </Button>
+            {activeAgents.length > 0 && !lockedByOther && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isDraftingWithAI}
+                  >
+                    {isDraftingWithAI ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Draft with AI
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {activeAgents.map((agent) => (
+                    <DropdownMenuItem
+                      key={agent.id}
+                      onClick={() => handleDraftWithAI(agent.id)}
+                    >
+                      <Sparkles className="mr-2 h-3.5 w-3.5" />
+                      {agent.name}
+                      {agent.isDefault && (
+                        <Badge variant="secondary" className="ml-2 text-[10px] px-1 py-0">
+                          default
+                        </Badge>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             {draft?.isLockedByMe && body !== lastSavedBody && (

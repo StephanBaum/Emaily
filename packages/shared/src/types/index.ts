@@ -154,6 +154,22 @@ export interface AgentTagWatch {
   tagId: string;
 }
 
+// Triage types
+export interface ThreadTriage {
+  priority: "high" | "medium" | "low";
+  needsReply: boolean;
+  reasoning: string;
+}
+
+export interface EscalationResult {
+  reason: string;
+  suggestedAction: string;
+  partialWork?: {
+    tags?: { name: string; confidence: number }[];
+    draft?: { subject: string; body: string; confidence: DraftConfidence } | null;
+  };
+}
+
 // Unified AI result (single LLM call output)
 export interface UnifiedAIResult {
   tags: { name: string; confidence: number }[];
@@ -209,7 +225,9 @@ export type ActivityAction =
   | "ai_auto_replied"
   | "ai_archived"
   | "ai_quarantined"
-  | "ai_notified";
+  | "ai_notified"
+  | "ai_needs_attention"
+  | "ai_agent_routed";
 
 export interface ActivityLog {
   id: string;

@@ -57,7 +57,7 @@ export function validatePasswordStrength(password: string): {
     score += 1;
   }
 
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
     // Special characters are recommended but not required
     score += 0;
   } else {

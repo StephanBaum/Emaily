@@ -147,6 +147,9 @@ model Thread {
   status            String   @default("open") // open, archived, snoozed, quarantined
   senderTrustLevel  String?  @map("sender_trust_level") // cached from Contact: stranger, known, trusted, vip
   hasSentReply      Boolean  @default(false) @map("has_sent_reply")
+  aiPriority        String?  @map("ai_priority")    // high, medium, low
+  aiNeedsReply      Boolean? @map("ai_needs_reply")
+  aiStatus          String   @default("pending") @map("ai_status") // pending, processed, needs_attention
   lastActivityAt    DateTime @default(now()) @map("last_activity_at")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
@@ -339,8 +342,9 @@ model DraftVersion {
 model Tag {
   id        String   @id @default(cuid())
   teamId    String   @map("team_id")
-  name      String
-  color     String   @default("#6366f1")
+  name        String
+  description String?
+  color       String   @default("#6366f1")
   aiAction      String   @default("none") // none, draft, research_draft, auto_reply, archive, notify
   autoRules     Json?    @map("auto_rules") // TagRule conditions
   minTrustLevel String   @default("stranger") @map("min_trust_level") // minimum sender trust for AI to apply: stranger, known, trusted, vip

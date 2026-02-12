@@ -36,10 +36,10 @@ async function main() {
 
   // Create some sample tags
   const tags = [
-    { name: "Urgent", color: "#ef4444", aiAction: "notify", tagGroup: null },
-    { name: "Support", color: "#3b82f6", aiAction: "draft", tagGroup: "Clients" },
-    { name: "Sales", color: "#22c55e", aiAction: "none", tagGroup: "Clients" },
-    { name: "Newsletter", color: "#8b5cf6", aiAction: "archive", tagGroup: null },
+    { name: "Urgent", color: "#ef4444", aiAction: "notify", tagGroup: null, description: "Time-sensitive matters requiring immediate attention" },
+    { name: "Support", color: "#3b82f6", aiAction: "draft", tagGroup: "Clients", description: "Customer support requests and issues" },
+    { name: "Sales", color: "#22c55e", aiAction: "none", tagGroup: "Clients", description: "Sales inquiries, proposals, and deal-related communication" },
+    { name: "Newsletter", color: "#8b5cf6", aiAction: "archive", tagGroup: null, description: "Mass emails, newsletters, and marketing broadcasts" },
   ];
 
   for (const tag of tags) {
@@ -50,13 +50,14 @@ async function main() {
           name: tag.name,
         },
       },
-      update: { tagGroup: tag.tagGroup },
+      update: { tagGroup: tag.tagGroup, description: tag.description },
       create: {
         teamId: team.id,
         name: tag.name,
         color: tag.color,
         aiAction: tag.aiAction,
         tagGroup: tag.tagGroup,
+        description: tag.description,
       },
     });
   }

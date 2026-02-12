@@ -1,5 +1,4 @@
 import type { ChatMessage } from "../providers/provider";
-import type { EmailIntent } from "@emailautomation/shared";
 
 interface ThreadEmail {
   from: string;
@@ -8,8 +7,10 @@ interface ThreadEmail {
   isSent: boolean;
 }
 
-interface TagInfo {
+export interface TagInfo {
   name: string;
+  description?: string;
+  aiAction?: string;
 }
 
 interface QAPairInfo {
@@ -23,6 +24,17 @@ interface ThreadContext {
   previousDraft: string | null;
   previousActivity: string[];
   senderTrust?: string;
+  senderProfile?: {
+    name: string | null;
+    company: string | null;
+    domain: string | null;
+    interactionCount: number;
+    repliedToCount: number;
+    notes: string | null;
+  };
+  assignments?: { assignedTo: string; status: string; note: string | null; dueDate: string | null }[];
+  attachments?: { filename: string; size: number; contentType: string }[];
+  threadAge?: string;
 }
 
 interface UnifiedPromptOptions {
@@ -48,7 +60,14 @@ export function buildUnifiedThreadPrompt(options: UnifiedPromptOptions): ChatMes
     threadContext,
   } = options;
 
-  const tagNames = availableTags.map((t) => t.name).join(", ");
+  const tagBlock = availableTags.length > 0
+    ? availableTags.map((t) => {
+        const parts = [`- ${t.name}`];
+        if (t.description) parts[0] += `: ${t.description}`;
+        if (t.aiAction && t.aiAction !== "none") parts[0] += ` (action: ${t.aiAction})`;
+        return parts[0];
+      }).join("\n")
+    : "(none)";
 
   const qaBlock = qaPairs.length > 0
     ? "\n\nQ&A Knowledge Base:\n" +
@@ -82,6 +101,33 @@ export function buildUnifiedThreadPrompt(options: UnifiedPromptOptions): ChatMes
     if (threadContext.senderTrust) {
       parts.push(threadContext.senderTrust);
     }
+    if (threadContext.senderProfile) {
+      const p = threadContext.senderProfile;
+      const profileLines = [`Sender profile:`];
+      if (p.name) profileLines.push(`  Name: ${p.name}`);
+      if (p.company) profileLines.push(`  Company: ${p.company}`);
+      if (p.domain) profileLines.push(`  Domain: ${p.domain}`);
+      profileLines.push(`  Interactions: ${p.interactionCount}, Replied to: ${p.repliedToCount}`);
+      if (p.notes) profileLines.push(`  Notes: ${p.notes}`);
+      parts.push(profileLines.join("\n"));
+    }
+    if (threadContext.assignments && threadContext.assignments.length > 0) {
+      parts.push(
+        `Thread assignments:\n${threadContext.assignments
+          .map((a) => `- Assigned to ${a.assignedTo} (${a.status})${a.dueDate ? ` due ${a.dueDate}` : ""}${a.note ? ` — ${a.note}` : ""}`)
+          .join("\n")}`
+      );
+    }
+    if (threadContext.attachments && threadContext.attachments.length > 0) {
+      parts.push(
+        `Attachments:\n${threadContext.attachments
+          .map((a) => `- ${a.filename} (${a.contentType}, ${Math.round(a.size / 1024)}KB)`)
+          .join("\n")}`
+      );
+    }
+    if (threadContext.threadAge) {
+      parts.push(`Thread age: ${threadContext.threadAge}`);
+    }
     if (parts.length > 0) {
       contextBlock = "\n\n--- Existing Context ---\n" + parts.join("\n\n");
     }
@@ -98,7 +144,8 @@ export function buildUnifiedThreadPrompt(options: UnifiedPromptOptions): ChatMes
 2. INTENT EXTRACTION: Extract discrete intents from the latest incoming email — questions, requests, and informational items. Max 10 intents. Assign priority 1 (high), 2 (medium), or 3 (low).
 ${draftInstruction}
 
-Available tags: ${tagNames || "(none)"}${qaBlock}${personalityBlock}${contextBlock}
+Available tags:
+${tagBlock}${qaBlock}${personalityBlock}${contextBlock}
 
 Respond with ONLY valid JSON in this exact format:
 {
@@ -123,12 +170,44 @@ Rules:
 - draft: null if not generating. confidence scores all 0.0-1.0.
 - Be concise and accurate.`;
 
-  // Build thread conversation, capping each email at 1500 chars
-  const conversationLines = emails.map((e) => {
+  // Build thread conversation: full body for latest 3, summarized for older
+  const FULL_BODY_COUNT = 3;
+  const MAX_TOTAL_CHARS = 8000;
+  const conversationLines: string[] = [];
+  let totalChars = 0;
+
+  // Process emails from newest to oldest for budget allocation
+  const reversedEmails = [...emails].reverse();
+  const emailBodies: { index: number; direction: string; from: string; date: string; body: string }[] = [];
+
+  for (let i = 0; i < reversedEmails.length; i++) {
+    const e = reversedEmails[i];
     const direction = e.isSent ? "[SENT]" : "[RECEIVED]";
-    const truncatedBody = e.body.length > 1500 ? e.body.slice(0, 1500) + "..." : e.body;
-    return `${direction} From: ${e.from} (${e.date.toISOString()})\n${truncatedBody}`;
-  });
+    const dateStr = e.date.toISOString();
+    let body: string;
+
+    if (i < FULL_BODY_COUNT) {
+      // Full body for latest 3 emails
+      body = e.body;
+    } else {
+      // Truncate older emails to save tokens
+      body = e.body.length > 300 ? e.body.slice(0, 300) + "... [older email truncated]" : e.body;
+    }
+
+    // Enforce total budget
+    if (totalChars + body.length > MAX_TOTAL_CHARS && i >= FULL_BODY_COUNT) {
+      body = e.body.slice(0, 150) + "... [truncated for token budget]";
+    }
+    totalChars += body.length;
+
+    emailBodies.push({ index: reversedEmails.length - 1 - i, direction, from: e.from, date: dateStr, body });
+  }
+
+  // Restore chronological order
+  emailBodies.sort((a, b) => a.index - b.index);
+  for (const e of emailBodies) {
+    conversationLines.push(`${e.direction} From: ${e.from} (${e.date})\n${e.body}`);
+  }
 
   const userMessage = `Analyze this email thread:
 

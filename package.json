@@ -12,7 +12,10 @@
     "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "eslint": "^8.0.0",
     "turbo": "^2.8.3",
     "vitest": "^4.0.18"
   },

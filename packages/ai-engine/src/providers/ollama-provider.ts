@@ -1,4 +1,4 @@
-import type { AIProvider, CompletionRequest, CompletionResponse, ChatMessage } from "./provider";
+import type { AIProvider, CompletionRequest, CompletionResponse } from "./provider";
 
 interface OllamaChatResponse {
   message: { role: string; content: string };

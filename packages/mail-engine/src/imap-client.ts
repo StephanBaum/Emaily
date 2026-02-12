@@ -193,7 +193,7 @@ export class ImapClient {
   ): Promise<number[]> {
     const lock = await this.client.getMailboxLock(folder);
     try {
-      const searchCriteria: any = {};
+      const searchCriteria: Record<string, unknown> = {};
 
       if (criteria.since) searchCriteria.since = criteria.since;
       if (criteria.before) searchCriteria.before = criteria.before;

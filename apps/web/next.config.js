@@ -6,6 +6,7 @@ const nextConfig = {
     "@emailautomation/shared",
     "@emailautomation/security",
     "@emailautomation/mail-engine",
+    "@emailautomation/ai-engine",
   ],
   experimental: {
     serverComponentsExternalPackages: [

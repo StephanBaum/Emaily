@@ -4,6 +4,7 @@ import {
   createProviderFromEnv,
   AutoTagger,
   UnifiedThreadProcessor,
+  AgentLoop,
 } from "@emailautomation/ai-engine";
 import type { AIProvider } from "@emailautomation/ai-engine";
 import type {
@@ -16,6 +17,7 @@ import type {
 import { TRUST_LEVEL_ORDER } from "@emailautomation/shared";
 import { getSenderTrustLevel } from "@/lib/contacts";
 import { elevateTrustOnReply } from "@/lib/contacts";
+import { executeAgentTool } from "@/lib/agent-tools";
 
 let providerInstance: AIProvider | null = null;
 
@@ -140,7 +142,7 @@ async function sendAutoReply(
   }
 }
 
-// --- Main thread-based processing (single LLM call) ---
+// --- Main thread-based processing (agentic loop) ---
 
 export async function processThreadWithAI(
   threadId: string,
@@ -149,7 +151,6 @@ export async function processThreadWithAI(
 ): Promise<AIProcessingResult> {
   const provider = getProvider();
   const autoTagger = new AutoTagger(provider);
-  const unifiedProcessor = new UnifiedThreadProcessor(provider);
 
   const result: AIProcessingResult = {
     threadId,
@@ -160,7 +161,7 @@ export async function processThreadWithAI(
   };
 
   try {
-    // 1. Fetch thread with all emails + existing tags
+    // 1. Fetch thread with all emails + existing tags + attachments + assignments
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
       include: {
@@ -184,10 +185,18 @@ export async function processThreadWithAI(
             date: true,
             references: true,
             isSent: true,
+            attachments: {
+              select: { filename: true, size: true, contentType: true },
+            },
           },
         },
         tags: {
           include: { tag: true },
+        },
+        assignments: {
+          include: {
+            assignedTo: { select: { name: true } },
+          },
         },
       },
     });
@@ -203,7 +212,7 @@ export async function processThreadWithAI(
       return result;
     }
 
-    // 2. Fetch team tags + run deterministic rules
+    // 2. Fetch team tags (with descriptions) + run deterministic rules
     const tags = await prisma.tag.findMany({
       where: { teamId, active: true },
     });
@@ -255,8 +264,8 @@ export async function processThreadWithAI(
       result.agentName = agent.name;
     }
 
-    // 4. Fetch approved Q&A pairs + existing context for the LLM
-    const [qaPairs, existingActivity, teamComments, existingDraft] =
+    // 4. Fetch context: Q&A pairs, existing activity, team comments, existing draft, sender profile
+    const [qaPairs, existingActivity, teamComments, existingDraft, senderContact] =
       await Promise.all([
         prisma.qAPair.findMany({
           where: { teamId, approved: true },
@@ -276,9 +285,30 @@ export async function processThreadWithAI(
           where: { threadId, status: { not: "sent" } },
           select: { body: true },
         }),
+        prisma.contact.findUnique({
+          where: {
+            teamId_email: {
+              teamId,
+              email: latestReceivedEmail.fromAddress.toLowerCase(),
+            },
+          },
+        }),
       ]);
 
-    // Build thread context so the AI knows what's already been done
+    // Compute thread age
+    const now = new Date();
+    const threadCreated = thread.createdAt;
+    const ageDays = Math.round((now.getTime() - threadCreated.getTime()) / (1000 * 60 * 60 * 24));
+    const lastActivityMs = now.getTime() - thread.lastActivityAt.getTime();
+    const lastActivityHours = Math.round(lastActivityMs / (1000 * 60 * 60));
+    const threadAge = `${ageDays} day(s) old, last activity ${lastActivityHours < 24 ? `${lastActivityHours} hour(s) ago` : `${Math.round(lastActivityHours / 24)} day(s) ago`}`;
+
+    // Collect all attachments across emails
+    const allAttachments = thread.emails.flatMap((e) =>
+      e.attachments.map((a) => ({ filename: a.filename, size: a.size, contentType: a.contentType }))
+    );
+
+    // Build thread context
     const threadContext = {
       existingTags: thread.tags.map((tt) => tt.tag.name),
       teamComments: teamComments.map((c) => ({
@@ -311,10 +341,28 @@ export async function processThreadWithAI(
             return `${a.action}`;
         }
       }),
+      senderProfile: senderContact
+        ? {
+            name: senderContact.name,
+            company: senderContact.company,
+            domain: senderContact.domain,
+            interactionCount: senderContact.interactionCount,
+            repliedToCount: senderContact.repliedToCount,
+            notes: senderContact.notes,
+          }
+        : undefined,
+      assignments: thread.assignments.map((a) => ({
+        assignedTo: a.assignedTo.name,
+        status: a.status,
+        note: a.note,
+        dueDate: a.dueDate?.toISOString() || null,
+      })),
+      attachments: allAttachments.length > 0 ? allAttachments : undefined,
+      threadAge,
     };
 
-    // 5. Single LLM call via UnifiedThreadProcessor
-    // Filter tags by sender trust — only offer tags the sender qualifies for
+    // 5. Run AgentLoop instead of single UnifiedThreadProcessor call
+    // Filter tags by sender trust
     const senderTrustOrder = TRUST_LEVEL_ORDER[senderTrustLevel];
     const unmatchedTags = tags.filter(
       (t) =>
@@ -325,31 +373,54 @@ export async function processThreadWithAI(
       (t) =>
         (t.aiAction === "draft" || t.aiAction === "research_draft" || t.aiAction === "auto_reply") &&
         (ruleMatchedTagIds.has(t.id) || thread.tags.some((tt) => tt.tagId === t.id))
-    ) || !!options?.agentId; // Always draft if agent explicitly requested
+    ) || !!options?.agentId;
 
-    const unifiedResult = await unifiedProcessor.processThread({
-      subject: thread.emails[0].subject,
-      emails: thread.emails.map((e) => ({
-        from: e.fromAddress,
-        body: e.bodyText,
-        date: e.date,
-        isSent: e.isSent,
+    const agentLoop = new AgentLoop(provider);
+    const loopResult = await agentLoop.run(
+      {
+        subject: thread.emails[0].subject,
+        emails: thread.emails.map((e) => ({
+          from: e.fromAddress,
+          body: e.bodyText,
+          date: e.date,
+          isSent: e.isSent,
+        })),
+        availableTags: unmatchedTags.map((t) => ({
+          name: t.name,
+          description: (t as Record<string, unknown>).description as string | undefined,
+          aiAction: t.aiAction,
+        })),
+        qaPairs: qaPairs.map((qa) => ({
+          triggerPatterns: qa.triggerPatterns,
+          idealResponse: qa.idealResponse,
+        })),
+        agentPersonality: agent?.systemPrompt || undefined,
+        generateDraft: shouldDraft,
+        replyTo: latestReceivedEmail.fromAddress,
+        temperature: agent?.temperature,
+        threadContext,
+      },
+      teamId,
+      executeAgentTool
+    );
+
+    const decision = loopResult.decision;
+
+    // Log agent reasoning trail
+    await logAIActivity(teamId, threadId, "ai_tagged", {
+      agentLoop: true,
+      totalIterations: loopResult.totalIterations,
+      iterations: loopResult.iterations.map((iter) => ({
+        iteration: iter.iteration,
+        thinking: iter.thinking,
+        toolsRequested: iter.toolRequests.map((t) => t.tool),
+        readyToDecide: iter.readyToDecide,
       })),
-      availableTags: unmatchedTags.map((t) => ({ name: t.name })),
-      qaPairs: qaPairs.map((qa) => ({
-        triggerPatterns: qa.triggerPatterns,
-        idealResponse: qa.idealResponse,
-      })),
-      agentPersonality: agent?.systemPrompt || undefined,
-      generateDraft: shouldDraft,
-      replyTo: latestReceivedEmail.fromAddress,
-      temperature: agent?.temperature,
-      threadContext,
     });
 
     // 6. Resolve LLM tag matches to IDs
     const tagByNameLower = new Map(tags.map((t) => [t.name.toLowerCase(), t]));
-    const llmTagMatches = unifiedResult.tags
+    const llmTagMatches = decision.tags
       .map((t) => {
         const tag = tagByNameLower.get(t.name.toLowerCase());
         if (!tag) return null;
@@ -372,7 +443,6 @@ export async function processThreadWithAI(
     const tagsToRemove = existingAITagIds.filter((id) => !newTagMatchIds.has(id));
 
     await prisma.$transaction([
-      // Remove stale AI tags
       ...(tagsToRemove.length > 0
         ? [
             prisma.threadTag.deleteMany({
@@ -384,7 +454,6 @@ export async function processThreadWithAI(
             }),
           ]
         : []),
-      // Upsert current matches
       ...allTagMatches.map((match) =>
         prisma.threadTag.upsert({
           where: {
@@ -403,12 +472,6 @@ export async function processThreadWithAI(
       ),
     ]);
 
-    // Determine which tags are genuinely new (not already on thread)
-    const existingTagIds = new Set(thread.tags.map((tt) => tt.tagId));
-    const genuinelyNewMatches = allTagMatches.filter(
-      (m) => !existingTagIds.has(m.tagId)
-    );
-
     if (allTagMatches.length > 0) {
       for (const match of allTagMatches) {
         result.tagsApplied.push({
@@ -418,40 +481,100 @@ export async function processThreadWithAI(
           confidence: match.confidence,
         });
       }
-
-      // Only log tag activity if there are actually new tags
-      if (genuinelyNewMatches.length > 0 || tagsToRemove.length > 0) {
-        await logAIActivity(teamId, threadId, "ai_tagged", {
-          tags: result.tagsApplied.map((t) => ({
-            name: t.name,
-            confidence: t.confidence,
-            appliedBy: t.appliedBy,
-          })),
-        });
-      }
     }
 
     // 7. Save intents on latest received email
-    result.intentsExtracted = unifiedResult.intents;
+    result.intentsExtracted = decision.intents;
 
-    if (unifiedResult.intents.length > 0) {
+    if (decision.intents.length > 0) {
       await prisma.emailIntent.upsert({
         where: { emailId: latestReceivedEmail.id },
         update: {
-          intents: JSON.parse(JSON.stringify(unifiedResult.intents)) as Prisma.InputJsonValue,
+          intents: JSON.parse(JSON.stringify(decision.intents)) as Prisma.InputJsonValue,
           modelVersion: provider.name,
         },
         create: {
           emailId: latestReceivedEmail.id,
-          intents: JSON.parse(JSON.stringify(unifiedResult.intents)) as Prisma.InputJsonValue,
+          intents: JSON.parse(JSON.stringify(decision.intents)) as Prisma.InputJsonValue,
           modelVersion: provider.name,
         },
       });
     }
 
-    // 8. Create or update SharedDraft with agentId if draft is not null
-    if (unifiedResult.draft && thread.mailbox.access[0]) {
-      const existingDraft = await prisma.sharedDraft.findFirst({
+    // 8. AgentTagWatch routing — check if a specialist should re-draft
+    let draftResult = decision.draft;
+    let draftAgent = agent;
+
+    if (allTagMatches.length > 0 && !options?.agentId) {
+      const tagWatches = await prisma.agentTagWatch.findMany({
+        where: {
+          tagId: { in: allTagMatches.map((m) => m.tagId) },
+          agent: { active: true },
+        },
+        include: {
+          agent: { select: { id: true, name: true, systemPrompt: true, temperature: true } },
+          tag: { select: { name: true } },
+        },
+      });
+
+      if (tagWatches.length > 0) {
+        // Pick specialist with highest-confidence tag match
+        let bestWatch = tagWatches[0];
+        let bestConfidence = 0;
+        for (const watch of tagWatches) {
+          const match = allTagMatches.find((m) => m.tagId === watch.tagId);
+          if (match && match.confidence > bestConfidence) {
+            bestConfidence = match.confidence;
+            bestWatch = watch;
+          }
+        }
+
+        const specialist = bestWatch.agent;
+
+        // Only re-draft if specialist is different from current agent
+        if (specialist.id !== agent?.id && shouldDraft) {
+          // Re-run draft generation only with specialist's personality
+          const specialistProcessor = new UnifiedThreadProcessor(provider);
+          const specialistResult = await specialistProcessor.processThread({
+            subject: thread.emails[0].subject,
+            emails: thread.emails.map((e) => ({
+              from: e.fromAddress,
+              body: e.bodyText,
+              date: e.date,
+              isSent: e.isSent,
+            })),
+            availableTags: [],
+            qaPairs: qaPairs.map((qa) => ({
+              triggerPatterns: qa.triggerPatterns,
+              idealResponse: qa.idealResponse,
+            })),
+            agentPersonality: specialist.systemPrompt,
+            generateDraft: true,
+            replyTo: latestReceivedEmail.fromAddress,
+            temperature: specialist.temperature,
+            threadContext,
+          });
+
+          if (specialistResult.draft) {
+            draftResult = specialistResult.draft;
+            draftAgent = specialist;
+            result.agentId = specialist.id;
+            result.agentName = specialist.name;
+
+            await logAIActivity(teamId, threadId, "ai_agent_routed", {
+              fromAgent: agent?.name || "default",
+              toAgent: specialist.name,
+              matchedTag: bestWatch.tag.name,
+              reason: `Specialist routing via AgentTagWatch (confidence: ${bestConfidence})`,
+            });
+          }
+        }
+      }
+    }
+
+    // 9. Create or update SharedDraft
+    if (draftResult && thread.mailbox.access[0]) {
+      const existingDraftRecord = await prisma.sharedDraft.findFirst({
         where: {
           threadId,
           status: { not: "sent" },
@@ -459,27 +582,26 @@ export async function processThreadWithAI(
       });
 
       const draftData = {
-        agentId: agent?.id ?? null,
-        subject: unifiedResult.draft.subject,
-        body: unifiedResult.draft.body,
+        agentId: draftAgent?.id ?? null,
+        subject: draftResult.subject,
+        body: draftResult.body,
         toAddresses: [latestReceivedEmail.fromAddress],
         status: "drafting",
         lockType: "generating",
         lockedById: null,
         lockExpiresAt: null,
         confidence: JSON.parse(
-          JSON.stringify(unifiedResult.draft.confidence)
+          JSON.stringify(draftResult.confidence)
         ) as Prisma.InputJsonValue,
       };
 
       let draftId: string;
-      if (existingDraft) {
-        // Replace existing draft content with new agent's output
+      if (existingDraftRecord) {
         await prisma.sharedDraft.update({
-          where: { id: existingDraft.id },
+          where: { id: existingDraftRecord.id },
           data: draftData,
         });
-        draftId = existingDraft.id;
+        draftId = existingDraftRecord.id;
       } else {
         const created = await prisma.sharedDraft.create({
           data: {
@@ -497,11 +619,32 @@ export async function processThreadWithAI(
 
       await logAIActivity(teamId, threadId, "ai_draft_generated", {
         draftId,
-        agentName: agent?.name,
+        agentName: draftAgent?.name,
       });
     }
 
-    // 9. Execute tag actions — skip actions already performed (check activity log)
+    // 10. Store triage on thread
+    await prisma.thread.update({
+      where: { id: threadId },
+      data: {
+        aiPriority: decision.triage.priority,
+        aiNeedsReply: decision.triage.needsReply,
+        aiStatus: decision.escalate ? "needs_attention" : "processed",
+      },
+    });
+
+    // 11. Handle escalation
+    if (decision.escalate) {
+      await logAIActivity(teamId, threadId, "ai_needs_attention", {
+        reason: decision.escalation?.reason || "Agent escalated",
+        suggestedAction: decision.escalation?.suggestedAction || "Review manually",
+        partialWork: decision.escalation?.partialWork
+          ? { tags: decision.escalation.partialWork.tags?.length || 0 }
+          : undefined,
+      });
+    }
+
+    // 12. Execute tag actions with triage safety checks
     const executedActionKeys = new Set(
       existingActivity.map((a) => {
         const meta = a.metadata as Record<string, unknown> | null;
@@ -516,7 +659,17 @@ export async function processThreadWithAI(
 
       switch (tag.aiAction) {
         case "archive": {
-          // Spam tag → quarantine instead of archive
+          // Triage safety: block archive on high-priority threads
+          if (decision.triage.priority === "high") {
+            result.actionsExecuted.push({
+              action: "archive",
+              tagId: tag.id,
+              tagName: tag.name,
+              detail: "blocked by triage: high priority",
+            });
+            break;
+          }
+
           const isSpamTag = tag.name.toLowerCase() === "spam";
           const targetStatus = isSpamTag ? "quarantined" : "archived";
           const actionKey = isSpamTag ? "ai_quarantined" : "ai_archived";
@@ -539,13 +692,11 @@ export async function processThreadWithAI(
 
         case "auto_reply": {
           if (executedActionKeys.has(`ai_auto_replied:${tag.name}`)) break;
-          // Safety: only auto-reply for rule-matched tags
           const isRuleMatched = match?.appliedBy === "auto" && match?.confidence === 1.0;
           if (!isRuleMatched) break;
-          // Trust gate: never auto-reply to untrusted senders
           if (senderTrustOrder < TRUST_LEVEL_ORDER["trusted"]) break;
 
-          if (unifiedResult.draft) {
+          if (draftResult) {
             try {
               await sendAutoReply(
                 {
@@ -555,7 +706,7 @@ export async function processThreadWithAI(
                   references: latestReceivedEmail.references,
                   subject: latestReceivedEmail.subject,
                 },
-                unifiedResult.draft.body,
+                draftResult.body,
                 thread.mailbox.id
               );
 
@@ -598,7 +749,17 @@ export async function processThreadWithAI(
 
         case "draft":
         case "research_draft": {
-          // Draft already created above if applicable
+          // Triage safety: skip draft on needsReply=false threads
+          if (!decision.triage.needsReply) {
+            result.actionsExecuted.push({
+              action: tag.aiAction,
+              tagId: tag.id,
+              tagName: tag.name,
+              detail: "skipped: triage says no reply needed",
+            });
+            break;
+          }
+
           if (result.draftGenerated) {
             result.actionsExecuted.push({
               action: tag.aiAction,

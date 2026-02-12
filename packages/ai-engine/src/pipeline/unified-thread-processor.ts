@@ -9,8 +9,10 @@ interface ThreadEmail {
   isSent: boolean;
 }
 
-interface TagInfo {
+export interface TagInfo {
   name: string;
+  description?: string;
+  aiAction?: string;
 }
 
 interface QAPairInfo {
@@ -24,6 +26,17 @@ export interface ThreadContext {
   previousDraft: string | null;
   previousActivity: string[];
   senderTrust?: string;
+  senderProfile?: {
+    name: string | null;
+    company: string | null;
+    domain: string | null;
+    interactionCount: number;
+    repliedToCount: number;
+    notes: string | null;
+  };
+  assignments?: { assignedTo: string; status: string; note: string | null; dueDate: string | null }[];
+  attachments?: { filename: string; size: number; contentType: string }[];
+  threadAge?: string;
 }
 
 export interface UnifiedProcessOptions {
