@@ -599,6 +599,82 @@ Branch: `feature/spam-defense` → merged into `feature/ai-integration`
 
 ---
 
+## Phase 7.11: Agentic AI Loop Architecture [DONE]
+
+Branch: `feature/ai-integration`
+Plan: `docs/plans/nifty-doodling-spark.md` (Claude plan file)
+
+### Enriched Context (Phase 1)
+- Removed 1500-char email body truncation; smart truncation: full body for latest 3 emails, 300 chars for older, 8K total budget
+- Added `Tag.description` to Prisma schema
+- Tag rendering in prompt now shows description + aiAction
+- Expanded `ThreadContext` with senderProfile, assignments, attachments, threadAge
+- Full sender Contact record passed to LLM context
+
+### Agent Tools (Phase 2)
+- Tool interfaces: `AgentToolRequest`, `AgentToolResult`, `AgentToolDefinition`
+- 5 read-only tools (team-scoped): `search_threads`, `get_sender_profile`, `get_thread_detail`, `search_knowledge`, `check_past_decisions`
+- Tool executor implementations using Prisma queries
+- Tool descriptions block injected into LLM system prompt
+
+### Agent Loop (Phase 3)
+- `AgentLoop` class: multi-step reasoning (assess → research → decide)
+- Max 3 iterations, max 3 tools per iteration
+- Multi-turn conversation with LLM (full context of own reasoning)
+- Chain-of-thought "thinking" field logged for debugging
+- `ThreadTriage` assessment: priority (high/medium/low), needsReply, reasoning
+- `EscalationResult`: when confidence < 0.4 or agent can't handle
+- Schema: `aiPriority`, `aiNeedsReply`, `aiStatus` on Thread model
+
+### AgentTagWatch Routing (Phase 4)
+- After tag classification, checks `AgentTagWatch` for specialist agents
+- Re-runs draft generation with specialist personality + temperature
+- Picks highest-confidence tag match when multiple specialists found
+- Logs `ai_agent_routed` activity with metadata
+
+### Pipeline Integration (Phase 5)
+- `processThreadWithAI()` rewritten to use AgentLoop
+- Triage safety checks: block archive on high-priority, on draft generated, on needsReply
+- Escalation handling: sets `aiStatus = 'needs_attention'`
+- Tag descriptions + actions passed to processor
+
+### Draft Quality Fixes
+- CRITICAL DRAFTING RULES in both agent-loop.ts and unified-thread.ts prompts
+- Plain text only (no markdown formatting)
+- No `[bracket]` placeholders — uses actual context data
+- Email signature: "AgentName (AI) on behalf of UserName"
+- Archive blocked when draft exists (user should review first)
+
+### UI Fix
+- "Draft with AI" button now visible in both personal reply and shared draft modes
+
+### Seed Data (Phase 6)
+- Tag descriptions added for all seeded tags
+- Agent tag watches verified
+
+### Commits
+- `e39bc1a` feat: implement agentic AI loop with multi-step reasoning and tool use
+- `5a37960` fix: enforce plain text drafts, add signatures, block archive+draft conflict
+
+### Files — New (3)
+- `packages/ai-engine/src/pipeline/agent-loop.ts`
+- `packages/ai-engine/src/pipeline/agent-tools.ts`
+- `apps/web/lib/agent-tools.ts`
+
+### Files — Modified (10)
+- `packages/database/prisma/schema.prisma` (Tag.description, Thread.aiPriority/aiNeedsReply/aiStatus)
+- `packages/shared/src/types/index.ts` (ThreadTriage, EscalationResult, ActivityAction, TagInfo)
+- `packages/ai-engine/src/pipeline/unified-thread-processor.ts` (TagInfo + ThreadContext)
+- `packages/ai-engine/src/prompts/unified-thread.ts` (smart truncation, tag context, drafting rules)
+- `packages/ai-engine/src/index.ts` (AgentLoop + tool exports)
+- `apps/web/lib/ai.ts` (agent loop integration, routing, triage, escalation, archive safety)
+- `apps/web/next.config.js` (transpilePackages fix)
+- `apps/web/components/thread/shared-draft-composer.tsx` (Draft with AI in reply mode)
+- `packages/database/prisma/seed.ts` (tag descriptions)
+- `.eslintrc.json` (new root ESLint config)
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---
