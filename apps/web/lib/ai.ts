@@ -414,12 +414,9 @@ export async function processThreadWithAI(
     await logAIActivity(teamId, threadId, "ai_tagged", {
       agentLoop: true,
       totalIterations: loopResult.totalIterations,
-      iterations: loopResult.iterations.map((iter) => ({
-        iteration: iter.iteration,
-        thinking: iter.thinking,
-        toolsRequested: iter.toolRequests.map((t) => t.tool),
-        readyToDecide: iter.readyToDecide,
-      })),
+      tags: decision.tags.map((t) => ({ name: t.name, confidence: t.confidence })),
+      agentName: agent?.name,
+      triage: decision.triage,
     });
 
     // 6. Resolve LLM tag matches to IDs

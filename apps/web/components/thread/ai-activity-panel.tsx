@@ -20,6 +20,9 @@ import {
   Bell,
   ChevronDown,
   Bot,
+  AlertTriangle,
+  ArrowRightLeft,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgents } from "@/hooks/use-agents";
@@ -51,10 +54,12 @@ const actionConfig: Record<
     color: "text-blue-600 bg-blue-50 border-blue-200",
     format: (meta) => {
       const tags = meta.tags as { name: string; confidence: number }[] | undefined;
-      if (!tags?.length) return "Applied tags";
-      return tags
+      const agentName = meta.agentName as string | undefined;
+      const prefix = agentName ? `${agentName}: ` : "";
+      if (!tags?.length) return `${prefix}Analyzed thread (no tags matched)`;
+      return `${prefix}${tags
         .map((t) => `${t.name} (${Math.round(t.confidence * 100)}%)`)
-        .join(", ");
+        .join(", ")}`;
     },
   },
   ai_draft_generated: {
@@ -85,6 +90,31 @@ const actionConfig: Record<
     icon: Bell,
     color: "text-purple-600 bg-purple-50 border-purple-200",
     format: (meta) => `Team notified (tag: ${meta.tagName || "unknown"})`,
+  },
+  ai_quarantined: {
+    label: "Quarantined",
+    icon: ShieldAlert,
+    color: "text-red-600 bg-red-50 border-red-200",
+    format: (meta) => `Quarantined as spam (tag: ${meta.tagName || "unknown"})`,
+  },
+  ai_needs_attention: {
+    label: "Needs Attention",
+    icon: AlertTriangle,
+    color: "text-orange-600 bg-orange-50 border-orange-200",
+    format: (meta) => {
+      const reason = meta.reason as string | undefined;
+      return reason || "Agent escalated — manual review needed";
+    },
+  },
+  ai_agent_routed: {
+    label: "Agent Routed",
+    icon: ArrowRightLeft,
+    color: "text-indigo-600 bg-indigo-50 border-indigo-200",
+    format: (meta) => {
+      const from = meta.fromAgent as string | undefined;
+      const to = meta.toAgent as string | undefined;
+      return `Routed from ${from || "default"} to ${to || "specialist"}`;
+    },
   },
 };
 

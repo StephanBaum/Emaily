@@ -413,6 +413,7 @@ export function SharedDraftComposer({
 
   async function handleDraftWithAI(agentId: string) {
     setIsDraftingWithAI(true);
+    setError(null);
     try {
       const res = await fetch("/api/ai/process", {
         method: "POST",
@@ -420,20 +421,51 @@ export function SharedDraftComposer({
         body: JSON.stringify({ threadId: thread.id, agentId }),
       });
 
-      if (res.ok) {
-        // Poll for the draft to appear / update, then refresh the page
-        let polls = 0;
-        draftPollRef.current = setInterval(async () => {
-          polls++;
-          router.refresh();
-          if (polls >= 5) {
-            if (draftPollRef.current) clearInterval(draftPollRef.current);
-            draftPollRef.current = null;
-          }
-        }, 1000);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "AI processing failed");
+        return;
       }
-    } catch {
-      // ignore
+
+      const aiResult = data.result;
+      if (aiResult?.error) {
+        setError(`AI error: ${aiResult.error}`);
+        return;
+      }
+
+      // If a draft was generated, fetch it directly and apply to composer
+      if (aiResult?.draft && aiResult?.draftId) {
+        try {
+          const draftRes = await fetch(`/api/shared-drafts/${aiResult.draftId}`);
+          if (draftRes.ok) {
+            const newDraft = await draftRes.json();
+            lastDraftIdRef.current = newDraft.id;
+            setDraft({
+              ...newDraft,
+              isLocked:
+                !!newDraft.lockedById &&
+                !!newDraft.lockExpiresAt &&
+                new Date(newDraft.lockExpiresAt) > new Date(),
+              isLockedByMe: false,
+              lockedBy: null,
+              lockExpiresAt: newDraft.lockExpiresAt,
+            });
+            setBody(newDraft.body || "");
+            setLastSavedBody(newDraft.body || "");
+            setMode("shared");
+            setIsExpanded(true);
+            setIsAIEdited(false);
+          }
+        } catch {
+          // Fallback: poll for the draft via router refresh
+        }
+      }
+
+      // Also refresh the page to update activity panel and other data
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to draft with AI");
     } finally {
       setIsDraftingWithAI(false);
     }

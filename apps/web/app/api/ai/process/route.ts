@@ -73,6 +73,7 @@ function summarizeResult(result: AIProcessingResult) {
     tags: result.tagsApplied.length,
     intents: result.intentsExtracted.length,
     draft: result.draftGenerated,
+    draftId: result.draftId ?? null,
     actions: result.actionsExecuted.length,
     actionsExecuted: result.actionsExecuted,
     agentId: result.agentId,
