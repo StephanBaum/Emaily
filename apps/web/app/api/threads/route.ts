@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
       },
       seenBy: {
         where: { userId: session.user.id },
-        select: { userId: true },
+        select: { userId: true, lastSeenEmailId: true, seenAt: true },
       },
       _count: {
         select: { emails: true },

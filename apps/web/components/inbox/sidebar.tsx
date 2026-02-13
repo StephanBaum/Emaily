@@ -37,7 +37,7 @@ import { useTags, type TagData } from "@/hooks/use-tags";
 import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { revalidateAll } from "@/lib/revalidate";
+import { revalidateAll, revalidateThreads } from "@/lib/revalidate";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -69,20 +69,58 @@ export function Sidebar() {
 
   async function handleProcessAI() {
     setIsProcessingAI(true);
-    setAIProgress("Starting...");
+    setAIProgress("Fetching pending threads...");
     try {
-      const res = await fetch("/api/ai/process-all", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setAIProgress(`Done: ${data.processed}/${data.total} processed`);
+      const pendingRes = await fetch("/api/ai/pending");
+      if (!pendingRes.ok) {
+        setAIProgress("Failed to fetch pending threads");
         setTimeout(() => setAIProgress(null), 3000);
-      } else {
-        setAIProgress("Failed");
-        setTimeout(() => setAIProgress(null), 3000);
+        return;
       }
+      const { threads, total } = await pendingRes.json();
+
+      if (total === 0) {
+        setAIProgress("No threads to process");
+        setTimeout(() => setAIProgress(null), 3000);
+        return;
+      }
+
+      let processed = 0;
+      let errors = 0;
+
+      for (const thread of threads) {
+        const label = thread.subject
+          ? `'${thread.subject.length > 30 ? thread.subject.slice(0, 30) + "..." : thread.subject}'`
+          : `thread`;
+        setAIProgress(`Processing ${label} (${processed + 1}/${total})`);
+
+        try {
+          const res = await fetch("/api/ai/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ threadId: thread.id }),
+          });
+          if (res.ok) {
+            processed++;
+          } else {
+            errors++;
+          }
+        } catch {
+          errors++;
+        }
+
+        revalidateThreads();
+      }
+
+      const summary = errors > 0
+        ? `Done: ${processed}/${total} processed, ${errors} failed`
+        : `Done: ${processed}/${total} processed`;
+      setAIProgress(summary);
+      setTimeout(() => setAIProgress(null), 3000);
     } catch (error) {
       console.error("AI processing failed:", error);
-      setAIProgress(null);
+      setAIProgress("Failed");
+      setTimeout(() => setAIProgress(null), 3000);
     } finally {
       setIsProcessingAI(false);
       revalidateAll();

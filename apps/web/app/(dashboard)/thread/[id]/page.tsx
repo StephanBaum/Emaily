@@ -167,6 +167,18 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
       })
     : null;
 
+  // Fetch thread_reopened events for archive divider
+  const reopenEvents = await prisma.activityLog.findMany({
+    where: {
+      targetType: "thread",
+      targetId: thread.id,
+      action: "thread_reopened",
+    },
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true },
+  });
+  const reopenedTimestamps = reopenEvents.map((e) => e.createdAt);
+
   // Mark as seen and refetch updated seenBy list
   await prisma.seenBy.upsert({
     where: {
@@ -248,7 +260,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-auto">
             <Suspense fallback={<EmailChainSkeleton />}>
-              <EmailChain emails={thread.emails} />
+              <EmailChain emails={thread.emails} reopenedTimestamps={reopenedTimestamps} />
             </Suspense>
           </div>
           {thread.status === "quarantined" ? (

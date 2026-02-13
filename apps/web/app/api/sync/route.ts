@@ -132,10 +132,38 @@ export async function POST() {
               rawHeaders: email.headers,
             },
           });
+
+          // Fetch current thread to check if it needs reopening
+          const currentThread = await prisma.thread.findUnique({
+            where: { id: threadId },
+            select: { status: true, teamId: true },
+          });
+
+          const shouldReopen = currentThread?.status === "archived";
+
           await prisma.thread.update({
             where: { id: threadId },
-            data: { lastActivityAt: new Date() },
+            data: {
+              lastActivityAt: new Date(),
+              ...(shouldReopen && { status: "open" }),
+            },
           });
+
+          // Log reopen event for audit trail
+          if (shouldReopen && currentThread) {
+            await prisma.activityLog.create({
+              data: {
+                teamId: currentThread.teamId,
+                action: "thread_reopened",
+                targetType: "thread",
+                targetId: threadId,
+                metadata: {
+                  previousStatus: "archived",
+                  triggerEmailId: created.id,
+                },
+              },
+            });
+          }
 
           // Auto-learn contact
           await upsertContactFromEmail(

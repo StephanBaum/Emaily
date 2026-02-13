@@ -39,11 +39,13 @@ interface Thread {
   status: string;
   senderTrustLevel?: string | null;
   hasSentReply: boolean;
+  aiStatus: string;
+  aiNeedsReply: boolean | null;
   lastActivityAt: string;
   emails: ThreadEmail[];
   tags: ThreadTag[];
   assignments: ThreadAssignment[];
-  seenBy: { userId: string }[];
+  seenBy: { userId: string; lastSeenEmailId: string | null }[];
   _count?: {
     emails: number;
   };
@@ -53,33 +55,54 @@ interface ThreadItemProps {
   thread: Thread;
 }
 
+const LOW_VALUE_TAGS = ["spam", "newsletter", "advertising", "notification", "marketing"];
+
 export function ThreadItem({ thread }: ThreadItemProps) {
   const latestEmail = thread.emails[0];
-  const isUnread = thread.seenBy.length === 0;
   const senderName = latestEmail?.fromName || latestEmail?.fromAddress || "Unknown";
   const senderInitial = senderName[0]?.toUpperCase() || "?";
   const preview = latestEmail?.bodyText?.slice(0, 100) || "";
+
+  // Unseen detection: no seenBy record, or new emails arrived since last seen
+  const seenRecord = thread.seenBy[0];
+  const hasBeenSeen = !!seenRecord;
+  const hasNewEmails = hasBeenSeen && seenRecord.lastSeenEmailId !== latestEmail?.id;
+  const isUnseen = !hasBeenSeen || hasNewEmails;
+
+  // AI-handled: low-value tags or AI processed with no reply needed
+  const hasLowValueTag = thread.tags.some((t) =>
+    LOW_VALUE_TAGS.includes(t.tag.name.toLowerCase())
+  );
+  const isAIResolved = thread.aiStatus === "processed" && thread.aiNeedsReply === false;
+  const isAIHandled = hasLowValueTag || isAIResolved;
 
   return (
     <Link
       href={`/thread/${thread.id}`}
       className={cn(
         "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50",
-        isUnread && "bg-primary/5"
+        isUnseen && !isAIHandled && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950/30",
+        isUnseen && isAIHandled && "bg-muted/30",
+        !isUnseen && "border-l-2 border-l-transparent"
       )}
     >
-      <Avatar className="h-10 w-10">
-        <AvatarFallback
-          className={cn(
-            "text-sm",
-            isUnread
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground"
-          )}
-        >
-          {senderInitial}
-        </AvatarFallback>
-      </Avatar>
+      <div className="relative">
+        <Avatar className="h-10 w-10">
+          <AvatarFallback
+            className={cn(
+              "text-sm",
+              isUnseen && !isAIHandled
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {senderInitial}
+          </AvatarFallback>
+        </Avatar>
+        {isUnseen && isAIHandled && (
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-muted-foreground/50" />
+        )}
+      </div>
 
       <div className="flex-1 overflow-hidden">
         <div className="flex items-center justify-between gap-2">
@@ -87,7 +110,7 @@ export function ThreadItem({ thread }: ThreadItemProps) {
             <span
               className={cn(
                 "truncate",
-                isUnread ? "font-semibold" : "font-medium"
+                isUnseen && !isAIHandled ? "font-semibold" : "font-medium"
               )}
             >
               {senderName}
@@ -127,7 +150,7 @@ export function ThreadItem({ thread }: ThreadItemProps) {
           <span
             className={cn(
               "truncate",
-              isUnread ? "font-medium" : "text-foreground"
+              isUnseen && !isAIHandled ? "font-medium" : "text-foreground"
             )}
           >
             {thread.subject}

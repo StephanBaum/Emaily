@@ -31,11 +31,13 @@ interface Thread {
   subject: string;
   status: string;
   hasSentReply: boolean;
+  aiStatus: string;
+  aiNeedsReply: boolean | null;
   lastActivityAt: string;
   emails: ThreadEmail[];
   tags: ThreadTag[];
   assignments: ThreadAssignment[];
-  seenBy: { userId: string }[];
+  seenBy: { userId: string; lastSeenEmailId: string | null; seenAt: string }[];
   _count?: {
     emails: number;
   };
