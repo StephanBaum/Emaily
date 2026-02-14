@@ -116,9 +116,9 @@ export function FilterToolbar({
     activeStatus !== "open" && activeStatus !== "all" ? 1 : 0,
     selectedTagIds.length > 0 ? 1 : 0,
     mailboxId ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  ].reduce((sum, count) => sum + count, 0);
 
-  const selectedMailbox = mailboxes?.find((m) => m.id === mailboxId);
+  const selectedMailbox = mailboxes?.find((mailbox) => mailbox.id === mailboxId);
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto">
@@ -145,7 +145,7 @@ export function FilterToolbar({
         <div className="flex items-center gap-1.5">
           {/* Selected tag badges */}
           {selectedTagIds.map((id) => {
-            const tag = tags.find((t) => t.id === id);
+            const tag = tags.find((candidate) => candidate.id === id);
             if (!tag) return null;
             return (
               <Badge
@@ -268,7 +268,7 @@ export function FilterToolbar({
       {isTagView && tags && (
         <div className="flex items-center gap-1.5">
           {tagId && (() => {
-            const tag = tags.find((t) => t.id === tagId);
+            const tag = tags.find((candidate) => candidate.id === tagId);
             return tag ? (
               <Badge
                 variant="secondary"
