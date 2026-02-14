@@ -23,9 +23,9 @@ describe("TOTP utilities", () => {
   });
 
   describe("generateTotpUri", () => {
-    it("generates valid URI for authenticator apps", () => {
+    it("generates valid URI for authenticator apps", async () => {
       const secret = generateTotpSecret();
-      const uri = generateTotpUri(secret, "test@example.com");
+      const uri = await generateTotpUri(secret, "test@example.com");
 
       expect(uri).toContain("otpauth://totp/");
       expect(uri).toContain("test"); // @ is URL-encoded to %40
@@ -34,37 +34,37 @@ describe("TOTP utilities", () => {
       expect(uri).toContain("secret=");
     });
 
-    it("uses custom issuer", () => {
+    it("uses custom issuer", async () => {
       const secret = generateTotpSecret();
-      const uri = generateTotpUri(secret, "test@example.com", "CustomIssuer");
+      const uri = await generateTotpUri(secret, "test@example.com", "CustomIssuer");
 
       expect(uri).toContain("CustomIssuer");
     });
   });
 
   describe("verifyTotpToken", () => {
-    it("verifies valid token", () => {
+    it("verifies valid token", async () => {
       const secret = generateTotpSecret();
-      const token = generateTotpToken(secret);
+      const token = await generateTotpToken(secret);
 
-      expect(verifyTotpToken(secret, token)).toBe(true);
+      expect(await verifyTotpToken(secret, token)).toBe(true);
     });
 
-    it("rejects invalid token", () => {
+    it("rejects invalid token", async () => {
       const secret = generateTotpSecret();
-      expect(verifyTotpToken(secret, "000000")).toBe(false);
+      expect(await verifyTotpToken(secret, "000000")).toBe(false);
     });
 
-    it("rejects malformed token", () => {
+    it("rejects malformed token", async () => {
       const secret = generateTotpSecret();
-      expect(verifyTotpToken(secret, "invalid")).toBe(false);
+      expect(await verifyTotpToken(secret, "invalid")).toBe(false);
     });
   });
 
   describe("generateTotpToken", () => {
-    it("generates 6-digit token", () => {
+    it("generates 6-digit token", async () => {
       const secret = generateTotpSecret();
-      const token = generateTotpToken(secret);
+      const token = await generateTotpToken(secret);
 
       expect(token).toMatch(/^\d{6}$/);
     });

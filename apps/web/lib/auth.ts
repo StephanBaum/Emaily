@@ -40,7 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!totpCode) {
             throw new Error("TOTP_REQUIRED");
           }
-          const isValidTotp = verifyTotpToken(user.totpSecret, totpCode);
+          const isValidTotp = await verifyTotpToken(user.totpSecret, totpCode);
           if (!isValidTotp) {
             throw new Error("Invalid 2FA code");
           }

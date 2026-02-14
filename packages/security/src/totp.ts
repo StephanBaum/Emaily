@@ -1,34 +1,41 @@
-import { authenticator } from "otplib";
+import {
+  generateSecret,
+  generate,
+  verify,
+  generateURI,
+} from "otplib";
 
-// Configure authenticator
-authenticator.options = {
-  window: 1, // Allow 1 step before/after for clock drift
-};
+const EPOCH_TOLERANCE = 30; // Allow 1 step (30s) for clock drift
+const PERIOD = 30; // TOTP period in seconds
 
 /**
  * Generate a new TOTP secret for a user
  */
 export function generateTotpSecret(): string {
-  return authenticator.generateSecret();
+  return generateSecret();
 }
 
 /**
  * Generate a URI for authenticator apps (Google Authenticator, Authy, etc.)
  */
-export function generateTotpUri(
+export async function generateTotpUri(
   secret: string,
   email: string,
   issuer: string = "EmailAutomation"
-): string {
-  return authenticator.keyuri(email, issuer, secret);
+): Promise<string> {
+  return generateURI({ secret, label: email, issuer });
 }
 
 /**
  * Verify a TOTP token against a secret
  */
-export function verifyTotpToken(secret: string, token: string): boolean {
+export async function verifyTotpToken(
+  secret: string,
+  token: string
+): Promise<boolean> {
   try {
-    return authenticator.verify({ token, secret });
+    const result = await verify({ token, secret, epochTolerance: EPOCH_TOLERANCE });
+    return result.valid;
   } catch {
     return false;
   }
@@ -37,13 +44,14 @@ export function verifyTotpToken(secret: string, token: string): boolean {
 /**
  * Generate a current TOTP token (mainly for testing)
  */
-export function generateTotpToken(secret: string): string {
-  return authenticator.generate(secret);
+export async function generateTotpToken(secret: string): Promise<string> {
+  return generate({ secret });
 }
 
 /**
  * Get remaining seconds until current token expires
  */
 export function getTotpTimeRemaining(): number {
-  return authenticator.timeRemaining();
+  const epoch = Math.floor(Date.now() / 1000);
+  return PERIOD - (epoch % PERIOD);
 }
