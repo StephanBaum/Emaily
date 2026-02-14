@@ -137,16 +137,26 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  // When using unprocessed filter, sort by trust level (VIP > trusted > known > stranger)
-  // then by lastActivityAt within each trust level
+  // When using unprocessed filter, sort by:
+  // 1. AI priority (high > medium > low > null)
+  // 2. Trust level (VIP > trusted > known > stranger)
+  // 3. lastActivityAt within each group
   if (filter === "unprocessed") {
+    const PRIORITY_ORDER: Record<string, number> = { high: 3, medium: 2, low: 1 };
     threads.sort((a, b) => {
+      // First: AI priority
+      const prioA = PRIORITY_ORDER[a.aiPriority || ""] || 0;
+      const prioB = PRIORITY_ORDER[b.aiPriority || ""] || 0;
+      if (prioA !== prioB) {
+        return prioB - prioA; // Higher priority first
+      }
+      // Second: Trust level
       const trustA = TRUST_LEVEL_ORDER[(a.senderTrustLevel as TrustLevel) || "stranger"];
       const trustB = TRUST_LEVEL_ORDER[(b.senderTrustLevel as TrustLevel) || "stranger"];
       if (trustA !== trustB) {
         return trustB - trustA; // Higher trust first
       }
-      // Secondary sort by lastActivityAt desc
+      // Third: lastActivityAt desc
       return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
     });
   }

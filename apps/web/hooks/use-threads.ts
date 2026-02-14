@@ -35,6 +35,7 @@ interface Thread {
   hasSentReply: boolean;
   aiStatus: string;
   aiNeedsReply: boolean | null;
+  aiPriority: string | null;
   senderTrustLevel?: string | null;
   lastActivityAt: string;
   emails: ThreadEmail[];

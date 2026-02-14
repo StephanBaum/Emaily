@@ -14,6 +14,12 @@ import {
   Mail,
   MessageSquare,
   Clock,
+  AlertCircle,
+  Send,
+  Reply,
+  Flame,
+  ArrowUp,
+  Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +28,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAISummary } from "@/hooks/use-ai-summary";
 import { useThreads } from "@/hooks/use-threads";
+import { useNudges, type NudgeThread } from "@/hooks/use-nudges";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AISummaryAction, AISummaryGroup } from "@emailautomation/shared";
 
@@ -31,6 +38,8 @@ interface Thread {
   subject: string;
   status: string;
   senderTrustLevel?: string | null;
+  aiPriority?: string | null;
+  aiNeedsReply?: boolean | null;
   lastActivityAt: string;
   emails?: {
     fromName?: string | null;
@@ -62,24 +71,33 @@ interface InboxDashboardProps {
 function generateThreadsSummary(threads: Thread[]): string {
   if (threads.length === 0) return "";
 
-  // Group by sender trust level
-  const vipThreads = threads.filter(t => t.senderTrustLevel === "vip");
-  const trustedThreads = threads.filter(t => t.senderTrustLevel === "trusted");
-  const otherThreads = threads.filter(t => !["vip", "trusted"].includes(t.senderTrustLevel || ""));
+  // Group by priority and trust level
+  const highPriority = threads.filter(t => t.aiPriority === "high");
+  const needsReply = threads.filter(t => t.aiNeedsReply === true && t.aiPriority !== "high");
+  const vipThreads = threads.filter(t => t.senderTrustLevel === "vip" && t.aiPriority !== "high");
+  const trustedThreads = threads.filter(t => t.senderTrustLevel === "trusted" && t.aiPriority !== "high" && !t.aiNeedsReply);
 
   const parts: string[] = [];
+
+  if (highPriority.length > 0) {
+    parts.push(`${highPriority.length} urgent`);
+  }
+
+  if (needsReply.length > 0) {
+    parts.push(`${needsReply.length} need${needsReply.length === 1 ? "s" : ""} reply`);
+  }
 
   if (vipThreads.length > 0) {
     const names = [...new Set(vipThreads.map(t => t.emails?.[0]?.fromName || "VIP contact"))].slice(0, 2);
     parts.push(`${vipThreads.length} from VIP${vipThreads.length > 1 ? "s" : ""} (${names.join(", ")})`);
   }
 
-  if (trustedThreads.length > 0) {
+  if (trustedThreads.length > 0 && parts.length < 3) {
     parts.push(`${trustedThreads.length} from trusted contacts`);
   }
 
-  if (otherThreads.length > 0 && parts.length < 2) {
-    parts.push(`${otherThreads.length} other${otherThreads.length > 1 ? "s" : ""}`);
+  if (parts.length === 0) {
+    return "Sorted by importance — urgent and VIP contacts first";
   }
 
   return parts.join(", ");
@@ -138,6 +156,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
     mailboxId,
     filter: "unprocessed",
   });
+  const { needsReply, awaitingResponse, totalNudges, isLoading: nudgesLoading } = useNudges();
   const [showHandled, setShowHandled] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -153,7 +172,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
 
   if (!mounted) return null;
 
-  const isLoading = aiLoading || threadsLoading;
+  const isLoading = aiLoading || threadsLoading || nudgesLoading;
   const unprocessedCount = threads?.length ?? 0;
 
   // Split AI groups into relevant vs handled, sorted by importance
@@ -168,13 +187,14 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
   const hasUnprocessed = unprocessedCount > 0;
   const hasRelevant = relevantCount > 0;
   const hasHandled = handledCount > 0;
+  const hasNudges = totalNudges > 0;
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
   // All caught up state
-  if (!hasUnprocessed && !hasRelevant && !hasHandled) {
+  if (!hasUnprocessed && !hasRelevant && !hasHandled && !hasNudges) {
     return (
       <div className="px-6 py-12 flex flex-col items-center justify-center text-center">
         <div className="rounded-full bg-green-500/10 p-4 mb-4">
@@ -214,6 +234,48 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
                 <ThreadCard key={thread.id} thread={thread} />
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Nudges section - Needs attention */}
+      {hasNudges && (
+        <Card className="border-orange-200 dark:border-orange-900/50 bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-orange-500/10 p-2">
+                <AlertCircle className="h-5 w-5 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-orange-700 dark:text-orange-400">
+                  Needs Your Attention
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {totalNudges} conversation{totalNudges !== 1 ? "s" : ""} waiting for action
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-4">
+            {/* Needs Reply */}
+            {needsReply.length > 0 && (
+              <NudgeSection
+                title="You haven't replied"
+                icon={Reply}
+                items={needsReply}
+                accentColor="rose"
+              />
+            )}
+
+            {/* Awaiting Response */}
+            {awaitingResponse.length > 0 && (
+              <NudgeSection
+                title="Following up?"
+                icon={Send}
+                items={awaitingResponse}
+                accentColor="amber"
+              />
+            )}
           </CardContent>
         </Card>
       )}
@@ -278,11 +340,40 @@ function ThreadCard({ thread }: { thread: Thread }) {
   const senderInitial = senderName[0]?.toUpperCase() || "?";
   const isVip = thread.senderTrustLevel === "vip";
   const isTrusted = thread.senderTrustLevel === "trusted";
+  const priority = thread.aiPriority;
+  const needsReply = thread.aiNeedsReply;
+
+  const priorityConfig = {
+    high: {
+      icon: Flame,
+      className: "text-red-500",
+      bgClassName: "bg-red-500/10",
+      label: "High",
+    },
+    medium: {
+      icon: ArrowUp,
+      className: "text-orange-500",
+      bgClassName: "bg-orange-500/10",
+      label: "Medium",
+    },
+    low: {
+      icon: Minus,
+      className: "text-muted-foreground",
+      bgClassName: "bg-muted",
+      label: "Low",
+    },
+  };
+
+  const PriorityIcon = priority && priorityConfig[priority as keyof typeof priorityConfig]?.icon;
+  const priorityStyle = priority ? priorityConfig[priority as keyof typeof priorityConfig] : null;
 
   return (
     <Link
       href={`/thread/${thread.id}`}
-      className="flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors"
+      className={cn(
+        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors",
+        priority === "high" && "border-l-2 border-l-red-500"
+      )}
     >
       <Avatar className="h-10 w-10 shrink-0">
         <AvatarFallback className={cn(
@@ -304,6 +395,18 @@ function ThreadCard({ thread }: { thread: Thread }) {
           {isTrusted && (
             <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 text-[10px] px-1.5 h-4">
               Trusted
+            </Badge>
+          )}
+          {priority === "high" && PriorityIcon && (
+            <Badge variant="secondary" className={cn("text-[10px] px-1.5 h-4", priorityStyle?.bgClassName, priorityStyle?.className)}>
+              <PriorityIcon className="h-2.5 w-2.5 mr-0.5" />
+              Urgent
+            </Badge>
+          )}
+          {needsReply && (
+            <Badge variant="secondary" className="bg-rose-500/10 text-rose-600 text-[10px] px-1.5 h-4">
+              <Reply className="h-2.5 w-2.5 mr-0.5" />
+              Reply
             </Badge>
           )}
         </div>
@@ -521,6 +624,110 @@ function formatRelativeTime(date: Date): string {
   if (diffMins < 60) return `${diffMins}m`;
   if (diffHours < 24) return `${diffHours}h`;
   return `${diffDays}d`;
+}
+
+function NudgeSection({
+  title,
+  icon: Icon,
+  items,
+  accentColor,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NudgeThread[];
+  accentColor: "rose" | "amber";
+}) {
+  const colors = {
+    rose: {
+      border: "border-l-rose-500",
+      iconBg: "bg-rose-500/10",
+      iconColor: "text-rose-600",
+      badge: "bg-rose-500/10 text-rose-600",
+    },
+    amber: {
+      border: "border-l-amber-500",
+      iconBg: "bg-amber-500/10",
+      iconColor: "text-amber-600",
+      badge: "bg-amber-500/10 text-amber-600",
+    },
+  };
+
+  const style = colors[accentColor];
+
+  return (
+    <div className={cn("border-l-4 pl-4 py-2", style.border)}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn("rounded p-1", style.iconBg)}>
+          <Icon className={cn("h-3.5 w-3.5", style.iconColor)} />
+        </div>
+        <h4 className="text-sm font-medium">{title}</h4>
+        <Badge variant="secondary" className={cn("text-xs h-5", style.badge)}>
+          {items.length}
+        </Badge>
+      </div>
+      <div className="divide-y rounded-lg border bg-card">
+        {items.map((item) => (
+          <NudgeRow key={item.id} item={item} accentColor={accentColor} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NudgeRow({
+  item,
+  accentColor,
+}: {
+  item: NudgeThread;
+  accentColor: "rose" | "amber";
+}) {
+  const senderName = item.senderName || item.senderEmail?.split("@")[0] || "Unknown";
+  const senderInitial = senderName[0]?.toUpperCase() || "?";
+  const isVip = item.senderTrustLevel === "vip";
+  const isTrusted = item.senderTrustLevel === "trusted";
+
+  const badgeColors = {
+    rose: "bg-rose-500/10 text-rose-600",
+    amber: "bg-amber-500/10 text-amber-600",
+  };
+
+  return (
+    <Link
+      href={`/thread/${item.id}`}
+      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
+    >
+      <Avatar className="h-9 w-9 shrink-0">
+        <AvatarFallback
+          className={cn(
+            isVip
+              ? "bg-amber-500/20 text-amber-600"
+              : isTrusted
+              ? "bg-blue-500/20 text-blue-600"
+              : "bg-muted text-muted-foreground",
+            "text-sm"
+          )}
+        >
+          {senderInitial}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm truncate">{senderName}</span>
+          {isVip && (
+            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 text-[10px] px-1.5 h-4">
+              VIP
+            </Badge>
+          )}
+        </div>
+        <p className="text-sm truncate text-muted-foreground">{item.subject}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge variant="secondary" className={cn("text-[10px] px-1.5 h-5", badgeColors[accentColor])}>
+          {item.daysSince}d ago
+        </Badge>
+      </div>
+    </Link>
+  );
 }
 
 function DashboardSkeleton() {
