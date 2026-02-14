@@ -72,10 +72,10 @@ function generateThreadsSummary(threads: Thread[]): string {
   if (threads.length === 0) return "";
 
   // Group by priority and trust level
-  const highPriority = threads.filter(t => t.aiPriority === "high");
-  const needsReply = threads.filter(t => t.aiNeedsReply === true && t.aiPriority !== "high");
-  const vipThreads = threads.filter(t => t.senderTrustLevel === "vip" && t.aiPriority !== "high");
-  const trustedThreads = threads.filter(t => t.senderTrustLevel === "trusted" && t.aiPriority !== "high" && !t.aiNeedsReply);
+  const highPriority = threads.filter((thread) => thread.aiPriority === "high");
+  const needsReply = threads.filter((thread) => thread.aiNeedsReply === true && thread.aiPriority !== "high");
+  const vipThreads = threads.filter((thread) => thread.senderTrustLevel === "vip" && thread.aiPriority !== "high");
+  const trustedThreads = threads.filter((thread) => thread.senderTrustLevel === "trusted" && thread.aiPriority !== "high" && !thread.aiNeedsReply);
 
   const parts: string[] = [];
 
@@ -88,7 +88,7 @@ function generateThreadsSummary(threads: Thread[]): string {
   }
 
   if (vipThreads.length > 0) {
-    const names = [...new Set(vipThreads.map(t => t.emails?.[0]?.fromName || "VIP contact"))].slice(0, 2);
+    const names = [...new Set(vipThreads.map((thread) => thread.emails?.[0]?.fromName || "VIP contact"))].slice(0, 2);
     parts.push(`${vipThreads.length} from VIP${vipThreads.length > 1 ? "s" : ""} (${names.join(", ")})`);
   }
 
@@ -109,10 +109,10 @@ function generateGroupSummary(group: AISummaryGroup): string {
   if (items.length === 0) return "";
 
   // Get unique senders
-  const senders = [...new Set(items.map(i => i.senderName || i.senderEmail.split("@")[0]))];
+  const senders = [...new Set(items.map((item) => item.senderName || item.senderEmail.split("@")[0]))];
 
   // Get unique tags
-  const allTags = items.flatMap(i => i.tags.map(t => t.name));
+  const allTags = items.flatMap((item) => item.tags.map((tag) => tag.name));
   const uniqueTags = [...new Set(allTags)].slice(0, 3);
 
   switch (group.action) {
@@ -133,9 +133,9 @@ function generateGroupSummary(group: AISummaryGroup): string {
 
     case "ai_archived": {
       // Try to identify common patterns
-      const subjects = items.map(i => i.subject.toLowerCase());
-      const isNewsletter = subjects.some(s => s.includes("newsletter") || s.includes("digest") || s.includes("weekly"));
-      const isNotification = subjects.some(s => s.includes("notification") || s.includes("alert") || s.includes("update"));
+      const subjects = items.map((item) => item.subject.toLowerCase());
+      const isNewsletter = subjects.some((subject) => subject.includes("newsletter") || subject.includes("digest") || subject.includes("weekly"));
+      const isNotification = subjects.some((subject) => subject.includes("notification") || subject.includes("alert") || subject.includes("update"));
 
       if (isNewsletter) return "Newsletters and digests moved out of inbox";
       if (isNotification) return "Automated notifications archived";
@@ -177,12 +177,12 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
 
   // Split AI groups into relevant vs handled, sorted by importance
   const relevantGroups = groups
-    .filter((g) => RELEVANT_ACTIONS.includes(g.action))
+    .filter((group) => RELEVANT_ACTIONS.includes(group.action))
     .sort((a, b) => RELEVANT_ACTIONS.indexOf(a.action) - RELEVANT_ACTIONS.indexOf(b.action));
-  const handledGroups = groups.filter((g) => HANDLED_ACTIONS.includes(g.action));
+  const handledGroups = groups.filter((group) => HANDLED_ACTIONS.includes(group.action));
 
-  const relevantCount = relevantGroups.reduce((sum, g) => sum + g.count, 0);
-  const handledCount = handledGroups.reduce((sum, g) => sum + g.count, 0);
+  const relevantCount = relevantGroups.reduce((sum, group) => sum + group.count, 0);
+  const handledCount = handledGroups.reduce((sum, group) => sum + group.count, 0);
 
   const hasUnprocessed = unprocessedCount > 0;
   const hasRelevant = relevantCount > 0;
