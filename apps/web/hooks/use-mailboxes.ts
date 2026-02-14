@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { fetcher, staticConfig } from "@/lib/swr-config";
 
 interface Mailbox {
   id: string;
@@ -12,21 +13,11 @@ interface Mailbox {
   };
 }
 
-async function fetcher(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    console.error("Failed to fetch mailboxes:", res.status, data);
-    throw new Error(data.error || "Failed to fetch mailboxes");
-  }
-  return res.json();
-}
-
 export function useMailboxes() {
   const { data, error, isLoading, mutate } = useSWR<Mailbox[]>(
     "/api/mailboxes",
-    fetcher,
-    { refreshInterval: 15000, revalidateOnFocus: true }
+    fetcher<Mailbox[]>,
+    staticConfig
   );
 
   return {

@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useSWRConfig } from "swr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tag, Check, X } from "lucide-react";
+import { useThreadActions } from "@/hooks/use-thread-actions";
 
 interface TagData {
   id: string;
@@ -28,8 +27,7 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ threadId, currentTags }: TagPickerProps) {
-  const router = useRouter();
-  const { mutate: globalMutate } = useSWRConfig();
+  const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
   const [open, setOpen] = useState(false);
   const [allTags, setAllTags] = useState<TagData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +60,7 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
   async function toggleTag(tag: TagData) {
     const isApplied = appliedTagIds.has(tag.id);
 
+    // Update local state immediately
     setAppliedTagIds((prev) => {
       const next = new Set(prev);
       if (isApplied) {
@@ -72,38 +71,24 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
       return next;
     });
 
+    // Use optimistic actions - no router.refresh() needed
     if (isApplied) {
-      await fetch(`/api/threads/${threadId}/tags?tagId=${tag.id}`, {
-        method: "DELETE",
-      });
+      await removeTagAction(tag.id);
     } else {
-      await fetch(`/api/threads/${threadId}/tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tagId: tag.id }),
-      });
+      await addTag(tag);
     }
-
-    // Revalidate SWR caches so sidebar/thread list update
-    globalMutate("/api/tags");
-    globalMutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
-    router.refresh();
   }
 
   async function removeTag(tagId: string) {
+    // Update local state immediately
     setAppliedTagIds((prev) => {
       const next = new Set(prev);
       next.delete(tagId);
       return next;
     });
 
-    await fetch(`/api/threads/${threadId}/tags?tagId=${tagId}`, {
-      method: "DELETE",
-    });
-
-    globalMutate("/api/tags");
-    globalMutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
-    router.refresh();
+    // Use optimistic action
+    await removeTagAction(tagId);
   }
 
   return (
@@ -159,8 +144,7 @@ export function TagMenuPopover({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const router = useRouter();
-  const { mutate: globalMutate } = useSWRConfig();
+  const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
   const [allTags, setAllTags] = useState<TagData[]>([]);
   const [loading, setLoading] = useState(false);
   const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
@@ -192,6 +176,7 @@ export function TagMenuPopover({
   async function toggleTag(tag: TagData) {
     const isApplied = appliedTagIds.has(tag.id);
 
+    // Update local state immediately
     setAppliedTagIds((prev) => {
       const next = new Set(prev);
       if (isApplied) {
@@ -202,21 +187,12 @@ export function TagMenuPopover({
       return next;
     });
 
+    // Use optimistic actions - no router.refresh() needed
     if (isApplied) {
-      await fetch(`/api/threads/${threadId}/tags?tagId=${tag.id}`, {
-        method: "DELETE",
-      });
+      await removeTagAction(tag.id);
     } else {
-      await fetch(`/api/threads/${threadId}/tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tagId: tag.id }),
-      });
+      await addTag(tag);
     }
-
-    globalMutate("/api/tags");
-    globalMutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
-    router.refresh();
   }
 
   return (

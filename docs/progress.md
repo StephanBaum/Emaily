@@ -747,6 +747,77 @@ When AI processes mail (auto-archiving newsletters, tagging notifications), thre
 
 ---
 
+## Phase 7.13: Performance Optimizations [DONE]
+
+Branch: `feature/performance-optimizations`
+
+### Problem Solved
+Thread interactions (archive, snooze, tag add/remove) required full page reloads. UI felt sluggish with unnecessary network round-trips.
+
+### SWR Configuration (`apps/web/lib/swr-config.ts`)
+- Created tiered refresh interval presets:
+  - `realtimeConfig`: 30s refresh, focus revalidation, 5s deduping
+  - `stableConfig`: 60s refresh, reduced background activity
+  - `staticConfig`: 120s refresh, minimal updates
+- Applied to hooks: useThreads, useTags, useAgents, useAISummary
+
+### Redis Caching Layer (`apps/web/lib/cache.ts`)
+- Generic `cacheOrFetch<T>()` utility with TTL support
+- Cache presets: tags (5min), mailboxes (10min), agents (10min), AI summary (1min)
+- Applied to: `/api/tags`, `/api/agents`, `/api/ai/summary`
+
+### HTTP Cache-Control Headers
+- Added `Cache-Control: private, max-age=X, stale-while-revalidate=Y` to API routes:
+  - Tags: 60s cache, 120s stale
+  - Agents: 60s cache, 120s stale
+  - AI Summary: 30s cache, 60s stale
+
+### Optimistic Updates (`apps/web/hooks/use-thread-actions.ts`)
+- `useThreadActions(threadId)` hook for immediate UI feedback:
+  - `updateStatus()`: Archive/snooze/reopen with instant UI update
+  - `addTag()`: Tag appears immediately in picker
+  - `removeTag()`: Tag disappears instantly
+- Pattern: Update SWR cache → navigate (if needed) → API call → router.refresh()
+- Hybrid approach: Optimistic SWR + non-blocking server component refresh
+
+### Prefetch on Hover (`usePrefetchThread()`)
+- Preloads thread data when user hovers over thread item
+- Single prefetch per thread (tracked via ref)
+- Populates SWR cache before navigation
+
+### Improved Loading States (`apps/web/components/inbox/thread-skeleton.tsx`)
+- `ThreadSkeleton`: Full thread item shape with avatar, header, subject, preview
+- Staggered animation delays for visual polish
+- `SidebarSkeleton`: Compact skeleton for sidebar counts
+
+### Tag Picker Optimizations
+- Removed router.refresh() from toggle (uses optimistic actions)
+- Local state syncs with currentTags prop via useEffect
+- Server component refreshes after API completion
+
+### Commits
+- `f6b92ee` perf: optimize SWR hooks with deduping and tiered refresh intervals
+- `5c3df63` perf: add Redis caching layer for tags, agents, and AI summary
+- `8d1fefd` perf: add Cache-Control headers to API routes
+- `f61bb8e` perf: add optimistic updates, prefetch on hover, and improved skeletons
+
+### Files — New (3)
+- `apps/web/lib/swr-config.ts`
+- `apps/web/lib/cache.ts`
+- `apps/web/components/inbox/thread-skeleton.tsx`
+
+### Files — Modified (8)
+- `apps/web/hooks/use-thread-actions.ts` (new hook)
+- `apps/web/hooks/use-threads.ts` (SWR config)
+- `apps/web/hooks/use-tags.ts` (SWR config)
+- `apps/web/hooks/use-agents.ts` (SWR config)
+- `apps/web/components/thread/thread-header.tsx` (optimistic updateStatus)
+- `apps/web/components/thread/tag-picker.tsx` (optimistic add/remove)
+- `apps/web/components/inbox/thread-item.tsx` (prefetch on hover)
+- `apps/web/components/inbox/thread-list.tsx` (skeleton integration)
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---

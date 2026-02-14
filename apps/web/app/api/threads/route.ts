@@ -145,5 +145,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.json(threads);
+  return NextResponse.json(threads, {
+    headers: {
+      // Very short cache for real-time thread list
+      "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+    },
+  });
 }

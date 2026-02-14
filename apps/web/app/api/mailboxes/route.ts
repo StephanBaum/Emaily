@@ -43,5 +43,10 @@ export async function GET() {
     _count: { threads: threads.length },
   }));
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: {
+      // Short cache since thread counts are dynamic
+      "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+    },
+  });
 }

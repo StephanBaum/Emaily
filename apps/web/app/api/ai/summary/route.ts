@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheOrFetch, cacheKeys, CACHE_TTL } from "@/lib/cache";
 import type {
   AISummaryAction,
   AISummaryGroup,
@@ -24,32 +25,26 @@ const ACTION_LABELS: Record<AISummaryAction, string> = {
   ai_quarantined: "Quarantined",
 };
 
-export async function GET(request: NextRequest) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const hours = parseInt(searchParams.get("hours") || "24", 10);
+async function fetchAISummary(
+  teamId: string,
+  userId: string,
+  hours: number
+): Promise<AISummaryResponse> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-  const teamId = session.user.teamId;
 
   // Get accessible mailbox IDs for this user
   const accessibleMailboxes = await prisma.mailboxAccess.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     select: { mailboxId: true },
   });
   const mailboxIds = accessibleMailboxes.map((a) => a.mailboxId);
 
   if (mailboxIds.length === 0) {
-    return NextResponse.json({
+    return {
       groups: [],
       totalCount: 0,
       since,
-    } satisfies AISummaryResponse);
+    };
   }
 
   // Query ActivityLog for AI actions on threads in accessible mailboxes
@@ -155,9 +150,35 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  return {
     groups,
     totalCount,
     since,
-  } satisfies AISummaryResponse);
+  };
+}
+
+export async function GET(request: NextRequest) {
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const hours = parseInt(searchParams.get("hours") || "24", 10);
+
+  const teamId = session.user.teamId;
+  const userId = session.user.id;
+
+  // Cache per user+team+hours combo with short TTL
+  const cacheKey = `${cacheKeys.aiSummary(teamId, hours)}:${userId}`;
+  const result = await cacheOrFetch(cacheKey, CACHE_TTL.aiSummary, () =>
+    fetchAISummary(teamId, userId, hours)
+  );
+
+  return NextResponse.json(result satisfies AISummaryResponse, {
+    headers: {
+      "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+    },
+  });
 }

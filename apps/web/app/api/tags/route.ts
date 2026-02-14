@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheOrFetch, cacheInvalidate, cacheKeys, CACHE_TTL } from "@/lib/cache";
 
 // Tags hidden from sidebar navigation (they have dedicated nav items).
 // Still available in tag picker for manual assignment.
@@ -15,25 +16,35 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const context = searchParams.get("context"); // "sidebar" or "picker"
+  const teamId = session.user.teamId;
 
-  const where: Record<string, unknown> = { teamId: session.user.teamId };
+  // Cache key includes context for different query variations
+  const cacheKey = `${cacheKeys.tags(teamId)}:${context || "default"}`;
 
-  // Hide spam tag from sidebar (it has its own nav item) but show in picker
-  if (context !== "picker") {
-    where.NOT = { name: { in: SIDEBAR_HIDDEN_TAGS, mode: "insensitive" } };
-  }
+  const tags = await cacheOrFetch(cacheKey, CACHE_TTL.tags, async () => {
+    const where: Record<string, unknown> = { teamId };
 
-  const tags = await prisma.tag.findMany({
-    where,
-    orderBy: { name: "asc" },
-    include: {
-      _count: {
-        select: { threads: true },
+    // Hide spam tag from sidebar (it has its own nav item) but show in picker
+    if (context !== "picker") {
+      where.NOT = { name: { in: SIDEBAR_HIDDEN_TAGS, mode: "insensitive" } };
+    }
+
+    return prisma.tag.findMany({
+      where,
+      orderBy: { name: "asc" },
+      include: {
+        _count: {
+          select: { threads: true },
+        },
       },
-    },
+    });
   });
 
-  return NextResponse.json(tags);
+  return NextResponse.json(tags, {
+    headers: {
+      "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -85,6 +96,10 @@ export async function POST(request: NextRequest) {
       },
     },
   });
+
+  // Invalidate tags cache for this team
+  await cacheInvalidate(`${cacheKeys.tags(session.user.teamId)}:default`);
+  await cacheInvalidate(`${cacheKeys.tags(session.user.teamId)}:picker`);
 
   return NextResponse.json(tag, { status: 201 });
 }

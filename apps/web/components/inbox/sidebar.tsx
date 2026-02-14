@@ -36,7 +36,6 @@ import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
 import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { revalidateAll, revalidateThreads } from "@/lib/revalidate";
 
 export function Sidebar() {
@@ -51,8 +50,6 @@ export function Sidebar() {
   const { isCollapsed, toggleGroup } = useCollapsedGroups();
   const { sortGroups } = useGroupOrder();
   const { sortTags } = useTagOrder();
-
-  const router = useRouter();
 
   const activeTag = searchParams.get("tag");
   const activeTags = searchParams.get("tags");
@@ -124,7 +121,7 @@ export function Sidebar() {
     } finally {
       setIsProcessingAI(false);
       revalidateAll();
-      router.refresh();
+      // SWR revalidation handles updates - no router.refresh() needed
     }
   }
 
@@ -134,9 +131,8 @@ export function Sidebar() {
       const res = await fetch("/api/sync", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        // Immediately refresh all caches so new threads appear
+        // SWR revalidation handles updates - no router.refresh() needed
         revalidateAll();
-        router.refresh();
         const hasNewEmails = data.results?.some(
           (r: { newEmails: number }) => r.newEmails > 0
         );

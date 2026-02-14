@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheOrFetch, cacheInvalidate, cacheKeys, CACHE_TTL } from "@/lib/cache";
 
 export async function GET() {
   const session = await auth();
@@ -9,17 +10,24 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const agents = await prisma.agent.findMany({
-    where: { teamId: session.user.teamId },
-    include: {
-      tagWatches: {
-        select: { tagId: true },
+  const teamId = session.user.teamId;
+  const agents = await cacheOrFetch(cacheKeys.agents(teamId), CACHE_TTL.agents, async () => {
+    return prisma.agent.findMany({
+      where: { teamId },
+      include: {
+        tagWatches: {
+          select: { tagId: true },
+        },
       },
-    },
-    orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+    });
   });
 
-  return NextResponse.json(agents);
+  return NextResponse.json(agents, {
+    headers: {
+      "Cache-Control": "private, max-age=120, stale-while-revalidate=300",
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -80,6 +88,9 @@ export async function POST(request: NextRequest) {
       tagWatches: { select: { tagId: true } },
     },
   });
+
+  // Invalidate agents cache
+  await cacheInvalidate(cacheKeys.agents(teamId));
 
   return NextResponse.json(agent, { status: 201 });
 }

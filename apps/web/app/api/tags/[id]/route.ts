@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheInvalidate, cacheKeys } from "@/lib/cache";
 
 export async function PATCH(
   request: NextRequest,
@@ -62,6 +63,10 @@ export async function PATCH(
     },
   });
 
+  // Invalidate tags cache
+  await cacheInvalidate(`${cacheKeys.tags(session.user.teamId)}:default`);
+  await cacheInvalidate(`${cacheKeys.tags(session.user.teamId)}:picker`);
+
   return NextResponse.json(updated);
 }
 
@@ -87,6 +92,10 @@ export async function DELETE(
   }
 
   await prisma.tag.delete({ where: { id } });
+
+  // Invalidate tags cache
+  await cacheInvalidate(`${cacheKeys.tags(session.user.teamId)}:default`);
+  await cacheInvalidate(`${cacheKeys.tags(session.user.teamId)}:picker`);
 
   return NextResponse.json({ success: true });
 }

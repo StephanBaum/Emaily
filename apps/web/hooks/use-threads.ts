@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { fetcher, realtimeConfig } from "@/lib/swr-config";
 
 interface ThreadEmail {
   id: string;
@@ -33,6 +34,7 @@ interface Thread {
   hasSentReply: boolean;
   aiStatus: string;
   aiNeedsReply: boolean | null;
+  senderTrustLevel?: string | null;
   lastActivityAt: string;
   emails: ThreadEmail[];
   tags: ThreadTag[];
@@ -41,14 +43,6 @@ interface Thread {
   _count?: {
     emails: number;
   };
-}
-
-async function fetcher(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error("Failed to fetch threads");
-  }
-  return res.json();
 }
 
 export function useThreads(params?: {
@@ -74,10 +68,11 @@ export function useThreads(params?: {
 
   const url = `/api/threads${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
-  const { data, error, isLoading, mutate } = useSWR<Thread[]>(url, fetcher, {
-    refreshInterval: 30000,
-    revalidateOnFocus: true,
-  });
+  const { data, error, isLoading, mutate } = useSWR<Thread[]>(
+    url,
+    fetcher<Thread[]>,
+    realtimeConfig
+  );
 
   return {
     threads: data,
@@ -90,8 +85,11 @@ export function useThreads(params?: {
 export function useThread(id: string) {
   const { data, error, isLoading, mutate } = useSWR<Thread>(
     id ? `/api/threads/${id}` : null,
-    fetcher,
-    { refreshInterval: 15000, revalidateOnFocus: true }
+    fetcher<Thread>,
+    {
+      ...realtimeConfig,
+      refreshInterval: 15000, // Individual thread refreshes faster
+    }
   );
 
   return {

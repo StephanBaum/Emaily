@@ -1,12 +1,14 @@
 "use client";
 
+import { useCallback, useRef } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Crown, Paperclip, Reply, ShieldQuestion, Sparkles } from "lucide-react";
+import { Bot, Crown, Reply, ShieldQuestion, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { usePrefetchThread } from "@/hooks/use-thread-actions";
 
 interface ThreadEmail {
   id: string;
@@ -58,6 +60,17 @@ interface ThreadItemProps {
 const LOW_VALUE_TAGS = ["spam", "newsletter", "advertising", "notification", "marketing"];
 
 export function ThreadItem({ thread }: ThreadItemProps) {
+  const prefetch = usePrefetchThread();
+  const prefetchedRef = useRef(false);
+
+  const handleMouseEnter = useCallback(() => {
+    // Only prefetch once per mount
+    if (!prefetchedRef.current) {
+      prefetchedRef.current = true;
+      prefetch(thread.id);
+    }
+  }, [prefetch, thread.id]);
+
   const latestEmail = thread.emails[0];
   const senderName = latestEmail?.fromName || latestEmail?.fromAddress || "Unknown";
   const senderInitial = senderName[0]?.toUpperCase() || "?";
@@ -79,6 +92,7 @@ export function ThreadItem({ thread }: ThreadItemProps) {
   return (
     <Link
       href={`/thread/${thread.id}`}
+      onMouseEnter={handleMouseEnter}
       className={cn(
         "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50",
         isUnseen && !isAIHandled && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950/30",

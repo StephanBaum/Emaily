@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { fetcher, stableConfig } from "@/lib/swr-config";
 
 export interface TagData {
   id: string;
@@ -14,20 +15,11 @@ export interface TagData {
   };
 }
 
-async function fetcher(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to fetch tags");
-  }
-  return res.json();
-}
-
 export function useTags() {
   const { data, error, isLoading, mutate } = useSWR<TagData[]>(
     "/api/tags",
-    fetcher,
-    { refreshInterval: 15000, revalidateOnFocus: true }
+    fetcher<TagData[]>,
+    stableConfig
   );
 
   return {

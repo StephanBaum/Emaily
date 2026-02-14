@@ -2,7 +2,7 @@
 
 import { useThreads } from "@/hooks/use-threads";
 import { ThreadItem } from "./thread-item";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ThreadSkeleton } from "./thread-skeleton";
 import { Inbox, Archive, Clock, CheckCircle2 } from "lucide-react";
 
 interface ThreadListProps {
@@ -18,20 +18,7 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
   const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query, filter });
 
   if (isLoading) {
-    return (
-      <div className="divide-y">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-4 p-4">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-1/4" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+    return <ThreadSkeleton count={6} />;
   }
 
   if (isError) {

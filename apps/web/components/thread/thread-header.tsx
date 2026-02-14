@@ -20,7 +20,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { TagPicker, TagMenuPopover } from "./tag-picker";
-import { revalidateThreads, revalidateTags, revalidateMailboxes } from "@/lib/revalidate";
+import { useThreadActions } from "@/hooks/use-thread-actions";
 
 interface ThreadTag {
   tag: {
@@ -49,18 +49,7 @@ function truncateSubject(subject: string, maxLength = 256): string {
 export function ThreadHeader({ thread }: ThreadHeaderProps) {
   const router = useRouter();
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
-
-  async function updateStatus(status: string) {
-    await fetch(`/api/threads/${thread.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    revalidateThreads();
-    revalidateTags();
-    revalidateMailboxes();
-    router.refresh();
-  }
+  const { updateStatus } = useThreadActions(thread.id);
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-4">

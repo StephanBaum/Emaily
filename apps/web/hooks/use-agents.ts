@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { fetcher, staticConfig } from "@/lib/swr-config";
 
 export interface AgentData {
   id: string;
@@ -14,20 +15,11 @@ export interface AgentData {
   tagWatches: { tagId: string }[];
 }
 
-async function fetcher(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to fetch agents");
-  }
-  return res.json();
-}
-
 export function useAgents() {
   const { data, error, isLoading, mutate } = useSWR<AgentData[]>(
     "/api/agents",
-    fetcher,
-    { refreshInterval: 60000, revalidateOnFocus: true }
+    fetcher<AgentData[]>,
+    staticConfig
   );
 
   return {

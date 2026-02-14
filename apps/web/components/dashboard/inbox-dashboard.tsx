@@ -14,7 +14,6 @@ import {
   Mail,
   MessageSquare,
   Clock,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,21 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAISummary } from "@/hooks/use-ai-summary";
 import { useThreads } from "@/hooks/use-threads";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AISummaryAction, AISummaryGroup, Thread } from "@emailautomation/shared";
+import type { AISummaryAction, AISummaryGroup } from "@emailautomation/shared";
+
+// Extended Thread type from useThreads hook
+interface Thread {
+  id: string;
+  subject: string;
+  status: string;
+  senderTrustLevel?: string | null;
+  lastActivityAt: string;
+  emails?: {
+    fromName?: string | null;
+    fromEmail?: string;
+    textBody?: string;
+  }[];
+}
 
 const ACTION_ICONS: Record<AISummaryAction, typeof Archive> = {
   ai_archived: Archive,
@@ -100,7 +113,7 @@ function generateGroupSummary(group: AISummaryGroup): string {
     case "ai_auto_replied":
       return `Quick responses sent to ${senders.slice(0, 2).join(", ")}${senders.length > 2 ? ` and ${senders.length - 2} more` : ""}`;
 
-    case "ai_archived":
+    case "ai_archived": {
       // Try to identify common patterns
       const subjects = items.map(i => i.subject.toLowerCase());
       const isNewsletter = subjects.some(s => s.includes("newsletter") || s.includes("digest") || s.includes("weekly"));
@@ -109,6 +122,7 @@ function generateGroupSummary(group: AISummaryGroup): string {
       if (isNewsletter) return "Newsletters and digests moved out of inbox";
       if (isNotification) return "Automated notifications archived";
       return `Low-priority messages from ${senders.slice(0, 2).join(", ")} archived`;
+    }
 
     case "ai_quarantined":
       return "Suspicious or spam messages quarantined for safety";
