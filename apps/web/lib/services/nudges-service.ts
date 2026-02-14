@@ -115,3 +115,81 @@ async function queryAwaitingResponseThreads(
     take: NUDGE_LIMIT,
   });
 }
+
+function mapToNeedsReplyNudge(
+  thread: ThreadWithEmails,
+  mailboxEmails: string[]
+): NudgeThread | null {
+  const lastEmail = thread.emails[0];
+  if (!lastEmail) return null;
+
+  const isInbound = !isFromMailbox(lastEmail.fromAddress, mailboxEmails);
+  if (!isInbound) return null;
+
+  return {
+    id: thread.id,
+    subject: thread.subject,
+    senderName: lastEmail.fromName,
+    senderEmail: lastEmail.fromAddress,
+    senderTrustLevel: thread.senderTrustLevel,
+    lastActivityAt: thread.lastActivityAt,
+    daysSince: calculateDaysSince(thread.lastActivityAt),
+    nudgeType: "needs_reply",
+  };
+}
+
+function mapToAwaitingResponseNudge(
+  thread: ThreadWithEmails,
+  mailboxEmails: string[]
+): NudgeThread | null {
+  const lastEmail = thread.emails[0];
+  if (!lastEmail) return null;
+
+  const isOutbound =
+    isFromMailbox(lastEmail.fromAddress, mailboxEmails) || lastEmail.isSent;
+  if (!isOutbound) return null;
+
+  const recipient = lastEmail.toAddresses?.[0] || "";
+  const recipientName =
+    thread.emails[1]?.fromName || recipient.split("@")[0] || "Unknown";
+
+  return {
+    id: thread.id,
+    subject: thread.subject,
+    senderName: recipientName,
+    senderEmail: recipient,
+    senderTrustLevel: thread.senderTrustLevel,
+    lastActivityAt: thread.lastActivityAt,
+    daysSince: calculateDaysSince(thread.lastActivityAt),
+    nudgeType: "awaiting_response",
+  };
+}
+
+export async function getNudgesForUser(userId: string): Promise<NudgesResponse> {
+  const mailboxIds = await getUserMailboxIds(userId);
+  if (mailboxIds.length === 0) {
+    return { needsReply: [], awaitingResponse: [], totalNudges: 0 };
+  }
+
+  const mailboxEmails = await getMailboxEmails(mailboxIds);
+  const staleThreshold = getStaleThreshold();
+
+  const [needsReplyThreads, awaitingResponseThreads] = await Promise.all([
+    queryNeedsReplyThreads(mailboxIds, staleThreshold),
+    queryAwaitingResponseThreads(mailboxIds, staleThreshold),
+  ]);
+
+  const needsReply = needsReplyThreads
+    .map((thread) => mapToNeedsReplyNudge(thread, mailboxEmails))
+    .filter((nudge): nudge is NudgeThread => nudge !== null);
+
+  const awaitingResponse = awaitingResponseThreads
+    .map((thread) => mapToAwaitingResponseNudge(thread, mailboxEmails))
+    .filter((nudge): nudge is NudgeThread => nudge !== null);
+
+  return {
+    needsReply,
+    awaitingResponse,
+    totalNudges: needsReply.length + awaitingResponse.length,
+  };
+}
