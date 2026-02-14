@@ -310,6 +310,9 @@ importers:
       '@emailautomation/mail-engine':
         specifier: workspace:*
         version: link:../../packages/mail-engine
+      '@emailautomation/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@emailautomation/shared':
         specifier: workspace:*
         version: link:../../packages/shared

@@ -11,7 +11,8 @@
     "ioredis": "^5.4.2",
     "@emailautomation/mail-engine": "workspace:*",
     "@emailautomation/database": "workspace:*",
-    "@emailautomation/shared": "workspace:*"
+    "@emailautomation/shared": "workspace:*",
+    "@emailautomation/security": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.2"
