@@ -721,8 +721,29 @@ When AI processes mail (auto-archiving newsletters, tagging notifications), thre
 - `apps/web/components/inbox/thread-list.tsx` (filter prop + "All caught up" state)
 - `apps/web/hooks/use-threads.ts` (filter param)
 
-### Commit
+### Humanized Inbox Dashboard (Update)
+- Split inbox into two modes:
+  - **Default inbox**: Full `InboxDashboard` component with humanized greeting
+  - **Filtered views**: Compact `AISummaryPanel` + thread list
+- Greeting states based on inbox condition:
+  - "X new messages" when unprocessed threads exist
+  - "AI prepared X items" when drafts/tags/replies ready
+  - "All caught up" when inbox is clear
+- Split AI activity into categories:
+  - **Relevant** (drafts, tagged, auto-replied): user should review
+  - **Handled** (archived, spam): collapsed by default
+- Full ThreadItem cards for unprocessed threads
+- Compact pills with avatars for AI-processed items
+- Fixed sidebar button overflow (AI progress moved below button)
+- Fixed tag line breaks in thread pills
+
+### New Files (2)
+- `apps/web/components/dashboard/inbox-dashboard.tsx`
+- `apps/web/components/dashboard/inbox-welcome.tsx`
+
+### Commits
 - `905aa0f` feat: implement AI dashboard with summary panel and unprocessed filter
+- `1c0df30` feat: add humanized inbox dashboard with AI activity sections
 
 ---
 
