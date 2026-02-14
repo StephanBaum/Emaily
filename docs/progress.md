@@ -675,6 +675,57 @@ Plan: `docs/plans/nifty-doodling-spark.md` (Claude plan file)
 
 ---
 
+## Phase 7.12: Clean Inbox Dashboard [DONE]
+
+Branch: `feature/inbox-dashboard`
+Plan: `docs/plans/2026-02-10-inbox-dashboard.md`
+
+### Problem Solved
+When AI processes mail (auto-archiving newsletters, tagging notifications), threads disappear from inbox with no visibility into what happened. Users see "AI processed 9 mails" but nothing appears because everything got archived.
+
+### AI Summary Panel
+- Collapsible panel at top of inbox showing AI activity (last 24h)
+- Groups by action type: Archived, Tagged, Drafted, Auto-replied, Quarantined
+- Each group expandable to show thread pills with sender/subject/tags
+- Dismiss button hides until new activity arrives
+- Collapse state persists in localStorage
+
+### Unprocessed Filter
+- New `?filter=unprocessed` param on `/api/threads`
+- Returns threads with NO AI-applied tags + status=open
+- Default inbox view now uses unprocessed filter
+- "All caught up" empty state when no unprocessed threads
+
+### Trust-Level Sorting
+- When using unprocessed filter, threads sorted by trust level
+- Order: VIP > trusted > known > stranger
+- Secondary sort by lastActivityAt within each level
+
+### AI Corrections Endpoint
+- `POST /api/ai/corrections` — log user corrections to AI actions
+- Supports: unarchive, untag, delete_draft, unquarantine
+- Auto-elevates sender from "stranger" to "known" when un-archiving
+
+### New Files (6)
+- `apps/web/app/api/ai/summary/route.ts`
+- `apps/web/app/api/ai/corrections/route.ts`
+- `apps/web/components/dashboard/ai-summary-panel.tsx`
+- `apps/web/components/dashboard/ai-summary-group.tsx`
+- `apps/web/components/dashboard/thread-pill.tsx`
+- `apps/web/hooks/use-ai-summary.ts`
+
+### Modified Files (5)
+- `packages/shared/src/types/index.ts` (AISummaryGroup, AISummaryItem, AISummaryResponse, ai_correction action)
+- `apps/web/app/api/threads/route.ts` (unprocessed filter + trust sort)
+- `apps/web/app/(dashboard)/inbox/page.tsx` (AISummaryPanel integration)
+- `apps/web/components/inbox/thread-list.tsx` (filter prop + "All caught up" state)
+- `apps/web/hooks/use-threads.ts` (filter param)
+
+### Commit
+- `905aa0f` feat: implement AI dashboard with summary panel and unprocessed filter
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---
