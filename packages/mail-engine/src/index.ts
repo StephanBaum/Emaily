@@ -42,3 +42,12 @@ export {
   type ThreadToCreate,
   type SyncCallbacks,
 } from "./mailbox-syncer";
+
+// IMAP Operations Queue
+export {
+  queueImapOperation,
+  queueBatchImapOperation,
+  checkImapQueueHealth,
+  closeImapQueue,
+  IMAP_QUEUE_NAME,
+} from "./imap-operations";

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { queueImapOperation } from "@emailautomation/mail-engine";
 import { EmailChain } from "@/components/thread/email-chain";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { SharedDraftComposer } from "@/components/thread/shared-draft-composer";
@@ -197,6 +198,31 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
       lastSeenEmailId: thread.emails[thread.emails.length - 1]?.id,
     },
   });
+
+  // Queue IMAP mark-as-read for all emails in thread (non-blocking)
+  const emailsWithUid = thread.emails.filter((e) => e.imapUid !== null);
+  for (const email of emailsWithUid) {
+    const operation = await prisma.imapOperation.create({
+      data: {
+        mailboxId: thread.mailbox.id,
+        threadId: thread.id,
+        emailId: email.id,
+        operation: "mark_read",
+        folder: email.folder,
+        imapUid: email.imapUid,
+        payload: {},
+        status: "pending",
+      },
+    });
+    // Fire and forget - don't await
+    queueImapOperation(
+      operation.id,
+      thread.mailbox.id,
+      "mark_read",
+      email.folder,
+      email.imapUid ?? undefined
+    ).catch((err) => console.error("Failed to queue mark_read:", err));
+  }
 
   // Refetch seenBy to include current user's updated timestamp
   const seenBy = await prisma.seenBy.findMany({

@@ -14,8 +14,10 @@
     "nodemailer": "^6.9.16",
     "mailparser": "^3.7.2",
     "quoted-printable": "^1.0.1",
+    "bullmq": "^5.34.0",
     "@emailautomation/database": "workspace:*",
-    "@emailautomation/security": "workspace:*"
+    "@emailautomation/security": "workspace:*",
+    "@emailautomation/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/nodemailer": "^6.4.17",

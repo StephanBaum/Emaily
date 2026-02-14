@@ -91,6 +91,13 @@ model Mailbox {
   smtpPort        Int?     @map("smtp_port")
   smtpUser        String?  @map("smtp_user")
   smtpPasswordEnc String?  @map("smtp_password_enc") // encrypted
+  // IMAP folder mapping (server-specific folder names)
+  folderInbox     String   @default("INBOX") @map("folder_inbox")
+  folderArchive   String   @default("Archive") @map("folder_archive")
+  folderTrash     String   @default("Trash") @map("folder_trash")
+  folderDrafts    String   @default("Drafts") @map("folder_drafts")
+  folderSent      String   @default("Sent") @map("folder_sent")
+  folderSpam      String   @default("Junk") @map("folder_spam")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -135,6 +142,26 @@ model MailboxSync {
   @@map("mailbox_sync")
 }
 
+model ImapOperation {
+  id          String    @id @default(cuid())
+  mailboxId   String    @map("mailbox_id")
+  threadId    String?   @map("thread_id")
+  emailId     String?   @map("email_id")
+  operation   String    // move_to_trash, move_to_archive, mark_read, mark_unread, add_flag, remove_flag, expunge
+  folder      String    // source folder
+  imapUid     Int?      @map("imap_uid")
+  payload     Json      @default("{}") // additional data: { destFolder, flags, etc }
+  status      String    @default("pending") // pending, processing, completed, failed
+  attempts    Int       @default(0)
+  error       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  processedAt DateTime? @map("processed_at")
+
+  @@index([mailboxId, status])
+  @@index([status, createdAt])
+  @@map("imap_operations")
+}
+
 // ============================================
 // THREADS & EMAILS
 // ============================================
@@ -144,9 +171,10 @@ model Thread {
   mailboxId      String   @map("mailbox_id")
   teamId         String   @map("team_id")
   subject        String
-  status            String   @default("open") // open, archived, snoozed, quarantined
+  status            String   @default("open") // open, archived, snoozed, quarantined, trashed
   senderTrustLevel  String?  @map("sender_trust_level") // cached from Contact: stranger, known, trusted, vip
   hasSentReply      Boolean  @default(false) @map("has_sent_reply")
+  trashedAt         DateTime? @map("trashed_at") // when moved to trash (for auto-expunge)
   aiPriority        String?  @map("ai_priority")    // high, medium, low
   aiNeedsReply      Boolean? @map("ai_needs_reply")
   aiStatus          String   @default("pending") @map("ai_status") // pending, processed, needs_attention

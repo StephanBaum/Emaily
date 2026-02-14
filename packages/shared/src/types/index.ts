@@ -30,8 +30,37 @@ export interface Mailbox {
 }
 
 // Thread & Email types
-export type ThreadStatus = "open" | "archived" | "snoozed" | "quarantined";
+export type ThreadStatus = "open" | "archived" | "snoozed" | "quarantined" | "trashed";
 export type AssignmentStatus = "open" | "in_progress" | "done";
+
+// IMAP operation types
+export type ImapOperationType =
+  | "move_to_trash"
+  | "move_to_archive"
+  | "move_to_inbox"
+  | "mark_read"
+  | "mark_unread"
+  | "add_flag"
+  | "remove_flag"
+  | "expunge";
+
+export type ImapOperationStatus = "pending" | "processing" | "completed" | "failed";
+
+export interface ImapOperation {
+  id: string;
+  mailboxId: string;
+  threadId?: string;
+  emailId?: string;
+  operation: ImapOperationType;
+  folder: string;
+  imapUid?: number;
+  payload: Record<string, unknown>;
+  status: ImapOperationStatus;
+  attempts: number;
+  error?: string;
+  createdAt: Date;
+  processedAt?: Date;
+}
 
 export interface Thread {
   id: string;
@@ -39,6 +68,7 @@ export interface Thread {
   teamId: string;
   subject: string;
   status: ThreadStatus;
+  trashedAt?: Date;
   lastActivityAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -218,6 +248,10 @@ export type ActivityAction =
   | "tagged"
   | "commented"
   | "archived"
+  | "trashed"
+  | "restored"
+  | "deleted_permanently"
+  | "status_changed"
   | "draft_created"
   | "draft_sent"
   | "ai_tagged"

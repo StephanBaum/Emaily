@@ -49,7 +49,7 @@ function truncateSubject(subject: string, maxLength = 256): string {
 export function ThreadHeader({ thread }: ThreadHeaderProps) {
   const router = useRouter();
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
-  const { updateStatus } = useThreadActions(thread.id);
+  const { updateStatus, deleteThread } = useThreadActions(thread.id);
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-4">
@@ -71,7 +71,18 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {thread.status === "open" ? (
+        {thread.status === "trashed" ? (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateStatus("open")}
+            >
+              <Inbox className="mr-2 h-4 w-4" />
+              Restore
+            </Button>
+          </>
+        ) : thread.status === "open" ? (
           <>
             <Button
               variant="outline"
@@ -118,9 +129,19 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
                 Add Tag
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={() => {
+                  if (thread.status === "trashed") {
+                    deleteThread();
+                  } else {
+                    updateStatus("trashed");
+                    router.push("/inbox");
+                  }
+                }}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                {thread.status === "trashed" ? "Delete Permanently" : "Move to Trash"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

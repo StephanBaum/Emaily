@@ -55,11 +55,19 @@ interface Thread {
 
 interface ThreadItemProps {
   thread: Thread;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (threadId: string) => void;
 }
 
 const LOW_VALUE_TAGS = ["spam", "newsletter", "advertising", "notification", "marketing"];
 
-export function ThreadItem({ thread }: ThreadItemProps) {
+export function ThreadItem({
+  thread,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+}: ThreadItemProps) {
   const prefetch = usePrefetchThread();
   const prefetchedRef = useRef(false);
 
@@ -70,6 +78,15 @@ export function ThreadItem({ thread }: ThreadItemProps) {
       prefetch(thread.id);
     }
   }, [prefetch, thread.id]);
+
+  const handleCheckboxClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect?.(thread.id);
+    },
+    [onToggleSelect, thread.id]
+  );
 
   const latestEmail = thread.emails[0];
   const senderName = latestEmail?.fromName || latestEmail?.fromAddress || "Unknown";
@@ -97,9 +114,39 @@ export function ThreadItem({ thread }: ThreadItemProps) {
         "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50",
         isUnseen && !isAIHandled && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950/30",
         isUnseen && isAIHandled && "bg-muted/30",
-        !isUnseen && "border-l-2 border-l-transparent"
+        !isUnseen && "border-l-2 border-l-transparent",
+        isSelected && "bg-primary/10"
       )}
     >
+      {/* Selection checkbox */}
+      {isSelectionMode && (
+        <div
+          onClick={handleCheckboxClick}
+          className="flex items-center justify-center self-center"
+        >
+          <div
+            className={cn(
+              "h-5 w-5 rounded border-2 transition-colors flex items-center justify-center",
+              isSelected
+                ? "bg-primary border-primary"
+                : "border-muted-foreground/30 hover:border-primary"
+            )}
+          >
+            {isSelected && (
+              <svg
+                className="h-3 w-3 text-primary-foreground"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={3}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <Avatar className="h-10 w-10">
           <AvatarFallback

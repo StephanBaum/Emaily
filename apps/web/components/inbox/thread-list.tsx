@@ -1,8 +1,10 @@
 "use client";
 
 import { useThreads } from "@/hooks/use-threads";
+import { useBatchSelection } from "@/hooks/use-batch-selection";
 import { ThreadItem } from "./thread-item";
 import { ThreadSkeleton } from "./thread-skeleton";
+import { BulkActionBar } from "./bulk-action-bar";
 import { Inbox, Archive, Clock, CheckCircle2 } from "lucide-react";
 
 interface ThreadListProps {
@@ -16,6 +18,15 @@ interface ThreadListProps {
 
 export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, filter }: ThreadListProps) {
   const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query, filter });
+  const {
+    selectedCount,
+    isSelectionMode,
+    toggleSelection,
+    clearSelection,
+    isSelected,
+    batchUpdateStatus,
+    batchDelete,
+  } = useBatchSelection();
 
   if (isLoading) {
     return <ThreadSkeleton count={6} />;
@@ -70,10 +81,27 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
 
   if (!isMixedView) {
     return (
-      <div className="divide-y">
-        {threads.map((thread) => (
-          <ThreadItem key={thread.id} thread={thread} />
-        ))}
+      <div>
+        <BulkActionBar
+          selectedCount={selectedCount}
+          onArchive={() => batchUpdateStatus("archived")}
+          onTrash={() => batchUpdateStatus("trashed")}
+          onRestore={() => batchUpdateStatus("open")}
+          onDelete={batchDelete}
+          onClear={clearSelection}
+          currentStatus={status}
+        />
+        <div className="divide-y">
+          {threads.map((thread) => (
+            <ThreadItem
+              key={thread.id}
+              thread={thread}
+              isSelectionMode={isSelectionMode}
+              isSelected={isSelected(thread.id)}
+              onToggleSelect={toggleSelection}
+            />
+          ))}
+        </div>
       </div>
     );
   }
@@ -98,6 +126,15 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
 
   return (
     <div>
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onArchive={() => batchUpdateStatus("archived")}
+        onTrash={() => batchUpdateStatus("trashed")}
+        onRestore={() => batchUpdateStatus("open")}
+        onDelete={batchDelete}
+        onClear={clearSelection}
+        currentStatus={status}
+      />
       {statusOrder.map((s) => {
         const group = grouped[s];
         if (!group || group.length === 0) return null;
@@ -117,7 +154,13 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
             </div>
             <div className="divide-y">
               {group.map((thread) => (
-                <ThreadItem key={thread.id} thread={thread} />
+                <ThreadItem
+                  key={thread.id}
+                  thread={thread}
+                  isSelectionMode={isSelectionMode}
+                  isSelected={isSelected(thread.id)}
+                  onToggleSelect={toggleSelection}
+                />
               ))}
             </div>
           </div>

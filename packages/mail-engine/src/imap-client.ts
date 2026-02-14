@@ -210,6 +210,13 @@ export class ImapClient {
   }
 
   /**
+   * Check if currently connected
+   */
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  /**
    * Mark email as seen/read
    */
   async markAsSeen(folder: string, uid: number): Promise<void> {
@@ -222,12 +229,141 @@ export class ImapClient {
   }
 
   /**
+   * Mark email as unseen/unread
+   */
+  async markAsUnseen(folder: string, uid: number): Promise<void> {
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      await this.client.messageFlagsRemove(uid.toString(), ["\\Seen"], { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Add flags to an email
+   */
+  async addFlags(folder: string, uid: number, flags: string[]): Promise<void> {
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      await this.client.messageFlagsAdd(uid.toString(), flags, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Remove flags from an email
+   */
+  async removeFlags(folder: string, uid: number, flags: string[]): Promise<void> {
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      await this.client.messageFlagsRemove(uid.toString(), flags, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Mark email as deleted (sets \Deleted flag)
+   * Note: This doesn't permanently delete - use expunge() after
+   */
+  async markAsDeleted(folder: string, uid: number): Promise<void> {
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      await this.client.messageFlagsAdd(uid.toString(), ["\\Deleted"], { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Permanently remove emails marked as \Deleted from folder
+   */
+  async expunge(folder: string): Promise<void> {
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      await this.client.messageDelete({ all: true }, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
    * Move email to another folder
    */
   async moveEmail(folder: string, uid: number, destFolder: string): Promise<void> {
     const lock = await this.client.getMailboxLock(folder);
     try {
       await this.client.messageMove(uid.toString(), destFolder, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Copy email to another folder
+   */
+  async copyEmail(folder: string, uid: number, destFolder: string): Promise<void> {
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      await this.client.messageCopy(uid.toString(), destFolder, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Move email to trash folder (convenience method)
+   */
+  async moveToTrash(folder: string, uid: number, trashFolder: string = "Trash"): Promise<void> {
+    await this.moveEmail(folder, uid, trashFolder);
+  }
+
+  /**
+   * Move email to archive folder (convenience method)
+   */
+  async moveToArchive(folder: string, uid: number, archiveFolder: string = "Archive"): Promise<void> {
+    await this.moveEmail(folder, uid, archiveFolder);
+  }
+
+  /**
+   * Batch move multiple emails
+   */
+  async moveEmails(folder: string, uids: number[], destFolder: string): Promise<void> {
+    if (uids.length === 0) return;
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      const uidRange = uids.join(",");
+      await this.client.messageMove(uidRange, destFolder, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Batch add flags to multiple emails
+   */
+  async addFlagsBatch(folder: string, uids: number[], flags: string[]): Promise<void> {
+    if (uids.length === 0) return;
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      const uidRange = uids.join(",");
+      await this.client.messageFlagsAdd(uidRange, flags, { uid: true });
+    } finally {
+      lock.release();
+    }
+  }
+
+  /**
+   * Batch remove flags from multiple emails
+   */
+  async removeFlagsBatch(folder: string, uids: number[], flags: string[]): Promise<void> {
+    if (uids.length === 0) return;
+    const lock = await this.client.getMailboxLock(folder);
+    try {
+      const uidRange = uids.join(",");
+      await this.client.messageFlagsRemove(uidRange, flags, { uid: true });
     } finally {
       lock.release();
     }

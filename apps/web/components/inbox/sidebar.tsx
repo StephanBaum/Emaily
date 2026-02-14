@@ -31,12 +31,14 @@ import {
   Sparkles,
   Bot,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
 import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
 import { useState } from "react";
 import { revalidateAll, revalidateThreads } from "@/lib/revalidate";
+import { ImapStatusIndicator } from "./imap-status-indicator";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -204,6 +206,12 @@ export function Sidebar() {
             label="Spam"
             isActive={searchParams.get("status") === "quarantined"}
           />
+          <NavItem
+            href="/inbox?status=trashed"
+            icon={Trash2}
+            label="Trash"
+            isActive={searchParams.get("status") === "trashed"}
+          />
         </div>
 
         <Separator className="my-4" />
@@ -332,6 +340,9 @@ export function Sidebar() {
 
       {/* Sync & AI Buttons */}
       <div className="border-t p-3 space-y-2">
+        <div className="flex items-center justify-between px-1 mb-2">
+          <ImapStatusIndicator />
+        </div>
         <Button
           variant="outline"
           className="w-full justify-start"

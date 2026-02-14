@@ -73,7 +73,7 @@ export function useThreadActions(threadId: string) {
 
       // Sync with server in background
       try {
-        await fetch(`/api/threads/${threadId}`, {
+        await fetch(`/api/threads/${threadId}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
@@ -94,6 +94,47 @@ export function useThreadActions(threadId: string) {
     },
     [threadId, mutate, router]
   );
+
+  /**
+   * Permanently delete a thread (only works for trashed threads)
+   */
+  const deleteThread = useCallback(async () => {
+    // Optimistically remove from all caches
+    mutate(
+      (key) => typeof key === "string" && key.startsWith("/api/threads"),
+      (currentData: ThreadData | undefined) => {
+        if (!currentData) return currentData;
+
+        // Handle paginated response
+        if ("threads" in currentData && Array.isArray(currentData.threads)) {
+          return {
+            ...currentData,
+            threads: currentData.threads.filter((thread) => thread.id !== threadId),
+          };
+        }
+
+        return currentData;
+      },
+      { revalidate: false }
+    );
+
+    // Navigate back immediately
+    router.push("/inbox?status=trashed");
+
+    // Sync with server
+    try {
+      await fetch(`/api/threads/${threadId}/delete`, {
+        method: "DELETE",
+      });
+
+      mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+      router.refresh();
+    } catch (error) {
+      mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+      router.refresh();
+      console.error("Failed to delete thread:", error);
+    }
+  }, [threadId, mutate, router]);
 
   /**
    * Optimistically add a tag to thread
@@ -210,6 +251,7 @@ export function useThreadActions(threadId: string) {
 
   return {
     updateStatus,
+    deleteThread,
     addTag,
     removeTag,
   };
