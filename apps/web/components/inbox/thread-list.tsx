@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { useThreads } from "@/hooks/use-threads";
 import { useBatchSelection } from "@/hooks/use-batch-selection";
+import { useThreadUpdates } from "@/contexts/thread-updates-context";
 import { ThreadItem } from "./thread-item";
 import { ThreadSkeleton } from "./thread-skeleton";
 import { BulkActionBar } from "./bulk-action-bar";
@@ -17,7 +19,8 @@ interface ThreadListProps {
 }
 
 export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, filter }: ThreadListProps) {
-  const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query, filter });
+  const { threads: rawThreads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query, filter });
+  const { shouldHideThread } = useThreadUpdates();
   const {
     selectedCount,
     isSelectionMode,
@@ -27,6 +30,12 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
     batchUpdateStatus,
     batchDelete,
   } = useBatchSelection();
+
+  // Filter out threads with pending updates that don't belong in this view
+  const threads = useMemo(() => {
+    if (!rawThreads) return rawThreads;
+    return rawThreads.filter((thread) => !shouldHideThread(thread.id, status));
+  }, [rawThreads, shouldHideThread, status]);
 
   if (isLoading) {
     return <ThreadSkeleton count={6} />;

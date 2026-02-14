@@ -20,7 +20,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { TagPicker, TagMenuPopover } from "./tag-picker";
-import { useThreadActions } from "@/hooks/use-thread-actions";
+import { useOptimisticThreadActions } from "@/contexts/thread-updates-context";
 
 interface ThreadTag {
   tag: {
@@ -49,7 +49,20 @@ function truncateSubject(subject: string, maxLength = 256): string {
 export function ThreadHeader({ thread }: ThreadHeaderProps) {
   const router = useRouter();
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
-  const { updateStatus, deleteThread } = useThreadActions(thread.id);
+  const { updateStatus, deleteThread } = useOptimisticThreadActions(thread.id);
+
+  const handleStatusChange = async (newStatus: string) => {
+    await updateStatus(newStatus);
+    // Navigate back to inbox after status change
+    if (newStatus === "archived" || newStatus === "snoozed" || newStatus === "trashed") {
+      router.push("/inbox");
+    }
+  };
+
+  const handleDelete = async () => {
+    await deleteThread();
+    router.push("/inbox?status=trashed");
+  };
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-4">
@@ -76,7 +89,7 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateStatus("open")}
+              onClick={() => handleStatusChange("open")}
             >
               <Inbox className="mr-2 h-4 w-4" />
               Restore
@@ -87,7 +100,7 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateStatus("archived")}
+              onClick={() => handleStatusChange("archived")}
             >
               <Archive className="mr-2 h-4 w-4" />
               Archive
@@ -95,7 +108,7 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateStatus("snoozed")}
+              onClick={() => handleStatusChange("snoozed")}
             >
               <Clock className="mr-2 h-4 w-4" />
               Snooze
@@ -105,7 +118,7 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => updateStatus("open")}
+            onClick={() => handleStatusChange("open")}
           >
             <Inbox className="mr-2 h-4 w-4" />
             Move to Inbox
@@ -133,10 +146,9 @@ export function ThreadHeader({ thread }: ThreadHeaderProps) {
                 className="text-destructive"
                 onSelect={() => {
                   if (thread.status === "trashed") {
-                    deleteThread();
+                    handleDelete();
                   } else {
-                    updateStatus("trashed");
-                    router.push("/inbox");
+                    handleStatusChange("trashed");
                   }
                 }}
               >

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/inbox/sidebar";
 import { SessionProvider } from "next-auth/react";
+import { ThreadUpdatesProvider } from "@/contexts/thread-updates-context";
 
 export default async function DashboardLayout({
   children,
@@ -17,12 +18,14 @@ export default async function DashboardLayout({
 
   return (
     <SessionProvider session={session}>
-      <div className="flex h-screen overflow-hidden">
-        <Suspense>
-          <Sidebar />
-        </Suspense>
-        <main className="flex-1 overflow-auto">{children}</main>
-      </div>
+      <ThreadUpdatesProvider>
+        <div className="flex h-screen overflow-hidden">
+          <Suspense>
+            <Sidebar />
+          </Suspense>
+          <main className="flex-1 overflow-auto">{children}</main>
+        </div>
+      </ThreadUpdatesProvider>
     </SessionProvider>
   );
 }
