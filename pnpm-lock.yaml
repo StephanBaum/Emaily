@@ -133,8 +133,8 @@ importers:
         specifier: ^20.19.33
         version: 20.19.33
       '@types/nodemailer':
-        specifier: ^6.4.22
-        version: 6.4.22
+        specifier: ^7.0.9
+        version: 7.0.9
       '@types/react':
         specifier: ^18.3.28
         version: 18.3.28
@@ -237,8 +237,8 @@ importers:
         specifier: ^3.9.3
         version: 3.9.3
       nodemailer:
-        specifier: ^6.10.1
-        version: 6.10.1
+        specifier: ^8.0.1
+        version: 8.0.1
       quoted-printable:
         specifier: ^1.0.1
         version: 1.0.1
@@ -247,8 +247,8 @@ importers:
         specifier: ^3.4.6
         version: 3.4.6
       '@types/nodemailer':
-        specifier: ^6.4.22
-        version: 6.4.22
+        specifier: ^7.0.9
+        version: 7.0.9
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.2.3)(jiti@1.21.7)(jsdom@28.0.0)(tsx@4.21.0)(yaml@2.8.2)
@@ -1635,8 +1635,8 @@ packages:
   '@types/node@25.2.3':
     resolution: {integrity: sha512-m0jEgYlYz+mDJZ2+F4v8D1AyQb+QzsNqRuI7xg1VQX/KlKS0qT9r1Mo16yo5F/MtifXFgaofIFsdFMox2SxIbQ==}
 
-  '@types/nodemailer@6.4.22':
-    resolution: {integrity: sha512-HV16KRsW7UyZBITE07B62k8PRAKFqRSFXn1T7vslurVjN761tMDBhk5Lbt17ehyTzK6XcyJnAgUpevrvkcVOzw==}
+  '@types/nodemailer@7.0.9':
+    resolution: {integrity: sha512-vI8oF1M+8JvQhsId0Pc38BdUP2evenIIys7c7p+9OZXSPOH5c1dyINP1jT8xQ2xPuBUXmIC87s+91IZMDjH8Ow==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -3310,16 +3310,16 @@ packages:
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
-  nodemailer@6.10.1:
-    resolution: {integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==}
-    engines: {node: '>=6.0.0'}
-
   nodemailer@7.0.13:
     resolution: {integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==}
     engines: {node: '>=6.0.0'}
 
   nodemailer@8.0.0:
     resolution: {integrity: sha512-xvVJf/f0bzmNpnRIbhCp/IKxaHgJ6QynvUbLXzzMRPG3LDQr5oXkYuw4uDFyFYs8cge8agwwrJAXZsd4hhMquw==}
+    engines: {node: '>=6.0.0'}
+
+  nodemailer@8.0.1:
+    resolution: {integrity: sha512-5kcldIXmaEjZcHR6F28IKGSgpmZHaF1IXLWFTG+Xh3S+Cce4MiakLtWY+PlBU69fLbRa8HlaGIrC/QolUpHkhg==}
     engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
@@ -5516,13 +5516,13 @@ snapshots:
 
   '@types/docker-modem@3.0.6':
     dependencies:
-      '@types/node': 25.2.3
+      '@types/node': 20.19.33
       '@types/ssh2': 1.15.5
 
   '@types/dockerode@3.3.47':
     dependencies:
       '@types/docker-modem': 3.0.6
-      '@types/node': 25.2.3
+      '@types/node': 20.19.33
       '@types/ssh2': 1.15.5
 
   '@types/estree@1.0.8': {}
@@ -5553,7 +5553,7 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
-  '@types/nodemailer@6.4.22':
+  '@types/nodemailer@7.0.9':
     dependencies:
       '@types/node': 20.19.33
 
@@ -5570,11 +5570,11 @@ snapshots:
 
   '@types/ssh2-streams@0.1.13':
     dependencies:
-      '@types/node': 25.2.3
+      '@types/node': 20.19.33
 
   '@types/ssh2@0.5.52':
     dependencies:
-      '@types/node': 25.2.3
+      '@types/node': 20.19.33
       '@types/ssh2-streams': 0.1.13
 
   '@types/ssh2@1.15.5':
@@ -5767,14 +5767,6 @@ snapshots:
       '@vitest/utils': 4.0.18
       chai: 6.2.2
       tinyrainbow: 3.0.3
-
-  '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@20.19.33)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))':
-    dependencies:
-      '@vitest/spy': 4.0.18
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.3.1(@types/node@20.19.33)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@25.2.3)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
@@ -7512,11 +7504,11 @@ snapshots:
 
   node-releases@2.0.27: {}
 
-  nodemailer@6.10.1: {}
-
   nodemailer@7.0.13: {}
 
   nodemailer@8.0.0: {}
+
+  nodemailer@8.0.1: {}
 
   normalize-path@3.0.0: {}
 
@@ -7766,7 +7758,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 25.2.3
+      '@types/node': 20.19.33
       long: 5.3.2
 
   pump@3.0.3:
@@ -8588,7 +8580,7 @@ snapshots:
   vitest@4.0.18(@types/node@20.19.33)(jiti@1.21.7)(jsdom@28.0.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@20.19.33)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@25.2.3)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18

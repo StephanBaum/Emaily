@@ -16,12 +16,12 @@
     "bullmq": "^5.69.2",
     "imapflow": "^1.2.9",
     "mailparser": "^3.9.3",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^8.0.1",
     "quoted-printable": "^1.0.1"
   },
   "devDependencies": {
     "@types/mailparser": "^3.4.6",
-    "@types/nodemailer": "^6.4.22",
+    "@types/nodemailer": "^7.0.9",
     "vitest": "^4.0.18"
   }
 }
