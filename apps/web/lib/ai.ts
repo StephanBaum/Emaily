@@ -234,11 +234,11 @@ export async function processThreadWithAI(
       body: latestReceivedEmail.bodyText,
     };
 
-    const tagData = tags.map((t) => ({
-      id: t.id,
-      name: t.name,
-      color: t.color,
-      autoRules: t.autoRules as TagAutoRules | null,
+    const tagData = tags.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+      autoRules: tag.autoRules as TagAutoRules | null,
     }));
 
     // Deterministic rule matching (0 LLM calls)
@@ -306,16 +306,16 @@ export async function processThreadWithAI(
 
     // Collect all attachments across emails
     const allAttachments = thread.emails.flatMap((e) =>
-      e.attachments.map((a) => ({ filename: a.filename, size: a.size, contentType: a.contentType }))
+      e.attachments.map((attachment) => ({ filename: attachment.filename, size: attachment.size, contentType: attachment.contentType }))
     );
 
     // Build thread context
     const threadContext = {
       existingTags: thread.tags.map((tt) => tt.tag.name),
-      teamComments: teamComments.map((c) => ({
-        author: c.user.name,
-        text: c.content,
-        date: c.createdAt.toISOString(),
+      teamComments: teamComments.map((comment) => ({
+        author: comment.user.name,
+        text: comment.content,
+        date: comment.createdAt.toISOString(),
       })),
       previousDraft: existingDraft?.body || null,
       senderTrust: senderTrustLevel === "vip"
@@ -325,11 +325,11 @@ export async function processThreadWithAI(
           : senderTrustLevel === "known"
             ? "Sender trust: known — seen before but not yet replied to"
             : "Sender trust: stranger — unknown sender, be cautious with classifications",
-      previousActivity: existingActivity.map((a) => {
-        const meta = a.metadata as Record<string, unknown> | null;
-        switch (a.action) {
+      previousActivity: existingActivity.map((activity) => {
+        const meta = activity.metadata as Record<string, unknown> | null;
+        switch (activity.action) {
           case "ai_tagged":
-            return `Tagged: ${(meta?.tags as { name: string }[])?.map((t) => t.name).join(", ") || "unknown"}`;
+            return `Tagged: ${(meta?.tags as { name: string }[])?.map((tag) => tag.name).join(", ") || "unknown"}`;
           case "ai_draft_generated":
             return `Draft generated${meta?.agentName ? ` by ${meta.agentName}` : ""}`;
           case "ai_notified":
@@ -339,7 +339,7 @@ export async function processThreadWithAI(
           case "ai_auto_replied":
             return `Auto-replied to ${meta?.sentTo || "sender"}`;
           default:
-            return `${a.action}`;
+            return `${activity.action}`;
         }
       }),
       senderProfile: senderContact
@@ -352,11 +352,11 @@ export async function processThreadWithAI(
             notes: senderContact.notes,
           }
         : undefined,
-      assignments: thread.assignments.map((a) => ({
-        assignedTo: a.assignedTo.name,
-        status: a.status,
-        note: a.note,
-        dueDate: a.dueDate?.toISOString() || null,
+      assignments: thread.assignments.map((assignment) => ({
+        assignedTo: assignment.assignedTo.name,
+        status: assignment.status,
+        note: assignment.note,
+        dueDate: assignment.dueDate?.toISOString() || null,
       })),
       attachments: allAttachments.length > 0 ? allAttachments : undefined,
       threadAge,
@@ -366,14 +366,14 @@ export async function processThreadWithAI(
     // Filter tags by sender trust
     const senderTrustOrder = TRUST_LEVEL_ORDER[senderTrustLevel];
     const unmatchedTags = tags.filter(
-      (t) =>
-        !ruleMatchedTagIds.has(t.id) &&
-        senderTrustOrder >= TRUST_LEVEL_ORDER[(t.minTrustLevel || "stranger") as TrustLevel]
+      (tag) =>
+        !ruleMatchedTagIds.has(tag.id) &&
+        senderTrustOrder >= TRUST_LEVEL_ORDER[(tag.minTrustLevel || "stranger") as TrustLevel]
     );
     const shouldDraft = tags.some(
-      (t) =>
-        (t.aiAction === "draft" || t.aiAction === "research_draft" || t.aiAction === "auto_reply") &&
-        (ruleMatchedTagIds.has(t.id) || thread.tags.some((tt) => tt.tagId === t.id))
+      (tag) =>
+        (tag.aiAction === "draft" || tag.aiAction === "research_draft" || tag.aiAction === "auto_reply") &&
+        (ruleMatchedTagIds.has(tag.id) || thread.tags.some((tt) => tt.tagId === tag.id))
     ) || !!options?.agentId;
 
     const agentLoop = new AgentLoop(provider);
@@ -386,10 +386,10 @@ export async function processThreadWithAI(
           date: e.date,
           isSent: e.isSent,
         })),
-        availableTags: unmatchedTags.map((t) => ({
-          name: t.name,
-          description: (t as Record<string, unknown>).description as string | undefined,
-          aiAction: t.aiAction,
+        availableTags: unmatchedTags.map((tag) => ({
+          name: tag.name,
+          description: (tag as Record<string, unknown>).description as string | undefined,
+          aiAction: tag.aiAction,
         })),
         qaPairs: qaPairs.map((qa) => ({
           triggerPatterns: qa.triggerPatterns,
@@ -414,25 +414,25 @@ export async function processThreadWithAI(
     await logAIActivity(teamId, threadId, "ai_tagged", {
       agentLoop: true,
       totalIterations: loopResult.totalIterations,
-      tags: decision.tags.map((t) => ({ name: t.name, confidence: t.confidence })),
+      tags: decision.tags.map((tag) => ({ name: tag.name, confidence: tag.confidence })),
       agentName: agent?.name,
       triage: decision.triage,
     });
 
     // 6. Resolve LLM tag matches to IDs
-    const tagByNameLower = new Map(tags.map((t) => [t.name.toLowerCase(), t]));
+    const tagByNameLower = new Map(tags.map((tag) => [tag.name.toLowerCase(), tag]));
     const llmTagMatches = decision.tags
-      .map((t) => {
-        const tag = tagByNameLower.get(t.name.toLowerCase());
-        if (!tag) return null;
+      .map((decisionTag) => {
+        const matchedTag = tagByNameLower.get(decisionTag.name.toLowerCase());
+        if (!matchedTag) return null;
         return {
-          tagId: tag.id,
-          name: tag.name,
-          confidence: t.confidence,
+          tagId: matchedTag.id,
+          name: matchedTag.name,
+          confidence: decisionTag.confidence,
           appliedBy: "ai" as const,
         };
       })
-      .filter((m): m is NonNullable<typeof m> => m !== null);
+      .filter((match): match is NonNullable<typeof match> => match !== null);
 
     const allTagMatches = [...ruleMatches, ...llmTagMatches];
     const newTagMatchIds = new Set(allTagMatches.map((m) => m.tagId));
@@ -647,13 +647,13 @@ export async function processThreadWithAI(
 
     // 12. Execute tag actions with triage safety checks
     const executedActionKeys = new Set(
-      existingActivity.map((a) => {
-        const meta = a.metadata as Record<string, unknown> | null;
-        return `${a.action}:${meta?.tagName || ""}`;
+      existingActivity.map((activity) => {
+        const meta = activity.metadata as Record<string, unknown> | null;
+        return `${activity.action}:${meta?.tagName || ""}`;
       })
     );
 
-    const activeTags = tags.filter((t) => newTagMatchIds.has(t.id));
+    const activeTags = tags.filter((tag) => newTagMatchIds.has(tag.id));
 
     for (const tag of activeTags) {
       const match = allTagMatches.find((m) => m.tagId === tag.id);
