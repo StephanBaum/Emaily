@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emailautomation/shared";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
   const tagId = searchParams.get("tagId");
   const tagIds = searchParams.get("tagIds");
   const query = searchParams.get("q")?.trim();
+  const filter = searchParams.get("filter"); // "unprocessed" = threads AI hasn't touched
 
   // Get mailbox IDs the user has access to
   const accessibleMailboxes = await prisma.mailboxAccess.findMany({
@@ -30,31 +32,40 @@ export async function GET(request: NextRequest) {
       : { in: accessibleMailboxIds },
   };
 
-  // Status filtering:
-  // - status=quarantined -> show quarantined OR spam-tagged threads
-  // - status=all or tag filter with no explicit status -> show all statuses
-  // - status=open/archived/snoozed -> filter by that status
-  // - no status param and no tag filter -> default to "open" (inbox behavior)
-  if (status === "quarantined") {
-    // Spam category: quarantined threads OR threads tagged "Spam"
-    where.OR = [
-      { status: "quarantined" },
-      { tags: { some: { tag: { name: { equals: "Spam", mode: "insensitive" } } } } },
-    ];
-  } else if (status && status !== "all") {
-    where.status = status;
-  } else if (!status && !tagId && !tagIds) {
+  // Unprocessed filter: threads AI hasn't touched (no AI-applied tags + status=open)
+  // This takes precedence over status filtering
+  if (filter === "unprocessed") {
     where.status = "open";
+    where.tags = { none: { appliedBy: "ai" } };
+  } else {
+    // Status filtering:
+    // - status=quarantined -> show quarantined OR spam-tagged threads
+    // - status=all or tag filter with no explicit status -> show all statuses
+    // - status=open/archived/snoozed -> filter by that status
+    // - no status param and no tag filter -> default to "open" (inbox behavior)
+    if (status === "quarantined") {
+      // Spam category: quarantined threads OR threads tagged "Spam"
+      where.OR = [
+        { status: "quarantined" },
+        { tags: { some: { tag: { name: { equals: "Spam", mode: "insensitive" } } } } },
+      ];
+    } else if (status && status !== "all") {
+      where.status = status;
+    } else if (!status && !tagId && !tagIds) {
+      where.status = "open";
+    }
   }
 
-  // Filter by tag(s) if specified
-  if (tagIds) {
-    const ids = tagIds.split(",").filter(Boolean);
-    if (ids.length > 0) {
-      where.tags = { some: { tagId: { in: ids } } };
+  // Filter by tag(s) if specified (skip if using unprocessed filter)
+  if (filter !== "unprocessed") {
+    if (tagIds) {
+      const ids = tagIds.split(",").filter(Boolean);
+      if (ids.length > 0) {
+        where.tags = { some: { tagId: { in: ids } } };
+      }
+    } else if (tagId) {
+      where.tags = { some: { tagId } };
     }
-  } else if (tagId) {
-    where.tags = { some: { tagId } };
   }
 
   // Full-text search via ILIKE on email fields
@@ -119,6 +130,20 @@ export async function GET(request: NextRequest) {
       },
     },
   });
+
+  // When using unprocessed filter, sort by trust level (VIP > trusted > known > stranger)
+  // then by lastActivityAt within each trust level
+  if (filter === "unprocessed") {
+    threads.sort((a, b) => {
+      const trustA = TRUST_LEVEL_ORDER[(a.senderTrustLevel as TrustLevel) || "stranger"];
+      const trustB = TRUST_LEVEL_ORDER[(b.senderTrustLevel as TrustLevel) || "stranger"];
+      if (trustA !== trustB) {
+        return trustB - trustA; // Higher trust first
+      }
+      // Secondary sort by lastActivityAt desc
+      return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
+    });
+  }
 
   return NextResponse.json(threads);
 }

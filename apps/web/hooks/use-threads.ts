@@ -57,11 +57,15 @@ export function useThreads(params?: {
   tagId?: string;
   tagIds?: string;
   query?: string;
+  filter?: "unprocessed";
 }) {
   const searchParams = new URLSearchParams();
   if (params?.mailboxId) searchParams.set("mailboxId", params.mailboxId);
-  // Pass status through to API (including "all"); omit to let API use defaults
-  if (params?.status && params.status !== "open") {
+  // Pass filter through (takes precedence over status)
+  if (params?.filter) {
+    searchParams.set("filter", params.filter);
+  } else if (params?.status && params.status !== "open") {
+    // Pass status through to API (including "all"); omit to let API use defaults
     searchParams.set("status", params.status);
   }
   if (params?.tagIds) searchParams.set("tagIds", params.tagIds);

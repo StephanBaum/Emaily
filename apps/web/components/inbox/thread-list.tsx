@@ -3,7 +3,7 @@
 import { useThreads } from "@/hooks/use-threads";
 import { ThreadItem } from "./thread-item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Inbox, Archive, Clock } from "lucide-react";
+import { Inbox, Archive, Clock, CheckCircle2 } from "lucide-react";
 
 interface ThreadListProps {
   mailboxId?: string;
@@ -11,10 +11,11 @@ interface ThreadListProps {
   tagId?: string;
   tagIds?: string;
   query?: string;
+  filter?: "unprocessed";
 }
 
-export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query }: ThreadListProps) {
-  const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query });
+export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, filter }: ThreadListProps) {
+  const { threads, isLoading, isError } = useThreads({ mailboxId, status, tagId, tagIds, query, filter });
 
   if (isLoading) {
     return (
@@ -45,6 +46,19 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query }:
   }
 
   if (!threads || threads.length === 0) {
+    // Special "all caught up" state for unprocessed filter
+    if (filter === "unprocessed") {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 text-center">
+          <CheckCircle2 className="mb-4 h-12 w-12 text-green-500" />
+          <p className="text-lg font-medium">All caught up!</p>
+          <p className="text-sm text-muted-foreground">
+            No new threads need your attention. Check the AI summary above to see what was processed.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
         <Inbox className="mb-4 h-12 w-12 text-muted-foreground" />

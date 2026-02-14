@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { ThreadList } from "@/components/inbox/thread-list";
 import { SearchBar } from "@/components/inbox/search-bar";
 import { FilterToolbar } from "@/components/inbox/filter-toolbar";
+import { AISummaryPanel } from "@/components/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface InboxPageProps {
@@ -36,6 +37,10 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
   // - Default inbox -> "open"
   const effectiveStatus = params.status || (isTagView ? "all" : "open");
 
+  // Use unprocessed filter for default inbox view (no tags, no explicit status, no search)
+  const isDefaultInbox = !isTagView && !params.status && !params.q;
+  const filter = isDefaultInbox ? "unprocessed" : undefined;
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-14 items-center justify-between border-b px-6 gap-4">
@@ -50,6 +55,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
         <SearchBar />
       </header>
       <div className="flex-1 overflow-auto">
+        {isDefaultInbox && <AISummaryPanel />}
         <Suspense fallback={<ThreadListSkeleton />}>
           <ThreadList
             mailboxId={params.mailbox}
@@ -57,6 +63,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
             tagId={params.tag}
             tagIds={params.tags}
             query={params.q}
+            filter={filter}
           />
         </Suspense>
       </div>

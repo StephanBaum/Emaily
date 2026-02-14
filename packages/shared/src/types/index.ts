@@ -227,7 +227,8 @@ export type ActivityAction =
   | "ai_quarantined"
   | "ai_notified"
   | "ai_needs_attention"
-  | "ai_agent_routed";
+  | "ai_agent_routed"
+  | "ai_correction";
 
 export interface ActivityLog {
   id: string;
@@ -239,4 +240,35 @@ export interface ActivityLog {
   metadata: Record<string, unknown>;
   ipAddress: string | null;
   createdAt: Date;
+}
+
+// AI Summary types (for dashboard)
+export type AISummaryAction =
+  | "ai_archived"
+  | "ai_tagged"
+  | "ai_draft_generated"
+  | "ai_auto_replied"
+  | "ai_quarantined";
+
+export interface AISummaryItem {
+  threadId: string;
+  subject: string;
+  senderName: string | null;
+  senderEmail: string;
+  tags: { name: string; color: string }[];
+  activityId: string;
+  createdAt: Date;
+}
+
+export interface AISummaryGroup {
+  action: AISummaryAction;
+  label: string;
+  count: number;
+  items: AISummaryItem[];
+}
+
+export interface AISummaryResponse {
+  groups: AISummaryGroup[];
+  totalCount: number;
+  since: Date;
 }
