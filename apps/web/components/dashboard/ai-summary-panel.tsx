@@ -1,14 +1,32 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Sparkles, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, X, Archive, Tag, Pencil, MessageSquare, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAISummary } from "@/hooks/use-ai-summary";
 import { AISummaryGroup } from "./ai-summary-group";
+import type { AISummaryAction } from "@emailautomation/shared";
 
 const STORAGE_KEY_COLLAPSED = "ai-summary-panel-collapsed";
 const STORAGE_KEY_DISMISSED_AT = "ai-summary-panel-dismissed-at";
+
+const ACTION_ICONS: Record<AISummaryAction, typeof Archive> = {
+  ai_archived: Archive,
+  ai_tagged: Tag,
+  ai_draft_generated: Pencil,
+  ai_auto_replied: MessageSquare,
+  ai_quarantined: Shield,
+};
+
+const ACTION_LABELS: Record<AISummaryAction, string> = {
+  ai_archived: "Archived",
+  ai_tagged: "Tagged",
+  ai_draft_generated: "Drafted",
+  ai_auto_replied: "Replied",
+  ai_quarantined: "Quarantined",
+};
 
 interface AISummaryPanelProps {
   className?: string;
@@ -69,12 +87,12 @@ export function AISummaryPanel({ className }: AISummaryPanelProps) {
         className
       )}
     >
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center gap-3 px-4 py-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleToggleCollapse}
-          className="h-auto gap-2 px-2 py-1 font-normal hover:bg-transparent"
+          className="h-auto gap-2 px-2 py-1 font-normal hover:bg-transparent shrink-0"
         >
           <Sparkles className="h-4 w-4 text-amber-500" />
           <span className="font-medium">
@@ -90,11 +108,28 @@ export function AISummaryPanel({ className }: AISummaryPanelProps) {
           )}
         </Button>
 
+        {/* Compact action badges shown inline */}
+        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
+          {groups.map((group) => {
+            const Icon = ACTION_ICONS[group.action];
+            return (
+              <Badge
+                key={group.action}
+                variant="secondary"
+                className="gap-1 shrink-0 text-xs font-normal"
+              >
+                <Icon className="h-3 w-3" />
+                {ACTION_LABELS[group.action]} {group.count}
+              </Badge>
+            );
+          })}
+        </div>
+
         <Button
           variant="ghost"
           size="sm"
           onClick={handleDismiss}
-          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Dismiss</span>

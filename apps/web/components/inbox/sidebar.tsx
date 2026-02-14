@@ -343,23 +343,30 @@ export function Sidebar() {
           disabled={isSyncing}
         >
           <RefreshCw
-            className={cn("mr-2 h-4 w-4", isSyncing && "animate-spin")}
+            className={cn("mr-2 h-4 w-4 shrink-0", isSyncing && "animate-spin")}
           />
-          {isSyncing ? "Syncing..." : "Sync Mail"}
+          <span className="truncate">{isSyncing ? "Syncing..." : "Sync Mail"}</span>
         </Button>
-        <Button
-          variant="outline"
-          className="w-full justify-start"
-          onClick={handleProcessAI}
-          disabled={isProcessingAI}
-        >
-          <Sparkles
-            className={cn("mr-2 h-4 w-4", isProcessingAI && "animate-pulse")}
-          />
-          {isProcessingAI
-            ? aiProgress || "Processing..."
-            : aiProgress || "Process All with AI"}
-        </Button>
+        <div className="space-y-1">
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={handleProcessAI}
+            disabled={isProcessingAI}
+          >
+            <Sparkles
+              className={cn("mr-2 h-4 w-4 shrink-0", isProcessingAI && "animate-pulse")}
+            />
+            <span className="truncate">
+              {isProcessingAI ? "Processing..." : "Process with AI"}
+            </span>
+          </Button>
+          {aiProgress && (
+            <p className="text-xs text-muted-foreground px-1 truncate" title={aiProgress}>
+              {aiProgress}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* User Menu */}

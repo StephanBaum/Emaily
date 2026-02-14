@@ -39,14 +39,14 @@ export function ThreadPill({ item, className }: ThreadPillProps) {
                 {senderInitial}
               </AvatarFallback>
             </Avatar>
-            <span className="truncate text-sm">{item.subject}</span>
+            <span className="truncate text-sm min-w-0">{item.subject}</span>
             {item.tags.length > 0 && (
-              <div className="flex gap-1">
+              <div className="flex gap-1 shrink-0 flex-nowrap">
                 {item.tags.slice(0, 2).map((tag) => (
                   <Badge
                     key={tag.name}
                     variant="secondary"
-                    className="h-4 px-1 text-[10px]"
+                    className="h-4 px-1 text-[10px] whitespace-nowrap shrink-0"
                     style={{
                       backgroundColor: `${tag.color}20`,
                       color: tag.color,
@@ -56,7 +56,7 @@ export function ThreadPill({ item, className }: ThreadPillProps) {
                   </Badge>
                 ))}
                 {item.tags.length > 2 && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground shrink-0">
                     +{item.tags.length - 2}
                   </span>
                 )}
