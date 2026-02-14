@@ -10,18 +10,18 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "imapflow": "^1.0.171",
-    "nodemailer": "^6.9.16",
-    "mailparser": "^3.7.2",
-    "quoted-printable": "^1.0.1",
-    "bullmq": "^5.34.0",
     "@emailautomation/database": "workspace:*",
     "@emailautomation/security": "workspace:*",
-    "@emailautomation/shared": "workspace:*"
+    "@emailautomation/shared": "workspace:*",
+    "bullmq": "^5.69.2",
+    "imapflow": "^1.2.9",
+    "mailparser": "^3.9.3",
+    "nodemailer": "^6.10.1",
+    "quoted-printable": "^1.0.1"
   },
   "devDependencies": {
-    "@types/nodemailer": "^6.4.17",
-    "@types/mailparser": "^3.4.5",
-    "vitest": "^2.0.0"
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^6.4.22",
+    "vitest": "^2.1.9"
   }
 }

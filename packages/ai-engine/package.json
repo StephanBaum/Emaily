@@ -12,11 +12,11 @@
   "dependencies": {
     "@emailautomation/database": "workspace:*",
     "@emailautomation/shared": "workspace:*",
-    "@google/generative-ai": "^0.24.0"
+    "@google/generative-ai": "^0.24.1"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^2.0.0"
+    "@types/node": "^20.19.33",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }

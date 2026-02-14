@@ -7,13 +7,13 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "bullmq": "^5.34.0",
-    "ioredis": "^5.4.2",
     "@emailautomation/ai-engine": "workspace:*",
     "@emailautomation/database": "workspace:*",
-    "@emailautomation/shared": "workspace:*"
+    "@emailautomation/shared": "workspace:*",
+    "bullmq": "^5.69.2",
+    "ioredis": "^5.9.3"
   },
   "devDependencies": {
-    "tsx": "^4.19.2"
+    "tsx": "^4.21.0"
   }
 }
