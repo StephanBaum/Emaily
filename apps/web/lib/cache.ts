@@ -119,3 +119,85 @@ export async function cacheOrFetch<T>(
 
   return data;
 }
+
+// Rate limiting configuration
+const RATE_LIMIT_PREFIX = "emaily:ratelimit:";
+
+export interface RateLimitConfig {
+  /** Maximum number of requests allowed in the window */
+  maxRequests: number;
+  /** Time window in seconds */
+  windowSeconds: number;
+}
+
+export interface RateLimitResult {
+  /** Whether the request is allowed */
+  allowed: boolean;
+  /** Current request count in the window */
+  current: number;
+  /** Maximum requests allowed */
+  limit: number;
+  /** Seconds until the window resets */
+  resetIn: number;
+}
+
+/**
+ * Check and increment rate limit for a given key
+ * Uses sliding window with Redis INCR + EXPIRE
+ */
+export async function checkRateLimit(
+  identifier: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  const key = `${RATE_LIMIT_PREFIX}${identifier}`;
+
+  try {
+    const client = getRedis();
+
+    // Use multi to atomically increment and set expiry
+    const pipeline = client.multi();
+    pipeline.incr(key);
+    pipeline.ttl(key);
+
+    const results = await pipeline.exec();
+
+    if (!results) {
+      // Redis error - fail open (allow request)
+      return { allowed: true, current: 0, limit: config.maxRequests, resetIn: 0 };
+    }
+
+    const count = results[0]?.[1] as number || 1;
+    let ttl = results[1]?.[1] as number || -1;
+
+    // Set expiry on first request in window
+    if (ttl === -1) {
+      await client.expire(key, config.windowSeconds);
+      ttl = config.windowSeconds;
+    }
+
+    const allowed = count <= config.maxRequests;
+
+    return {
+      allowed,
+      current: count,
+      limit: config.maxRequests,
+      resetIn: ttl > 0 ? ttl : config.windowSeconds,
+    };
+  } catch (err) {
+    console.warn("[RateLimit] Check failed:", identifier, err);
+    // Fail open on Redis errors - don't block users
+    return { allowed: true, current: 0, limit: config.maxRequests, resetIn: 0 };
+  }
+}
+
+/**
+ * Rate limit presets for different endpoints
+ */
+export const rateLimits = {
+  // AI processing: 10 requests per minute per team
+  aiProcess: { maxRequests: 10, windowSeconds: 60 },
+  // AI bulk processing: 2 requests per minute per team
+  aiProcessAll: { maxRequests: 2, windowSeconds: 60 },
+  // Sync: 5 requests per minute per team
+  sync: { maxRequests: 5, windowSeconds: 60 },
+};

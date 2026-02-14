@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
   const tagIds = searchParams.get("tagIds");
   const query = searchParams.get("q")?.trim();
   const filter = searchParams.get("filter"); // "unprocessed" = threads AI hasn't touched
+  const cursor = searchParams.get("cursor"); // Cursor for pagination (thread ID)
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100); // Max 100 threads
 
   // Get mailbox IDs the user has access to
   const accessibleMailboxes = await prisma.mailboxAccess.findMany({
@@ -85,7 +87,11 @@ export async function GET(request: NextRequest) {
   const threads = await prisma.thread.findMany({
     where,
     orderBy: { lastActivityAt: "desc" },
-    take: 50,
+    take: limit + 1, // Fetch one extra to check if there's a next page
+    ...(cursor && {
+      cursor: { id: cursor },
+      skip: 1, // Skip the cursor itself
+    }),
     include: {
       emails: {
         orderBy: { date: "desc" },
@@ -145,10 +151,34 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.json(threads, {
-    headers: {
-      // Very short cache for real-time thread list
-      "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+  // Check if there are more results
+  const hasNextPage = threads.length > limit;
+  const resultsToReturn = hasNextPage ? threads.slice(0, limit) : threads;
+  const nextCursor = hasNextPage ? resultsToReturn[resultsToReturn.length - 1]?.id : null;
+
+  // Optimize response: truncate email body to preview length (150 chars)
+  const optimizedThreads = resultsToReturn.map((thread) => ({
+    ...thread,
+    emails: thread.emails.map((email) => ({
+      ...email,
+      bodyText: email.bodyText?.slice(0, 150) || "",
+    })),
+  }));
+
+  return NextResponse.json(
+    {
+      threads: optimizedThreads,
+      pagination: {
+        hasNextPage,
+        nextCursor,
+        limit,
+      },
     },
-  });
+    {
+      headers: {
+        // Very short cache for real-time thread list
+        "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+      },
+    }
+  );
 }

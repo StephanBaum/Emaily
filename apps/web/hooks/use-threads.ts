@@ -12,6 +12,7 @@ interface ThreadEmail {
 }
 
 interface ThreadTag {
+  appliedBy?: string;
   tag: {
     id: string;
     name: string;
@@ -45,6 +46,15 @@ interface Thread {
   };
 }
 
+interface ThreadsResponse {
+  threads: Thread[];
+  pagination: {
+    hasNextPage: boolean;
+    nextCursor: string | null;
+    limit: number;
+  };
+}
+
 export function useThreads(params?: {
   mailboxId?: string;
   status?: string;
@@ -52,6 +62,7 @@ export function useThreads(params?: {
   tagIds?: string;
   query?: string;
   filter?: "unprocessed";
+  limit?: number;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.mailboxId) searchParams.set("mailboxId", params.mailboxId);
@@ -65,17 +76,19 @@ export function useThreads(params?: {
   if (params?.tagIds) searchParams.set("tagIds", params.tagIds);
   else if (params?.tagId) searchParams.set("tagId", params.tagId);
   if (params?.query && params.query.length >= 2) searchParams.set("q", params.query);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
 
   const url = `/api/threads${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
-  const { data, error, isLoading, mutate } = useSWR<Thread[]>(
+  const { data, error, isLoading, mutate } = useSWR<ThreadsResponse>(
     url,
-    fetcher<Thread[]>,
+    fetcher<ThreadsResponse>,
     realtimeConfig
   );
 
   return {
-    threads: data,
+    threads: data?.threads,
+    pagination: data?.pagination,
     isLoading,
     isError: error,
     mutate,

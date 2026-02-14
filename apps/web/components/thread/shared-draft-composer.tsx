@@ -107,6 +107,7 @@ export function SharedDraftComposer({
   const saveDraftRef = useRef<() => Promise<void>>();
   const lastDraftIdRef = useRef(existingDraft?.id ?? null);
   const draftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedBodyRef = useRef(existingDraft?.body || "");
 
   // Sync state when existingDraft prop changes (from router.refresh or server re-render)
   useEffect(() => {
@@ -116,14 +117,16 @@ export function SharedDraftComposer({
       setDraft(existingDraft || null);
       setBody(existingDraft?.body || "");
       setLastSavedBody(existingDraft?.body || "");
+      lastSavedBodyRef.current = existingDraft?.body || "";
       setMode("shared");
       setIsExpanded(true);
       setIsAIEdited(false);
-    } else if (existingDraft && existingDraft.body !== lastSavedBody && !draft?.isLockedByMe) {
+    } else if (existingDraft && existingDraft.body !== lastSavedBodyRef.current && !draft?.isLockedByMe) {
       // Draft content changed externally (e.g. different agent re-drafted)
       setDraft(existingDraft);
       setBody(existingDraft.body || "");
       setLastSavedBody(existingDraft.body || "");
+      lastSavedBodyRef.current = existingDraft.body || "";
       setIsAIEdited(false);
     }
   }, [existingDraft?.id, existingDraft?.body]);
@@ -143,8 +146,9 @@ export function SharedDraftComposer({
     : `Re: ${thread.subject}`;
 
   // Auto-save with debounce
+  // Use ref for lastSavedBody comparison to avoid effect re-running when save completes
   useEffect(() => {
-    if (draft?.isLockedByMe && body !== lastSavedBody) {
+    if (draft?.isLockedByMe && body !== lastSavedBodyRef.current) {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -161,7 +165,7 @@ export function SharedDraftComposer({
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [body, draft?.isLockedByMe, lastSavedBody]);
+  }, [body, draft?.isLockedByMe]);
 
   // Auto-acquire lock when an existing shared draft is opened
   useEffect(() => {
@@ -220,6 +224,7 @@ export function SharedDraftComposer({
         lockedBy: null,
       });
       setLastSavedBody(body || "");
+      lastSavedBodyRef.current = body || "";
       setIsExpanded(true);
       setMode("shared");
       onDraftCreated?.(newDraft);
@@ -252,6 +257,7 @@ export function SharedDraftComposer({
       setDraft(updatedDraft);
       setBody(updatedDraft.body);
       setLastSavedBody(updatedDraft.body);
+      lastSavedBodyRef.current = updatedDraft.body;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to acquire lock");
     } finally {
@@ -295,6 +301,7 @@ export function SharedDraftComposer({
       if (response.ok) {
         const updatedDraft = await response.json();
         setLastSavedBody(body);
+        lastSavedBodyRef.current = body;
         setHistoryRefreshKey((k) => k + 1);
         onDraftUpdated?.(updatedDraft);
       }
@@ -453,6 +460,7 @@ export function SharedDraftComposer({
             });
             setBody(newDraft.body || "");
             setLastSavedBody(newDraft.body || "");
+            lastSavedBodyRef.current = newDraft.body || "";
             setMode("shared");
             setIsExpanded(true);
             setIsAIEdited(false);

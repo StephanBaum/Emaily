@@ -12,6 +12,22 @@ interface OllamaEmbedResponse {
   embeddings: number[][];
 }
 
+// Timeout constants in milliseconds
+const COMPLETION_TIMEOUT_MS = 120_000; // 2 minutes for completions
+const EMBED_TIMEOUT_MS = 30_000; // 30 seconds for embeddings
+const HEALTH_CHECK_TIMEOUT_MS = 5_000; // 5 seconds for health checks
+
+/**
+ * Create an AbortSignal that times out after the specified duration
+ */
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Clean up timeout if request completes before timeout
+  controller.signal.addEventListener("abort", () => clearTimeout(timeoutId));
+  return controller.signal;
+}
+
 export class OllamaProvider implements AIProvider {
   name = "ollama";
   private host: string;
@@ -44,11 +60,20 @@ export class OllamaProvider implements AIProvider {
       body.format = "json";
     }
 
-    const response = await fetch(`${this.host}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.host}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: createTimeoutSignal(COMPLETION_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error(`Ollama completion timed out after ${COMPLETION_TIMEOUT_MS / 1000}s`);
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       throw new Error(`Ollama error: ${response.status} ${await response.text()}`);
@@ -69,14 +94,23 @@ export class OllamaProvider implements AIProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    const response = await fetch(`${this.host}/api/embed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.embeddingModel,
-        input: text,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.host}/api/embed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.embeddingModel,
+          input: text,
+        }),
+        signal: createTimeoutSignal(EMBED_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error(`Ollama embed timed out after ${EMBED_TIMEOUT_MS / 1000}s`);
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       throw new Error(`Ollama embed error: ${response.status} ${await response.text()}`);
@@ -88,7 +122,9 @@ export class OllamaProvider implements AIProvider {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.host}/api/tags`);
+      const response = await fetch(`${this.host}/api/tags`, {
+        signal: createTimeoutSignal(HEALTH_CHECK_TIMEOUT_MS),
+      });
       return response.ok;
     } catch {
       return false;

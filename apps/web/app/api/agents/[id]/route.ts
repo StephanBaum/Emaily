@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheInvalidate, cacheKeys } from "@/lib/cache";
 
 export async function PATCH(
   request: NextRequest,
@@ -80,6 +81,9 @@ export async function PATCH(
     },
   });
 
+  // Invalidate agents cache
+  await cacheInvalidate(cacheKeys.agents(teamId));
+
   return NextResponse.json(updated);
 }
 
@@ -111,6 +115,9 @@ export async function DELETE(
   }
 
   await prisma.agent.delete({ where: { id } });
+
+  // Invalidate agents cache
+  await cacheInvalidate(cacheKeys.agents(session.user.teamId));
 
   return NextResponse.json({ success: true });
 }

@@ -164,6 +164,9 @@ model Thread {
 
   @@index([mailboxId, status])
   @@index([lastActivityAt])
+  @@index([teamId, status, lastActivityAt])
+  @@index([aiStatus])
+  @@index([senderTrustLevel])
   @@map("threads")
 }
 
@@ -204,6 +207,8 @@ model Email {
   @@unique([messageId])
   @@index([threadId])
   @@index([imapUid])
+  @@index([date])
+  @@index([fromAddress])
   @@map("emails")
 }
 
@@ -372,6 +377,8 @@ model ThreadTag {
   tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([threadId, tagId])
+  @@index([tagId])
+  @@index([appliedBy])
   @@map("thread_tags")
 }
 

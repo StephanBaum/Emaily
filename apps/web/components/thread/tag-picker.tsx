@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/popover";
 import { Tag, Check, X } from "lucide-react";
 import { useThreadActions } from "@/hooks/use-thread-actions";
+import { useTags } from "@/hooks/use-tags";
 
 interface TagData {
   id: string;
@@ -28,9 +29,8 @@ interface TagPickerProps {
 
 export function TagPicker({ threadId, currentTags }: TagPickerProps) {
   const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
+  const { tags: allTags, isLoading } = useTags();
   const [open, setOpen] = useState(false);
-  const [allTags, setAllTags] = useState<TagData[]>([]);
-  const [loading, setLoading] = useState(false);
   const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
     new Set(currentTags.map((t) => t.tag.id))
   );
@@ -38,24 +38,6 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
   useEffect(() => {
     setAppliedTagIds(new Set(currentTags.map((t) => t.tag.id)));
   }, [currentTags]);
-
-  useEffect(() => {
-    if (open) {
-      fetchTags();
-    }
-  }, [open]);
-
-  async function fetchTags() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/tags?context=picker");
-      if (res.ok) {
-        setAllTags(await res.json());
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function toggleTag(tag: TagData) {
     const isApplied = appliedTagIds.has(tag.id);
@@ -91,6 +73,13 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
     await removeTagAction(tagId);
   }
 
+  // Convert TagData from useTags to the simpler format used here
+  const simpleTags: TagData[] = (allTags || []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+  }));
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {currentTags.map(({ tag }) => (
@@ -121,9 +110,9 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
         </PopoverTrigger>
         <PopoverContent className="w-52 p-2" align="start">
           <TagSelectionList
-            tags={allTags}
+            tags={simpleTags}
             appliedTagIds={appliedTagIds}
-            loading={loading}
+            loading={isLoading}
             onToggle={toggleTag}
           />
         </PopoverContent>
@@ -145,8 +134,7 @@ export function TagMenuPopover({
   onOpenChange: (open: boolean) => void;
 }) {
   const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
-  const [allTags, setAllTags] = useState<TagData[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { tags: allTags, isLoading } = useTags();
   const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
     new Set(currentTags.map((t) => t.tag.id))
   );
@@ -154,24 +142,6 @@ export function TagMenuPopover({
   useEffect(() => {
     setAppliedTagIds(new Set(currentTags.map((t) => t.tag.id)));
   }, [currentTags]);
-
-  const fetchTags = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/tags?context=picker");
-      if (res.ok) {
-        setAllTags(await res.json());
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      fetchTags();
-    }
-  }, [open, fetchTags]);
 
   async function toggleTag(tag: TagData) {
     const isApplied = appliedTagIds.has(tag.id);
@@ -195,6 +165,13 @@ export function TagMenuPopover({
     }
   }
 
+  // Convert TagData from useTags to the simpler format used here
+  const simpleTags: TagData[] = (allTags || []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+  }));
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -202,9 +179,9 @@ export function TagMenuPopover({
       </PopoverTrigger>
       <PopoverContent className="w-52 p-2" align="end">
         <TagSelectionList
-          tags={allTags}
+          tags={simpleTags}
           appliedTagIds={appliedTagIds}
-          loading={loading}
+          loading={isLoading}
           onToggle={toggleTag}
         />
       </PopoverContent>

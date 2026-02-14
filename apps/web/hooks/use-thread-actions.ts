@@ -4,13 +4,28 @@ import { useCallback } from "react";
 import { useSWRConfig } from "swr";
 import { useRouter } from "next/navigation";
 
+interface ThreadTag {
+  tag: { id: string; name: string; color: string };
+}
+
 interface Thread {
   id: string;
   subject: string;
   status: string;
-  tags: { tag: { id: string; name: string; color: string } }[];
+  tags: ThreadTag[];
   [key: string]: unknown;
 }
+
+interface ThreadsResponse {
+  threads: Thread[];
+  pagination: {
+    hasNextPage: boolean;
+    nextCursor: string | null;
+    limit: number;
+  };
+}
+
+type ThreadData = Thread | ThreadsResponse;
 
 /**
  * Hook for optimistic thread actions.
@@ -28,18 +43,21 @@ export function useThreadActions(threadId: string) {
       // Optimistically update all thread caches
       mutate(
         (key) => typeof key === "string" && key.startsWith("/api/threads"),
-        (currentData: Thread[] | Thread | undefined) => {
+        (currentData: ThreadData | undefined) => {
           if (!currentData) return currentData;
 
-          // Handle array (thread list)
-          if (Array.isArray(currentData)) {
-            return currentData.map((thread) =>
-              thread.id === threadId ? { ...thread, status: newStatus } : thread
-            );
+          // Handle paginated response { threads: [...], pagination: {...} }
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
+            return {
+              ...currentData,
+              threads: currentData.threads.map((thread) =>
+                thread.id === threadId ? { ...thread, status: newStatus } : thread
+              ),
+            };
           }
 
-          // Handle single thread
-          if (currentData.id === threadId) {
+          // Handle single thread (detail view)
+          if ("id" in currentData && currentData.id === threadId) {
             return { ...currentData, status: newStatus };
           }
 
@@ -87,19 +105,24 @@ export function useThreadActions(threadId: string) {
       // Optimistically add tag
       mutate(
         (key) => typeof key === "string" && key.startsWith("/api/threads"),
-        (currentData: Thread[] | Thread | undefined) => {
+        (currentData: ThreadData | undefined) => {
           if (!currentData) return currentData;
 
-          if (Array.isArray(currentData)) {
-            return currentData.map((thread) =>
-              thread.id === threadId
-                ? { ...thread, tags: [...thread.tags, newTag] }
-                : thread
-            );
+          // Handle paginated response { threads: [...], pagination: {...} }
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
+            return {
+              ...currentData,
+              threads: currentData.threads.map((thread) =>
+                thread.id === threadId
+                  ? { ...thread, tags: [...thread.tags, newTag] }
+                  : thread
+              ),
+            };
           }
 
-          if (currentData.id === threadId) {
-            return { ...currentData, tags: [...currentData.tags, newTag] };
+          // Handle single thread (detail view)
+          if ("id" in currentData && currentData.id === threadId) {
+            return { ...currentData, tags: [...(currentData as Thread).tags, newTag] };
           }
 
           return currentData;
@@ -137,21 +160,26 @@ export function useThreadActions(threadId: string) {
       // Optimistically remove tag
       mutate(
         (key) => typeof key === "string" && key.startsWith("/api/threads"),
-        (currentData: Thread[] | Thread | undefined) => {
+        (currentData: ThreadData | undefined) => {
           if (!currentData) return currentData;
 
-          if (Array.isArray(currentData)) {
-            return currentData.map((thread) =>
-              thread.id === threadId
-                ? { ...thread, tags: thread.tags.filter((t) => t.tag.id !== tagId) }
-                : thread
-            );
-          }
-
-          if (currentData.id === threadId) {
+          // Handle paginated response { threads: [...], pagination: {...} }
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
             return {
               ...currentData,
-              tags: currentData.tags.filter((t) => t.tag.id !== tagId),
+              threads: currentData.threads.map((thread) =>
+                thread.id === threadId
+                  ? { ...thread, tags: thread.tags.filter((t: ThreadTag) => t.tag.id !== tagId) }
+                  : thread
+              ),
+            };
+          }
+
+          // Handle single thread (detail view)
+          if ("id" in currentData && currentData.id === threadId) {
+            return {
+              ...currentData,
+              tags: (currentData as Thread).tags.filter((t: ThreadTag) => t.tag.id !== tagId),
             };
           }
 

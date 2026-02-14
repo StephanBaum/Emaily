@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { processThreadWithAI } from "@/lib/ai";
+import { checkRateLimit, rateLimits } from "@/lib/cache";
 import type { AIProcessingResult } from "@emailautomation/shared";
 
 export async function POST(request: NextRequest) {
@@ -11,10 +12,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const teamId = session.user.teamId;
+
+  // Rate limit: 10 AI process requests per minute per team
+  const rateLimit = await checkRateLimit(`ai:process:${teamId}`, rateLimits.aiProcess);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: "Rate limit exceeded",
+        retryAfter: rateLimit.resetIn,
+        current: rateLimit.current,
+        limit: rateLimit.limit,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.resetIn) },
+      }
+    );
+  }
+
   const body = await request.json();
   const { emailId, threadId, agentId } = body;
-
-  const teamId = session.user.teamId;
 
   if (threadId) {
     // Process the entire thread with a single LLM call

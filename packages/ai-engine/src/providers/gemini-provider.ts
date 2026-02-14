@@ -1,6 +1,11 @@
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
 import type { AIProvider, CompletionRequest, CompletionResponse, ChatMessage } from "./provider";
 
+// Timeout constants in milliseconds
+const COMPLETION_TIMEOUT_MS = 120_000; // 2 minutes for completions
+const EMBED_TIMEOUT_MS = 30_000; // 30 seconds for embeddings
+const HEALTH_CHECK_TIMEOUT_MS = 10_000; // 10 seconds for health checks
+
 export class GeminiProvider implements AIProvider {
   name = "gemini";
   private client: GoogleGenerativeAI;
@@ -17,15 +22,18 @@ export class GeminiProvider implements AIProvider {
     const systemMessage = request.messages.find((m) => m.role === "system");
     const chatMessages = request.messages.filter((m) => m.role !== "system");
 
-    const model = this.client.getGenerativeModel({
-      model: this.model,
-      systemInstruction: systemMessage?.content,
-      generationConfig: {
-        temperature: request.temperature ?? 0.3,
-        maxOutputTokens: request.maxTokens ?? 4096,
-        responseMimeType: request.responseFormat === "json" ? "application/json" : "text/plain",
+    const model = this.client.getGenerativeModel(
+      {
+        model: this.model,
+        systemInstruction: systemMessage?.content,
+        generationConfig: {
+          temperature: request.temperature ?? 0.3,
+          maxOutputTokens: request.maxTokens ?? 4096,
+          responseMimeType: request.responseFormat === "json" ? "application/json" : "text/plain",
+        },
       },
-    });
+      { timeout: COMPLETION_TIMEOUT_MS }
+    );
 
     const contents = this.toGeminiContents(chatMessages);
     const result = await model.generateContent({ contents });
@@ -46,14 +54,20 @@ export class GeminiProvider implements AIProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    const model = this.client.getGenerativeModel({ model: this.embeddingModel });
+    const model = this.client.getGenerativeModel(
+      { model: this.embeddingModel },
+      { timeout: EMBED_TIMEOUT_MS }
+    );
     const result = await model.embedContent(text);
     return result.embedding.values;
   }
 
   async isAvailable(): Promise<boolean> {
     try {
-      const model = this.client.getGenerativeModel({ model: this.model });
+      const model = this.client.getGenerativeModel(
+        { model: this.model },
+        { timeout: HEALTH_CHECK_TIMEOUT_MS }
+      );
       await model.generateContent("test");
       return true;
     } catch {
