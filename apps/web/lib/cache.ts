@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { REDIS_MAX_RETRIES, REDIS_MAX_BACKOFF_MS } from "@/lib/constants";
 
 const CACHE_PREFIX = "emaily:cache:";
 
@@ -16,11 +17,11 @@ function getRedis(): Redis {
   if (!redis) {
     const url = process.env.REDIS_URL || "redis://localhost:6379";
     redis = new Redis(url, {
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: REDIS_MAX_RETRIES,
       enableReadyCheck: true,
       retryStrategy: (times) => {
-        if (times > 3) return null;
-        return Math.min(times * 100, 2000);
+        if (times > REDIS_MAX_RETRIES) return null;
+        return Math.min(times * 100, REDIS_MAX_BACKOFF_MS);
       },
     });
 

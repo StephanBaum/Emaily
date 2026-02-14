@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emailautomation/shared";
+import { DEFAULT_THREAD_LIMIT, MAX_THREAD_LIMIT, EMAIL_PREVIEW_LENGTH } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("q")?.trim();
   const filter = searchParams.get("filter"); // "unprocessed" = threads AI hasn't touched
   const cursor = searchParams.get("cursor"); // Cursor for pagination (thread ID)
-  const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100); // Max 100 threads
+  const limit = Math.min(parseInt(searchParams.get("limit") || String(DEFAULT_THREAD_LIMIT), 10), MAX_THREAD_LIMIT);
 
   // Get mailbox IDs the user has access to
   const accessibleMailboxes = await prisma.mailboxAccess.findMany({
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
     ...thread,
     emails: thread.emails.map((email) => ({
       ...email,
-      bodyText: email.bodyText?.slice(0, 150) || "",
+      bodyText: email.bodyText?.slice(0, EMAIL_PREVIEW_LENGTH) || "",
     })),
   }));
 

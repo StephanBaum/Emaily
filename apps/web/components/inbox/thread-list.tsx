@@ -8,6 +8,7 @@ import { ThreadItem } from "./thread-item";
 import { ThreadSkeleton } from "./thread-skeleton";
 import { BulkActionBar } from "./bulk-action-bar";
 import { Inbox, Archive, Clock, CheckCircle2 } from "lucide-react";
+import { SKELETON_THREAD_COUNT } from "@/lib/constants";
 
 interface ThreadListProps {
   mailboxId?: string;
@@ -38,7 +39,7 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
   }, [rawThreads, shouldHideThread, status]);
 
   if (isLoading) {
-    return <ThreadSkeleton count={6} />;
+    return <ThreadSkeleton count={SKELETON_THREAD_COUNT} />;
   }
 
   if (isError) {

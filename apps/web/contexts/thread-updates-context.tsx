@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
-import { mutate } from "swr";
+import { REVALIDATION_DELAY_MS } from "@/lib/constants";
+import { invalidateThreadCaches } from "@/lib/cache-utils";
 
 interface ThreadUpdate {
   id: string;
@@ -160,13 +161,10 @@ export function useOptimisticThreadActions(threadId: string) {
         }
 
         // Revalidate caches after successful update
-        mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
-        mutate("/api/mailboxes");
-        mutate("/api/nudges");
-        mutate("/api/ai/summary");
+        invalidateThreadCaches();
 
         // Clear the pending update after a short delay to allow revalidation
-        setTimeout(() => clearUpdate(threadId), 500);
+        setTimeout(() => clearUpdate(threadId), REVALIDATION_DELAY_MS);
       } catch (error) {
         // Revert on error
         clearUpdate(threadId);
@@ -191,10 +189,10 @@ export function useOptimisticThreadActions(threadId: string) {
       }
 
       // Revalidate caches
-      mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+      invalidateThreadCaches();
 
       // Clear after revalidation
-      setTimeout(() => clearUpdate(threadId), 500);
+      setTimeout(() => clearUpdate(threadId), REVALIDATION_DELAY_MS);
     } catch (error) {
       clearUpdate(threadId);
       console.error("Failed to delete thread:", error);

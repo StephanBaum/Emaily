@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { mutate } from "swr";
 import { useThreadUpdates } from "@/contexts/thread-updates-context";
+import { REVALIDATION_DELAY_MS } from "@/lib/constants";
+import { invalidateThreadCaches } from "@/lib/cache-utils";
 
 export interface BatchSelectionState {
   selectedIds: Set<string>;
@@ -71,12 +72,10 @@ export function useBatchSelection() {
         if (!res.ok) throw new Error("Failed to update");
 
         // Revalidate caches
-        mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
-        mutate("/api/mailboxes");
-        mutate("/api/nudges");
+        invalidateThreadCaches();
 
         // Clear pending updates after revalidation
-        setTimeout(() => ids.forEach((id) => clearUpdate(id)), 500);
+        setTimeout(() => ids.forEach((id) => clearUpdate(id)), REVALIDATION_DELAY_MS);
       } catch (error) {
         // Revert on error
         ids.forEach((id) => clearUpdate(id));
@@ -106,10 +105,10 @@ export function useBatchSelection() {
       if (!res.ok) throw new Error("Failed to delete");
 
       // Revalidate caches
-      mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+      invalidateThreadCaches();
 
       // Clear pending updates after revalidation
-      setTimeout(() => ids.forEach((id) => clearUpdate(id)), 500);
+      setTimeout(() => ids.forEach((id) => clearUpdate(id)), REVALIDATION_DELAY_MS);
     } catch (error) {
       // Revert on error
       ids.forEach((id) => clearUpdate(id));
