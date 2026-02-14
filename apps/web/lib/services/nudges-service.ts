@@ -46,3 +46,72 @@ export async function getMailboxEmails(mailboxIds: string[]): Promise<string[]> 
   });
   return mailboxes.map((m) => m.emailAddress.toLowerCase());
 }
+
+interface ThreadWithEmails {
+  id: string;
+  subject: string;
+  senderTrustLevel: string | null;
+  lastActivityAt: Date;
+  emails: {
+    fromAddress: string;
+    fromName: string | null;
+    isSent: boolean;
+    toAddresses: string[];
+  }[];
+}
+
+async function queryNeedsReplyThreads(
+  mailboxIds: string[],
+  staleThreshold: Date
+): Promise<ThreadWithEmails[]> {
+  return prisma.thread.findMany({
+    where: {
+      mailboxId: { in: mailboxIds },
+      status: "open",
+      hasSentReply: false,
+      lastActivityAt: { lt: staleThreshold },
+      OR: [{ aiNeedsReply: true }, { aiNeedsReply: null }],
+    },
+    include: {
+      emails: {
+        orderBy: { date: "desc" },
+        take: 1,
+        select: {
+          fromAddress: true,
+          fromName: true,
+          isSent: true,
+          toAddresses: true,
+        },
+      },
+    },
+    orderBy: [{ senderTrustLevel: "asc" }, { lastActivityAt: "asc" }],
+    take: NUDGE_LIMIT,
+  });
+}
+
+async function queryAwaitingResponseThreads(
+  mailboxIds: string[],
+  staleThreshold: Date
+): Promise<ThreadWithEmails[]> {
+  return prisma.thread.findMany({
+    where: {
+      mailboxId: { in: mailboxIds },
+      status: "open",
+      lastActivityAt: { lt: staleThreshold },
+    },
+    include: {
+      emails: {
+        orderBy: { date: "desc" },
+        take: 2,
+        select: {
+          fromAddress: true,
+          fromName: true,
+          isSent: true,
+          toAddresses: true,
+        },
+      },
+    },
+    orderBy: [{ senderTrustLevel: "asc" }, { lastActivityAt: "asc" }],
+    take: NUDGE_LIMIT,
+  });
+}
