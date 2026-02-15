@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, RotateCcw, Eye, Clock, Plus } from "lucide-react";
 import { getInitials } from "@/lib/format";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 
 interface Version {
   id: string;
@@ -43,6 +43,7 @@ export function DraftVersionHistory({
   refreshKey,
 }: DraftVersionHistoryProps) {
   const isLocalMode = !draftId;
+  const { formatDate } = useFormattedDate();
   const [serverVersions, setServerVersions] = useState<Version[]>([]);
   const [isLoading, setIsLoading] = useState(!isLocalMode);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -171,7 +172,7 @@ export function DraftVersionHistory({
                       {version.userName ?? "Auto-save"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(createdDate, { addSuffix: true })}
+                      {formatDate(createdDate)}
                     </p>
                     <p className="text-[10px] text-muted-foreground/60">
                       {createdDate.toLocaleDateString(undefined, {

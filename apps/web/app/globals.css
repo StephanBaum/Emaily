@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant compact (&:is([data-density="compact"] *));
 
 @theme {
   --font-sans: var(--font-inter), system-ui, sans-serif;

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MessageSquare, MoreVertical, Pencil, Trash2, Send } from "lucide-react";
 import { getInitials } from "@/lib/format";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 
 interface Comment {
   id: string;
@@ -36,6 +36,7 @@ interface CommentSectionProps {
 
 export function CommentSection({ threadId, initialComments, compact = false, onCountChange }: CommentSectionProps) {
   const { data: session } = useSession();
+  const { formatDate } = useFormattedDate();
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState("");
 
@@ -147,9 +148,7 @@ export function CommentSection({ threadId, initialComments, compact = false, onC
                         {comment.user.name}
                       </span>
                       <span className="text-[10px] text-muted-foreground shrink-0">
-                        {formatDistanceToNow(new Date(comment.createdAt), {
-                          addSuffix: true,
-                        })}
+                        {formatDate(comment.createdAt)}
                       </span>
                     </div>
                     {session?.user?.id === comment.user.id && (
@@ -265,9 +264,9 @@ export function CommentSection({ threadId, initialComments, compact = false, onC
             {comments.map((comment) => (
               <div
                 key={comment.id}
-                className="group flex gap-3 rounded-lg bg-background p-3"
+                className="group flex gap-3 rounded-lg bg-background p-3 compact:gap-2 compact:p-2"
               >
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 compact:h-6 compact:w-6">
                   <AvatarFallback className="text-xs">
                     {getInitials(comment.user.name)}
                   </AvatarFallback>
@@ -279,9 +278,7 @@ export function CommentSection({ threadId, initialComments, compact = false, onC
                         {comment.user.name}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(comment.createdAt), {
-                          addSuffix: true,
-                        })}
+                        {formatDate(comment.createdAt)}
                       </span>
                       {comment.createdAt !== comment.updatedAt && (
                         <span className="text-xs text-muted-foreground">

@@ -1,6 +1,5 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -10,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Eye } from "lucide-react";
 import { getInitials } from "@/lib/format";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 
 interface SeenByUser {
   id: string;
@@ -28,6 +28,8 @@ interface SeenByIndicatorProps {
 }
 
 export function SeenByIndicator({ seenBy, maxVisible = 4, compact = false }: SeenByIndicatorProps) {
+  const { formatDate } = useFormattedDate();
+
   if (seenBy.length === 0) return null;
 
   // Compact mode for panel - vertical list
@@ -48,7 +50,7 @@ export function SeenByIndicator({ seenBy, maxVisible = 4, compact = false }: See
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{seen.user.name}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {formatDistanceToNow(new Date(seen.seenAt), { addSuffix: true })}
+                  {formatDate(seen.seenAt)}
                 </p>
               </div>
             </div>
@@ -78,7 +80,7 @@ export function SeenByIndicator({ seenBy, maxVisible = 4, compact = false }: See
               <TooltipContent side="bottom" className="text-xs">
                 <p className="font-medium">{seen.user.name}</p>
                 <p className="text-muted-foreground">
-                  Viewed {formatDistanceToNow(new Date(seen.seenAt), { addSuffix: true })}
+                  Viewed {formatDate(seen.seenAt)}
                 </p>
               </TooltipContent>
             </Tooltip>

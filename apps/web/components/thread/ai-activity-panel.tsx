@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgents } from "@/hooks/use-agents";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { revalidateAll } from "@/lib/revalidate";
 
 interface AIActivity {
@@ -120,6 +121,7 @@ const actionConfig: Record<
 
 export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
   const router = useRouter();
+  const { formatDateCompact } = useFormattedDate();
   const [activities, setActivities] = useState<AIActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -291,7 +293,7 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
           const description = config.format(
             activity.metadata as Record<string, unknown>
           );
-          const timeAgo = formatTimeAgo(activity.createdAt);
+          const timeAgo = formatDateCompact(activity.createdAt);
 
           return (
             <div
@@ -313,17 +315,3 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
   );
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}

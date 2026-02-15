@@ -22,6 +22,7 @@ import {
   Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -335,6 +336,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
 }
 
 function ThreadCard({ thread }: { thread: Thread }) {
+  const { formatDateCompact } = useFormattedDate();
   const latestEmail = thread.emails?.[0];
   const senderName = latestEmail?.fromName || latestEmail?.fromEmail?.split("@")[0] || "Unknown";
   const senderInitial = senderName[0]?.toUpperCase() || "?";
@@ -371,11 +373,11 @@ function ThreadCard({ thread }: { thread: Thread }) {
     <Link
       href={`/thread/${thread.id}`}
       className={cn(
-        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors",
+        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors compact:gap-2 compact:p-2 compact:py-1.5",
         priority === "high" && "border-l-2 border-l-red-500"
       )}
     >
-      <Avatar className="h-10 w-10 shrink-0">
+      <Avatar className="h-10 w-10 shrink-0 compact:h-8 compact:w-8">
         <AvatarFallback className={cn(
           isVip ? "bg-amber-500/20 text-amber-600" :
           isTrusted ? "bg-blue-500/20 text-blue-600" :
@@ -417,7 +419,7 @@ function ThreadCard({ thread }: { thread: Thread }) {
       </div>
       <div className="text-xs text-muted-foreground shrink-0">
         <Clock className="h-3 w-3 inline mr-1" />
-        {formatRelativeTime(new Date(thread.lastActivityAt))}
+        {formatDateCompact(thread.lastActivityAt)}
       </div>
     </Link>
   );
@@ -503,9 +505,9 @@ function EmailRow({ item, action }: { item: AISummaryGroup["items"][0]; action: 
   return (
     <Link
       href={`/thread/${item.threadId}`}
-      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
+      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors compact:gap-2 compact:p-2"
     >
-      <Avatar className="h-9 w-9 shrink-0">
+      <Avatar className="h-9 w-9 shrink-0 compact:h-7 compact:w-7">
         <AvatarFallback className="bg-muted text-muted-foreground text-sm">
           {senderInitial}
         </AvatarFallback>
@@ -613,19 +615,6 @@ function ThreadPill({
   );
 }
 
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "now";
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  return `${diffDays}d`;
-}
-
 function NudgeSection({
   title,
   icon: Icon,
@@ -694,9 +683,9 @@ function NudgeRow({
   return (
     <Link
       href={`/thread/${item.id}`}
-      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
+      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors compact:gap-2 compact:p-2"
     >
-      <Avatar className="h-9 w-9 shrink-0">
+      <Avatar className="h-9 w-9 shrink-0 compact:h-7 compact:w-7">
         <AvatarFallback
           className={cn(
             isVip

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,18 +58,19 @@ interface EmailMessageProps {
 
 export function EmailMessage({ email, isFirst, isLast }: EmailMessageProps) {
   const [isExpanded, setIsExpanded] = useState(isLast);
+  const { formatDate } = useFormattedDate();
   const senderName = email.fromName || email.fromAddress;
   const senderInitial = senderName[0]?.toUpperCase() || "?";
 
   return (
     <Card className={cn("transition-shadow", isExpanded && "shadow-md")}>
       <CardHeader
-        className="cursor-pointer py-3"
+        className="cursor-pointer py-3 compact:py-2"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-10 w-10 compact:h-8 compact:w-8">
               <AvatarFallback
                 className={cn(
                   "text-sm",
@@ -113,7 +114,7 @@ export function EmailMessage({ email, isFirst, isLast }: EmailMessageProps) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {format(new Date(email.date), "MMM d, yyyy 'at' h:mm a")}
+              {formatDate(email.date)}
             </span>
             {email.attachments.length > 0 && (
               <Badge variant="outline" className="text-xs">

@@ -2,8 +2,8 @@
 
 import { useCallback, useRef } from "react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Clock, Crown, Reply, ShieldQuestion, Sparkles } from "lucide-react";
@@ -71,6 +71,7 @@ export function ThreadItem({
 }: ThreadItemProps) {
   const prefetch = usePrefetchThread();
   const prefetchedRef = useRef(false);
+  const { formatDate } = useFormattedDate();
 
   const handleMouseEnter = useCallback(() => {
     // Only prefetch once per mount
@@ -114,7 +115,7 @@ export function ThreadItem({
       href={`/thread/${thread.id}`}
       onMouseEnter={handleMouseEnter}
       className={cn(
-        "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50",
+        "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50 compact:gap-2 compact:p-2 compact:py-1.5",
         isUnseen && !isAIHandled && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950/30",
         isUnseen && isAIHandled && "bg-muted/30",
         !isUnseen && "border-l-2 border-l-transparent",
@@ -151,10 +152,10 @@ export function ThreadItem({
       )}
 
       <div className="relative">
-        <Avatar className="h-10 w-10">
+        <Avatar className="h-10 w-10 compact:h-7 compact:w-7">
           <AvatarFallback
             className={cn(
-              "text-sm",
+              "text-sm compact:text-xs",
               isUnseen && !isAIHandled
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground"
@@ -204,9 +205,7 @@ export function ThreadItem({
             )}
           </div>
           <span className="shrink-0 text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(thread.lastActivityAt), {
-              addSuffix: true,
-            })}
+            {formatDate(thread.lastActivityAt)}
           </span>
         </div>
 
@@ -239,10 +238,10 @@ export function ThreadItem({
           )}
         </div>
 
-        <p className="mt-1 truncate text-sm text-muted-foreground">{preview}</p>
+        <p className="mt-1 compact:mt-0.5 truncate text-sm text-muted-foreground">{preview}</p>
 
         {(thread.tags.length > 0 || thread.assignments.length > 0) && (
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 compact:mt-1 flex items-center gap-2">
             {thread.tags.map(({ tag, appliedBy }) => (
               <Badge
                 key={tag.id}

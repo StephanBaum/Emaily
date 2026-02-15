@@ -44,7 +44,7 @@ export function EmailChain({ emails, reopenedTimestamps = [] }: EmailChainProps)
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 p-6 compact:space-y-2 compact:p-4">
       {emails.map((email, index) => (
         <div key={email.id}>
           {dividerBeforeIndices.has(index) && (
