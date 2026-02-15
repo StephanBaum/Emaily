@@ -892,6 +892,91 @@ Branch: `v2`
 
 ---
 
+## Phase 7.14: Profile, Settings, Team Management & Notifications [DONE]
+
+Branch: `v2`
+Plan: `docs/plans/2026-02-15-profile-settings-implementation.md`
+
+### Schema Migration
+- User: added `avatar` (Bytes), `avatarMime`, `preferences` (Json)
+- Mailbox: added `signature`
+- Tag: added `notifyRoles` (String[])
+- New models: `TeamInvite`, `Notification`
+- Reverse relations on User and Team
+- Shared types: `UserPreferences`, `DEFAULT_PREFERENCES`, `Notification`, `NotificationType`, `TeamInvite`
+- Commit: `ec63ea4`
+
+### Settings Layout Shell
+- Settings sidebar nav with 6 sections (Profile, Security, Mailboxes, Preferences, Team, AI Agents)
+- Settings layout wrapper, index redirect to /settings/profile
+- Files: `components/settings/settings-sidebar.tsx`, `settings/layout.tsx`, `settings/page.tsx`
+
+### Profile Page
+- API: `GET/PATCH /api/user/profile`, `PUT/DELETE /api/user/avatar`, `GET /api/user/avatar/[userId]`
+- Avatar upload with client-side resize, initials fallback
+- Name edit with session update
+- Account info card (role, team, member since)
+- Files: `components/settings/avatar-upload.tsx`, `settings/profile/page.tsx`
+
+### Security Page
+- API: `POST /api/user/password`, `POST /api/user/totp/setup`, `POST /api/user/totp/enable`, `DELETE /api/user/totp`
+- Password change with current password verification
+- 2FA setup flow: QR code, verification code, enable/disable
+- Files: `settings/security/page.tsx`
+
+### Preferences Page
+- `PreferencesContext` provider with theme/density/dateFormat/previewLines/notifications
+- Theme applies dark class, density sets data attribute
+- API: `GET/PATCH /api/user/preferences`
+- Toggle buttons for all settings
+- Wired into dashboard layout
+- Files: `contexts/preferences-context.tsx`, `settings/preferences/page.tsx`
+
+### Mailbox Management
+- API: `POST /api/mailboxes`, `GET/PATCH/DELETE /api/mailboxes/[id]`, `POST /api/mailboxes/test-connection`, `GET/POST /api/mailboxes/[id]/access`
+- Test connection validates IMAP/SMTP with actual client connections
+- Folder detection from IMAP list
+- Mailbox form with IMAP/SMTP/signature sections
+- Settings page with list/create/edit views
+- Files: `components/settings/mailbox-form.tsx`, `settings/mailboxes/page.tsx`
+
+### Notification System
+- Service: `createNotification()`, `createNotificationsForTeam()` (with role/mailbox filtering)
+- API: `GET /api/notifications` (cursor-paginated), `PATCH /api/notifications/[id]`, `POST /api/notifications/mark-all-read`
+- Bell component with unread count badge, popover dropdown, time-ago display
+- SWR hook with 30s realtime polling
+- Wired into AI notify tag action (creates notifications for mailbox users)
+- Wired into assignments (notifies assignee)
+- Files: `lib/services/notification-service.ts`, `hooks/use-notifications.ts`, `components/notifications/notification-bell.tsx`
+
+### Team Management
+- API: `GET/PATCH /api/team`, `GET/POST /api/team/invites`, `DELETE /api/team/invites/[id]`, `PATCH/DELETE /api/team/members/[id]`
+- Admin-gated operations (team rename, invites, role changes, member removal)
+- Invite system with secure tokens, 7-day expiry, duplicate detection
+- Settings page with team info, member list, invite form
+- Files: `settings/team/page.tsx`
+
+### Self-Registration
+- API: `POST /api/auth/check-domain` (domain matching to existing teams), `POST /api/auth/register`
+- Multi-step form: credentials → team detection → join/create
+- Auto-join existing team by email domain match
+- Auto-create team with admin role for new domains
+- Auto-grant read access to shared mailboxes on join
+- Registration page, login form link
+- Files: `components/auth/register-form.tsx`, `(auth)/register/page.tsx`
+
+### Sidebar & Integration
+- Notification bell and settings gear icon in sidebar
+- Dropdown menu links to /settings/profile and /settings
+- Agents page adapted to settings layout (removed redundant padding)
+
+### Verification
+- `pnpm build` passes (43 files changed, 3884 insertions)
+- All API routes registered
+- Commit: `eb753b6`
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---
