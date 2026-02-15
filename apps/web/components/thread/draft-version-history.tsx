@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { Loader2, RotateCcw, Eye, Clock } from "lucide-react";
 import { getInitials } from "@/lib/format";
 
 interface Version {
@@ -19,8 +19,15 @@ interface Version {
   };
 }
 
+export interface LocalVersion {
+  id: string;
+  bodySnapshot: string;
+  createdAt: string;
+}
+
 interface DraftVersionHistoryProps {
-  draftId: string;
+  draftId?: string;
+  localVersions?: LocalVersion[];
   currentBody: string;
   onRestore: (body: string) => void;
   refreshKey?: number;
@@ -28,21 +35,24 @@ interface DraftVersionHistoryProps {
 
 export function DraftVersionHistory({
   draftId,
+  localVersions,
   currentBody,
   onRestore,
   refreshKey,
 }: DraftVersionHistoryProps) {
-  const [versions, setVersions] = useState<Version[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const isLocalMode = !draftId;
+  const [serverVersions, setServerVersions] = useState<Version[]>([]);
+  const [isLoading, setIsLoading] = useState(!isLocalMode);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
   const fetchVersions = useCallback(async () => {
+    if (!draftId) return;
     try {
       const res = await fetch(`/api/shared-drafts/${draftId}/versions`);
       if (res.ok) {
         const data = await res.json();
-        setVersions(data);
+        setServerVersions(data);
       }
     } finally {
       setIsLoading(false);
@@ -50,30 +60,41 @@ export function DraftVersionHistory({
   }, [draftId]);
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchVersions();
+    if (draftId) {
+      setIsLoading(true);
+      fetchVersions();
+    }
   }, [fetchVersions, refreshKey]);
 
-  async function handleRestore(version: Version) {
+  async function handleRestore(bodySnapshot: string, versionId?: string) {
     setIsRestoring(true);
     try {
-      const res = await fetch(`/api/shared-drafts/${draftId}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: version.id }),
-      });
-
-      if (res.ok) {
-        onRestore(version.bodySnapshot);
+      // For shared mode, notify the server about the restore
+      if (draftId && versionId) {
+        const res = await fetch(`/api/shared-drafts/${draftId}/versions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ versionId }),
+        });
+        if (res.ok) {
+          onRestore(bodySnapshot);
+        }
+      } else {
+        // Local mode — just restore directly
+        onRestore(bodySnapshot);
       }
     } finally {
       setIsRestoring(false);
     }
   }
 
-  const previewVersion = previewId
-    ? versions.find((v) => v.id === previewId)
-    : null;
+  // Unify version lists for rendering
+  const versions: { id: string; bodySnapshot: string; createdAt: string; userName?: string }[] =
+    isLocalMode
+      ? (localVersions ?? []).map((v) => ({ ...v, userName: undefined }))
+      : serverVersions.map((v) => ({ ...v, userName: v.user.name }));
+
+  const previewVersion = previewId ? versions.find((v) => v.id === previewId) : null;
 
   if (isLoading) {
     return (
@@ -86,7 +107,7 @@ export function DraftVersionHistory({
   if (versions.length === 0) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        No version history yet. Versions are created automatically when you save changes.
+        No version history yet. Versions are created automatically when you pause editing.
       </div>
     );
   }
@@ -100,9 +121,7 @@ export function DraftVersionHistory({
             {/* Current version entry */}
             <div
               className={`flex items-start gap-2 rounded-md p-2 cursor-pointer transition-colors ${
-                previewId === null
-                  ? "bg-primary/10"
-                  : "hover:bg-muted"
+                previewId === null ? "bg-primary/10" : "hover:bg-muted"
               }`}
               onClick={() => setPreviewId(null)}
             >
@@ -122,22 +141,26 @@ export function DraftVersionHistory({
                 <div
                   key={version.id}
                   className={`group flex items-start gap-2 rounded-md p-2 cursor-pointer transition-colors ${
-                    previewId === version.id
-                      ? "bg-primary/10"
-                      : "hover:bg-muted"
+                    previewId === version.id ? "bg-primary/10" : "hover:bg-muted"
                   }`}
                   onClick={() =>
                     setPreviewId(previewId === version.id ? null : version.id)
                   }
                 >
-                  <Avatar className="h-6 w-6 mt-0.5">
-                    <AvatarFallback className="text-[10px]">
-                      {getInitials(version.user.name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  {version.userName ? (
+                    <Avatar className="h-6 w-6 mt-0.5">
+                      <AvatarFallback className="text-[10px]">
+                        {getInitials(version.userName)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="h-6 w-6 mt-0.5 rounded-full bg-muted flex items-center justify-center">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {version.user.name}
+                      {version.userName ?? "Auto-save"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(createdDate, { addSuffix: true })}
@@ -157,7 +180,7 @@ export function DraftVersionHistory({
                     className="h-6 w-6 opacity-0 group-hover:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRestore(version);
+                      handleRestore(version.bodySnapshot, !isLocalMode ? version.id : undefined);
                     }}
                     disabled={isRestoring}
                     title="Restore this version"
@@ -185,7 +208,12 @@ export function DraftVersionHistory({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => handleRestore(previewVersion)}
+              onClick={() =>
+                handleRestore(
+                  previewVersion.bodySnapshot,
+                  !isLocalMode ? previewVersion.id : undefined
+                )
+              }
               disabled={isRestoring}
             >
               {isRestoring ? (

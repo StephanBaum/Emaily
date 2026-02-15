@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -14,6 +14,7 @@ import {
   FileEdit,
   Users,
   Sparkles,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { DraftVersionHistory } from "./draft-version-history";
+import { DraftVersionHistory, type LocalVersion } from "./draft-version-history";
 import { ComposerHeader } from "./composer-header";
 import { cn } from "@/lib/utils";
 import { useAgents, type AgentData } from "@/hooks/use-agents";
@@ -121,8 +122,79 @@ interface SharedDraftComposerProps {
   onDraftUpdated?: (draft: SharedDraft) => void;
 }
 
-// Debounce time for auto-save (30 seconds)
-const AUTO_SAVE_DELAY = 30000;
+// Auto-save delay (debounce before saving to server, no version)
+const AUTO_SAVE_DELAY = 2000;
+// Version delay (idle time before creating a version snapshot)
+const VERSION_DELAY = 8000;
+// Max local versions to keep in localStorage
+const MAX_LOCAL_VERSIONS = 10;
+
+function getPersonalDraftKey(threadId: string) {
+  return `draft:personal:${threadId}`;
+}
+
+function getPersonalVersionsKey(threadId: string) {
+  return `draft:personal:${threadId}:versions`;
+}
+
+function loadPersonalDraft(threadId: string): string {
+  try {
+    const raw = window.localStorage.getItem(getPersonalDraftKey(threadId));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed.body ?? "";
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return "";
+}
+
+function savePersonalDraft(threadId: string, body: string) {
+  try {
+    window.localStorage.setItem(
+      getPersonalDraftKey(threadId),
+      JSON.stringify({ body, savedAt: Date.now() })
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function clearPersonalDraft(threadId: string) {
+  try {
+    window.localStorage.removeItem(getPersonalDraftKey(threadId));
+    window.localStorage.removeItem(getPersonalVersionsKey(threadId));
+  } catch {
+    // Ignore
+  }
+}
+
+function loadLocalVersions(threadId: string): LocalVersion[] {
+  try {
+    const raw = window.localStorage.getItem(getPersonalVersionsKey(threadId));
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // Ignore
+  }
+  return [];
+}
+
+function addLocalVersion(threadId: string, body: string): LocalVersion[] {
+  const versions = loadLocalVersions(threadId);
+  const newVersion: LocalVersion = {
+    id: `local-${Date.now()}`,
+    bodySnapshot: body,
+    createdAt: new Date().toISOString(),
+  };
+  const updated = [newVersion, ...versions].slice(0, MAX_LOCAL_VERSIONS);
+  try {
+    window.localStorage.setItem(getPersonalVersionsKey(threadId), JSON.stringify(updated));
+  } catch {
+    // Ignore
+  }
+  return updated;
+}
 
 export function SharedDraftComposer({
   thread,
@@ -148,12 +220,14 @@ export function SharedDraftComposer({
   const [isAIEdited, setIsAIEdited] = useState(false);
   const [body, setBody] = useState(existingDraft?.body || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [lastSavedBody, setLastSavedBody] = useState(existingDraft?.body || "");
+  const [localVersions, setLocalVersions] = useState<LocalVersion[]>([]);
 
   const { sendEmail, isSending, sendError, setSendError } = useSendEmail({
     threadId: thread.id,
@@ -168,10 +242,25 @@ export function SharedDraftComposer({
   }
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const saveDraftRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const versionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const savedIndicatorRef = useRef<NodeJS.Timeout | null>(null);
+  const saveDraftRef = useRef<((skipVersion?: boolean) => Promise<void>) | undefined>(undefined);
   const lastDraftIdRef = useRef(existingDraft?.id ?? null);
   const draftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedBodyRef = useRef(existingDraft?.body || "");
+  const lastVersionedBodyRef = useRef(existingDraft?.body || "");
+
+  // Load personal draft from localStorage on mount/expand
+  useEffect(() => {
+    if (isExpanded && mode === "personal" && !draft) {
+      const saved = loadPersonalDraft(thread.id);
+      if (saved && !body) {
+        setBody(saved);
+      }
+      setLocalVersions(loadLocalVersions(thread.id));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, mode, draft, thread.id]);
 
   // Sync state when existingDraft prop changes (from router.refresh or server re-render)
   useEffect(() => {
@@ -182,6 +271,7 @@ export function SharedDraftComposer({
       setBody(existingDraft?.body || "");
       setLastSavedBody(existingDraft?.body || "");
       lastSavedBodyRef.current = existingDraft?.body || "";
+      lastVersionedBodyRef.current = existingDraft?.body || "";
       setMode("shared");
       setIsExpanded(true);
       setIsAIEdited(false);
@@ -191,6 +281,7 @@ export function SharedDraftComposer({
       setBody(existingDraft.body || "");
       setLastSavedBody(existingDraft.body || "");
       lastSavedBodyRef.current = existingDraft.body || "";
+      lastVersionedBodyRef.current = existingDraft.body || "";
       setIsAIEdited(false);
     }
   }, [existingDraft?.id, existingDraft?.body]);
@@ -209,27 +300,69 @@ export function SharedDraftComposer({
     ? thread.subject
     : `Re: ${thread.subject}`;
 
-  // Auto-save with debounce
-  // Use ref for lastSavedBody comparison to avoid effect re-running when save completes
+  // Show "Saved" indicator briefly
+  const flashSaved = useCallback(() => {
+    setShowSaved(true);
+    if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
+    savedIndicatorRef.current = setTimeout(() => setShowSaved(false), 2000);
+  }, []);
+
+  // Two-timer auto-save for shared drafts:
+  // - 2s debounce → save (skipVersion: true)
+  // - 8s idle → save with version (skipVersion: false)
   useEffect(() => {
     if (draft?.isLockedByMe && body !== lastSavedBodyRef.current) {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
+      // Reset save timer (2s)
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(async () => {
         if (saveDraftRef.current) {
-          await saveDraftRef.current();
+          await saveDraftRef.current(true); // skipVersion
         }
       }, AUTO_SAVE_DELAY);
+
+      // Reset version timer (8s)
+      if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
+      versionTimeoutRef.current = setTimeout(async () => {
+        if (saveDraftRef.current) {
+          await saveDraftRef.current(false); // create version
+        }
+      }, VERSION_DELAY);
     }
 
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
     };
   }, [body, draft?.isLockedByMe]);
+
+  // Personal mode: auto-save to localStorage + local version timer
+  useEffect(() => {
+    if (mode === "personal" && !draft && isExpanded && body) {
+      // Save to localStorage on every change (debounced 2s)
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        savePersonalDraft(thread.id, body);
+        flashSaved();
+      }, AUTO_SAVE_DELAY);
+
+      // Create local version after 8s idle
+      if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
+      if (body !== lastVersionedBodyRef.current && body.trim()) {
+        versionTimeoutRef.current = setTimeout(() => {
+          lastVersionedBodyRef.current = body;
+          const updated = addLocalVersion(thread.id, body);
+          setLocalVersions(updated);
+        }, VERSION_DELAY);
+      }
+    }
+
+    return () => {
+      if (mode === "personal" && !draft) {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
+      }
+    };
+  }, [body, mode, draft, isExpanded, thread.id, flashSaved]);
 
   // Auto-acquire lock when an existing shared draft is opened
   useEffect(() => {
@@ -239,7 +372,7 @@ export function SharedDraftComposer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.id, isExpanded, mode]);
 
-  // Cleanup on unmount - release lock
+  // Cleanup on unmount - release lock and save personal draft
   useEffect(() => {
     return () => {
       if (draft?.isLockedByMe) {
@@ -280,8 +413,11 @@ export function SharedDraftComposer({
       });
       setLastSavedBody(body || "");
       lastSavedBodyRef.current = body || "";
+      lastVersionedBodyRef.current = body || "";
       setIsExpanded(true);
       setMode("shared");
+      // Clear personal draft since we're now shared
+      clearPersonalDraft(thread.id);
       onDraftCreated?.(newDraft);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create draft");
@@ -313,6 +449,7 @@ export function SharedDraftComposer({
       setBody(updatedDraft.body);
       setLastSavedBody(updatedDraft.body);
       lastSavedBodyRef.current = updatedDraft.body;
+      lastVersionedBodyRef.current = updatedDraft.body;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to acquire lock");
     } finally {
@@ -323,9 +460,12 @@ export function SharedDraftComposer({
   async function releaseLock() {
     if (!draft) return;
 
-    // Save before releasing
-    if (body !== lastSavedBody) {
-      await saveDraft();
+    // Save + version before releasing (if changed since last version)
+    if (body !== lastSavedBodyRef.current) {
+      await saveDraft(body !== lastVersionedBodyRef.current ? false : true);
+    } else if (body !== lastVersionedBodyRef.current && body.trim()) {
+      // Content was saved but no version yet — create one
+      await saveDraft(false);
     }
 
     try {
@@ -342,7 +482,7 @@ export function SharedDraftComposer({
     }
   }
 
-  async function saveDraft() {
+  async function saveDraft(skipVersion = false) {
     if (!draft || !draft.isLockedByMe || isSaving) return;
 
     setIsSaving(true);
@@ -350,14 +490,18 @@ export function SharedDraftComposer({
       const response = await fetch(`/api/shared-drafts/${draft.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, skipVersion }),
       });
 
       if (response.ok) {
         const updatedDraft = await response.json();
         setLastSavedBody(body);
         lastSavedBodyRef.current = body;
-        setHistoryRefreshKey((k) => k + 1);
+        if (!skipVersion) {
+          lastVersionedBodyRef.current = body;
+          setHistoryRefreshKey((k) => k + 1);
+        }
+        flashSaved();
         onDraftUpdated?.(updatedDraft);
       }
     } catch (err) {
@@ -398,12 +542,32 @@ export function SharedDraftComposer({
     if (ok) {
       setBody("");
       setIsExpanded(false);
+      clearPersonalDraft(thread.id);
     }
   }
 
   function handleVersionRestore(newBody: string) {
     setBody(newBody);
     setShowHistory(false);
+    // For personal mode, also save restored content to localStorage
+    if (mode === "personal" && !draft) {
+      savePersonalDraft(thread.id, newBody);
+    }
+  }
+
+  function handlePersonalClose() {
+    // Save to localStorage before closing (preserves content for later)
+    if (body.trim()) {
+      savePersonalDraft(thread.id, body);
+      // Create version on close if changed since last version
+      if (body !== lastVersionedBodyRef.current && body.trim()) {
+        lastVersionedBodyRef.current = body;
+        const updated = addLocalVersion(thread.id, body);
+        setLocalVersions(updated);
+      }
+    }
+    setIsExpanded(false);
+    setError(null);
   }
 
   async function handleDraftWithAI(agentId: string) {
@@ -449,6 +613,7 @@ export function SharedDraftComposer({
             setBody(newDraft.body || "");
             setLastSavedBody(newDraft.body || "");
             lastSavedBodyRef.current = newDraft.body || "";
+            lastVersionedBodyRef.current = newDraft.body || "";
             setMode("shared");
             setIsExpanded(true);
             setIsAIEdited(false);
@@ -512,17 +677,63 @@ export function SharedDraftComposer({
     );
   }
 
+  // Show version history (personal or shared)
+  if (showHistory && (draft || mode === "personal")) {
+    return (
+      <div className="border-t">
+        <div className="flex items-center justify-between px-4 py-2 border-b">
+          <span className="text-sm font-medium">Version History</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowHistory(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <DraftVersionHistory
+          draftId={draft?.id}
+          localVersions={!draft ? localVersions : undefined}
+          currentBody={body}
+          onRestore={handleVersionRestore}
+          refreshKey={historyRefreshKey}
+        />
+      </div>
+    );
+  }
+
   // Personal reply mode (no shared draft)
   if (mode === "personal" && !draft) {
     return (
       <div className="border-t">
+        <div className="flex items-center justify-between px-4 py-2 bg-muted/30">
+          <div className="flex items-center gap-2">
+            {showSaved && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 animate-in fade-in duration-300">
+                <Check className="h-3 w-3" />
+                Saved
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => {
+                setHistoryRefreshKey((k) => k + 1);
+                setShowHistory(true);
+              }}
+              title="Version history"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
         <ComposerHeader
           replyTo={replyTo}
-          onClose={() => {
-            setIsExpanded(false);
-            setBody("");
-            setError(null);
-          }}
+          onClose={handlePersonalClose}
         />
 
         <Separator />
@@ -574,11 +785,7 @@ export function SharedDraftComposer({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setIsExpanded(false);
-                  setBody("");
-                  setError(null);
-                }}
+                onClick={handlePersonalClose}
               >
                 Cancel
               </Button>
@@ -602,30 +809,6 @@ export function SharedDraftComposer({
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Show version history
-  if (showHistory && draft) {
-    return (
-      <div className="border-t">
-        <div className="flex items-center justify-between px-4 py-2 border-b">
-          <span className="text-sm font-medium">Version History</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowHistory(false)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <DraftVersionHistory
-          draftId={draft.id}
-          currentBody={body}
-          onRestore={handleVersionRestore}
-          refreshKey={historyRefreshKey}
-        />
       </div>
     );
   }
@@ -654,6 +837,12 @@ export function SharedDraftComposer({
           )}
           {isSaving && (
             <span className="text-xs text-muted-foreground">Saving...</span>
+          )}
+          {!isSaving && showSaved && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1 animate-in fade-in duration-300">
+              <Check className="h-3 w-3" />
+              Saved
+            </span>
           )}
           {isLocking && (
             <span className="text-xs text-muted-foreground">
@@ -745,16 +934,6 @@ export function SharedDraftComposer({
           </div>
 
           <div className="flex items-center gap-2">
-            {draft?.isLockedByMe && body !== lastSavedBody && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={saveDraft}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="sm"

@@ -83,7 +83,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { body: draftBody, subject, toAddresses, ccAddresses, bccAddresses, status } = body;
+  const { body: draftBody, subject, toAddresses, ccAddresses, bccAddresses, status, skipVersion } = body;
 
   // Find draft with access check
   const draft = await prisma.sharedDraft.findFirst({
@@ -119,8 +119,8 @@ export async function PATCH(
     }
   }
 
-  // If updating body, save a version (skip if previous body was empty)
-  if (draftBody !== undefined && draftBody !== draft.body && draft.body.trim()) {
+  // If updating body, save a version (skip if previous body was empty or skipVersion requested)
+  if (draftBody !== undefined && draftBody !== draft.body && draft.body.trim() && !skipVersion) {
     await prisma.draftVersion.create({
       data: {
         sharedDraftId: id,
