@@ -25,6 +25,7 @@ export interface AgentLoopOptions {
   agentName?: string;
   userName?: string;
   userEmail?: string;
+  currentDraft?: string;
 }
 
 export interface AgentDecision {
@@ -168,8 +169,12 @@ export class AgentLoop {
         ? `\n\nEmail signature: End every draft with a line break, then:\nBest regards,\n${options.userName}`
         : "";
 
+    const currentDraftBlock = options.currentDraft?.trim()
+      ? `\n\nThe user has already started writing a reply:\n---\n${options.currentDraft.trim()}\n---\nIncorporate their existing text and intent into your draft. Do not discard what they wrote — build upon it, refine it, and complete it.`
+      : "";
+
     const draftInstruction = options.generateDraft
-      ? `If you decide to generate a draft reply, address it to ${options.replyTo}. Address all extracted intents. Use Q&A material when relevant.${signatureInfo}`
+      ? `You MUST generate a draft reply addressed to ${options.replyTo}. This is explicitly requested by the user — do NOT skip it or set draft to null. Address all extracted intents. Use Q&A material when relevant.${signatureInfo}${currentDraftBlock}`
       : `Draft generation is not requested for this thread.`;
 
     return `You are an intelligent email agent that analyzes email threads, classifies them, and optionally drafts replies.
@@ -221,7 +226,7 @@ Rules:
 - tags: Only use tags from the available list. confidence 0.0-1.0. Be selective.
 - intents: type must be "question", "request", or "info". priority 1-3. Max 10.
 - triage: Assess priority (high/medium/low) and whether a reply is needed.
-- draft: null if not generating or unable. confidence scores all 0.0-1.0. PLAIN TEXT ONLY.
+- draft: ${options.generateDraft ? "REQUIRED — you must generate a draft. Do not return null." : "null (not requested)."} confidence scores all 0.0-1.0. PLAIN TEXT ONLY.
 - escalate: Set true if you are uncertain (overall confidence < 0.4) or cannot handle the email.
 - escalation: Only when escalate is true. Include reason and suggestedAction.
 - Maximum 3 tool requests per iteration, 3 iterations total.

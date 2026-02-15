@@ -154,7 +154,7 @@ async function sendAutoReply(
 export async function processThreadWithAI(
   threadId: string,
   teamId: string,
-  options?: { agentId?: string; force?: boolean }
+  options?: { agentId?: string; force?: boolean; currentDraft?: string }
 ): Promise<AIProcessingResult> {
   const provider = getProvider();
   const autoTagger = new AutoTagger(provider);
@@ -421,6 +421,7 @@ export async function processThreadWithAI(
         agentName: agent?.name,
         userName: thread.mailbox.access[0]?.user?.name,
         userEmail: thread.mailbox.access[0]?.user?.email,
+        currentDraft: options?.currentDraft,
       },
       teamId,
       executeAgentTool

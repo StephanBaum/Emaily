@@ -425,7 +425,7 @@ export function SharedDraftComposer({
       const res = await fetch("/api/ai/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: thread.id, agentId }),
+        body: JSON.stringify({ threadId: thread.id, agentId, currentDraft: body || undefined }),
       });
 
       const data = await res.json();

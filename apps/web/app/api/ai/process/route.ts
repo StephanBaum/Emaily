@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { emailId, threadId, agentId } = body;
+  const { emailId, threadId, agentId, currentDraft } = body;
 
   if (threadId) {
     // Process the entire thread with a single LLM call
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
-    const result = await processThreadWithAI(threadId, teamId, { agentId, force: true });
+    const result = await processThreadWithAI(threadId, teamId, { agentId, force: true, currentDraft });
     return NextResponse.json({
       processed: [threadId],
       result: summarizeResult(result),
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
 
-    const result = await processThreadWithAI(email.threadId, teamId, { agentId, force: true });
+    const result = await processThreadWithAI(email.threadId, teamId, { agentId, force: true, currentDraft });
     return NextResponse.json({
       processed: [email.threadId],
       result: summarizeResult(result),
