@@ -2,8 +2,10 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import { verifyPassword, verifyTotpToken } from "@emaily/security";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       id: "credentials",
@@ -58,7 +60,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    ...authConfig.callbacks,
     async jwt({ token, user, trigger }) {
+      // Base callback: populate token on sign-in
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -68,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Re-read user data from DB when session is updated (e.g. profile change)
       // or periodically (every 5 minutes) to catch team name changes etc.
+      // This only runs server-side (Node.js runtime), never in edge middleware.
       if (trigger === "update" || !token.lastRefreshed ||
           Date.now() - (token.lastRefreshed as number) > 5 * 60 * 1000) {
         try {
@@ -89,21 +94,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return token;
     },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.name = token.name as string;
-        session.user.role = token.role as string;
-        session.user.teamId = token.teamId as string;
-        session.user.teamName = token.teamName as string;
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    strategy: "jwt",
   },
 });
