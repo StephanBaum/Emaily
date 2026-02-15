@@ -713,6 +713,18 @@ export async function processThreadWithAI(
           }
 
           const isSpamTag = tag.name.toLowerCase() === "spam";
+
+          // Safety: don't quarantine trusted or VIP senders
+          if (isSpamTag && senderTrustOrder >= TRUST_LEVEL_ORDER["trusted"]) {
+            result.actionsExecuted.push({
+              action: "quarantine",
+              tagId: tag.id,
+              tagName: tag.name,
+              detail: `blocked: sender is ${senderTrustLevel}`,
+            });
+            break;
+          }
+
           const targetStatus = isSpamTag ? "quarantined" : "archived";
           const actionKey = isSpamTag ? "ai_quarantined" : "ai_archived";
 

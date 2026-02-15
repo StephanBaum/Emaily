@@ -23,17 +23,57 @@ const TRUST_CONFIG: Record<TrustLevel, { label: string; color: string; icon: typ
   vip: { label: "VIP", color: "text-amber-500", icon: Crown },
 };
 
+function SpamScoreRing({ score }: { score: number }) {
+  const size = 22;
+  const strokeWidth = 3;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - score * circumference;
+  const pct = Math.round(score * 100);
+
+  const color =
+    score >= 0.7 ? "stroke-red-500" : score >= 0.4 ? "stroke-orange-400" : "stroke-green-500";
+
+  return (
+    <div className="relative inline-flex items-center gap-1.5" title={`Spam score: ${pct}%`}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className="stroke-muted"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="text-[10px] text-muted-foreground">{pct}%</span>
+    </div>
+  );
+}
+
 export function SenderInfoPanel({
   threadId,
   senderEmail,
   senderName,
   senderTrustLevel,
-  contactId,
+  contactId: initialContactId,
   spamScore,
   threadStatus,
 }: SenderInfoPanelProps) {
   const router = useRouter();
   const [trustLevel, setTrustLevel] = useState<TrustLevel>(senderTrustLevel || "stranger");
+  const [contactId, setContactId] = useState<string | null>(initialContactId);
   const [isSaving, setIsSaving] = useState(false);
   const [isUnquarantining, setIsUnquarantining] = useState(false);
 
@@ -41,19 +81,37 @@ export function SenderInfoPanel({
   const TrustIcon = trust.icon;
 
   async function handleTrustChange(newLevel: string) {
-    if (!contactId) return;
     const level = newLevel as TrustLevel;
+    const prevLevel = trustLevel;
     setTrustLevel(level);
     setIsSaving(true);
     try {
-      await fetch(`/api/contacts/${contactId}/trust`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trustLevel: level }),
-      });
+      if (contactId) {
+        // Update existing contact
+        await fetch(`/api/contacts/${contactId}/trust`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trustLevel: level }),
+        });
+      } else {
+        // Create contact via upsert endpoint
+        const res = await fetch("/api/contacts/trust", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: senderEmail,
+            trustLevel: level,
+            name: senderName,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setContactId(data.id);
+        }
+      }
       router.refresh();
     } catch {
-      setTrustLevel(trustLevel); // revert
+      setTrustLevel(prevLevel);
     } finally {
       setIsSaving(false);
     }
@@ -79,13 +137,20 @@ export function SenderInfoPanel({
           });
         }
       }
-      // Elevate contact trust to known
-      if (contactId) {
-        await fetch(`/api/contacts/${contactId}/trust`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trustLevel: "known" }),
-        });
+      // Elevate contact trust to known (via upsert so it works even without existing contact)
+      const res = await fetch("/api/contacts/trust", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: senderEmail,
+          trustLevel: "known",
+          name: senderName,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setContactId(data.id);
+        setTrustLevel("known");
       }
       router.refresh();
     } catch {
@@ -108,60 +173,47 @@ export function SenderInfoPanel({
         )}
       </div>
 
-      {/* Trust level selector */}
-      {contactId && (
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Trust Level</label>
-          <select
-            value={trustLevel}
-            onChange={(e) => handleTrustChange(e.target.value)}
-            disabled={isSaving}
-            className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="stranger">Stranger</option>
-            <option value="known">Known</option>
-            <option value="trusted">Trusted</option>
-            <option value="vip">VIP</option>
-          </select>
-        </div>
-      )}
-
-      {/* Spam score */}
-      {spamScore !== null && (
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Spam Score</label>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  spamScore >= 0.7
-                    ? "bg-red-500"
-                    : spamScore >= 0.4
-                      ? "bg-orange-400"
-                      : "bg-green-500"
-                }`}
-                style={{ width: `${Math.round(spamScore * 100)}%` }}
-              />
-            </div>
-            <span className="text-xs text-muted-foreground w-8 text-right">
-              {Math.round(spamScore * 100)}%
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Quarantine action */}
-      {threadStatus === "quarantined" && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={handleMarkNotSpam}
-          disabled={isUnquarantining}
+      {/* Trust level selector — always visible */}
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">Trust Level</label>
+        <select
+          value={trustLevel}
+          onChange={(e) => handleTrustChange(e.target.value)}
+          disabled={isSaving}
+          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
         >
-          <ShieldAlert className="mr-2 h-3.5 w-3.5" />
-          {isUnquarantining ? "Restoring..." : "Mark as Not Spam"}
-        </Button>
+          <option value="stranger" className="bg-popover text-popover-foreground">Stranger</option>
+          <option value="known" className="bg-popover text-popover-foreground">Known</option>
+          <option value="trusted" className="bg-popover text-popover-foreground">Trusted</option>
+          <option value="vip" className="bg-popover text-popover-foreground">VIP</option>
+        </select>
+      </div>
+
+      {/* Quarantine action with inline spam score */}
+      {threadStatus === "quarantined" && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={handleMarkNotSpam}
+            disabled={isUnquarantining}
+          >
+            <ShieldAlert className="mr-2 h-3.5 w-3.5" />
+            {isUnquarantining ? "Restoring..." : "Mark as Not Spam"}
+          </Button>
+          {spamScore !== null && spamScore > 0 && (
+            <SpamScoreRing score={spamScore} />
+          )}
+        </div>
+      )}
+
+      {/* Spam score shown standalone when not quarantined but score is notable */}
+      {threadStatus !== "quarantined" && spamScore !== null && spamScore >= 0.4 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Spam risk</span>
+          <SpamScoreRing score={spamScore} />
+        </div>
       )}
     </div>
   );

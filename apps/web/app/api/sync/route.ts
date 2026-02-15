@@ -190,7 +190,8 @@ export async function POST() {
             firstEmail.fromName
           );
 
-          const shouldQuarantine = spamAnalysis.headerScore >= SPAM_THRESHOLD_QUARANTINE;
+          const shouldQuarantine = spamAnalysis.headerScore >= SPAM_THRESHOLD_QUARANTINE
+            && trustLevel !== "trusted" && trustLevel !== "vip";
 
           const newThread = await prisma.thread.create({
             data: {

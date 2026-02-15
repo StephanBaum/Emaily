@@ -185,6 +185,12 @@ export function computeSpamScore(
     score += 0.05;
   }
 
+  // Trust bonus: full SPF+DKIM+DMARC pass reduces score
+  // (helps offset minor signals like bulk precedence)
+  if (analysis.spf === "pass" && analysis.dkim === "pass" && analysis.dmarc === "pass") {
+    score -= 0.15;
+  }
+
   return Math.min(1.0, Math.max(0.0, score));
 }
 
