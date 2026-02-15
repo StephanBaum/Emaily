@@ -5,7 +5,7 @@ const CACHE_PREFIX = "emaily:cache:";
 
 // TTL values in seconds
 export const CACHE_TTL = {
-  tags: 300, // 5 minutes - changes occasionally
+  tags: 30, // 30 seconds - counts change on every tag/archive/delete
   mailboxes: 600, // 10 minutes - rarely changes
   agents: 600, // 10 minutes - rarely changes
   aiSummary: 60, // 1 minute - real-time but expensive query

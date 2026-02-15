@@ -8,7 +8,7 @@ interface AvatarUploadProps {
   userId: string;
   userName: string;
   hasAvatar: boolean;
-  onAvatarChange: () => void;
+  onAvatarChange: (hasAvatar: boolean) => void;
 }
 
 export function AvatarUpload({
@@ -49,7 +49,7 @@ export function AvatarUpload({
 
       if (res.ok) {
         setAvatarUrl(`/api/user/avatar/${userId}?t=${Date.now()}`);
-        onAvatarChange();
+        onAvatarChange(true);
       }
     } finally {
       setUploading(false);
@@ -63,7 +63,7 @@ export function AvatarUpload({
       const res = await fetch("/api/user/avatar", { method: "DELETE" });
       if (res.ok) {
         setAvatarUrl(null);
-        onAvatarChange();
+        onAvatarChange(false);
       }
     } finally {
       setRemoving(false);

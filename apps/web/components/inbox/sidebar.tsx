@@ -21,7 +21,6 @@ import {
   Archive,
   Clock,
   Tag,
-  Settings,
   LogOut,
   User,
   RefreshCw,
@@ -31,11 +30,15 @@ import {
   Sparkles,
   Bot,
   ShieldAlert,
+  Shield,
+  SlidersHorizontal,
+  Users,
   Trash2,
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
 import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { useState } from "react";
 import { revalidateAll, revalidateThreads } from "@/lib/revalidate";
 import { ImapStatusIndicator } from "./imap-status-indicator";
@@ -45,6 +48,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const { profile } = useUserProfile();
   const { mailboxes, isLoading } = useMailboxes();
   const { tags, isLoading: tagsLoading } = useTags();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -169,11 +173,12 @@ export function Sidebar() {
   return (
     <div className="flex h-full w-64 flex-col border-r bg-sidebar">
       {/* Header */}
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center justify-between border-b px-4">
         <Link href="/inbox" className="flex items-center gap-2 font-semibold">
           <Mail className="h-5 w-5" />
           <span>Emaily</span>
         </Link>
+        <NotificationBell />
       </div>
 
       {/* Navigation */}
@@ -379,14 +384,6 @@ export function Sidebar() {
 
       {/* User Menu */}
       <div className="border-t p-3">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <NotificationBell />
-          <Link href="/settings">
-            <Button variant="ghost" size="icon">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -394,13 +391,21 @@ export function Sidebar() {
               className="w-full justify-between px-2"
             >
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  {session?.user?.name?.[0]?.toUpperCase() || "U"}
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground overflow-hidden shrink-0">
+                  {profile?.hasAvatar && profile.id ? (
+                    <img
+                      src={`/api/user/avatar/${profile.id}?v=${profile.name}`}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    (profile?.name ?? session?.user?.name)?.[0]?.toUpperCase() || "U"
+                  )}
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium">{session?.user?.name}</p>
+                  <p className="text-sm font-medium">{profile?.name ?? session?.user?.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {session?.user?.teamName}
+                    {profile?.teamName ?? session?.user?.teamName}
                   </p>
                 </div>
               </div>
@@ -417,15 +422,33 @@ export function Sidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings/agents">
-                <Bot className="mr-2 h-4 w-4" />
-                AI Agents
+              <Link href="/settings/security">
+                <Shield className="mr-2 h-4 w-4" />
+                Security
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
+              <Link href="/settings/mailboxes">
+                <Mail className="mr-2 h-4 w-4" />
+                Mailboxes
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/preferences">
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                Preferences
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/team">
+                <Users className="mr-2 h-4 w-4" />
+                Team
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/agents">
+                <Bot className="mr-2 h-4 w-4" />
+                AI Agents
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

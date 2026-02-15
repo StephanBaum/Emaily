@@ -15,11 +15,18 @@ export interface TagData {
   };
 }
 
+// Tags change moderately but counts change frequently (tag/untag, archive, etc.)
+// Override stableConfig to revalidate on focus so counts refresh when user returns.
+const tagsConfig = {
+  ...stableConfig,
+  revalidateOnFocus: true,
+};
+
 export function useTags() {
   const { data, error, isLoading, mutate } = useSWR<TagData[]>(
     "/api/tags",
     fetcher<TagData[]>,
-    stableConfig
+    tagsConfig
   );
 
   return {

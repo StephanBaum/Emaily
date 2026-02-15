@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheInvalidatePattern } from "@/lib/cache";
 
 export async function POST(
   request: NextRequest,
@@ -76,6 +77,9 @@ export async function POST(
     },
   });
 
+  // Invalidate tag caches so counts reflect the change
+  await cacheInvalidatePattern(`tags:${thread.mailbox.teamId}:*`);
+
   return NextResponse.json(threadTag, { status: 201 });
 }
 
@@ -110,6 +114,7 @@ export async function DELETE(
         },
       },
     },
+    include: { mailbox: { select: { teamId: true } } },
   });
 
   if (!thread) {
@@ -122,6 +127,9 @@ export async function DELETE(
   await prisma.threadTag.deleteMany({
     where: { threadId, tagId },
   });
+
+  // Invalidate tag caches so counts reflect the change
+  await cacheInvalidatePattern(`tags:${thread.mailbox.teamId}:*`);
 
   // Removing spam tag → un-quarantine the thread and elevate sender trust
   if (tag && tag.name.toLowerCase() === "spam" && thread.status === "quarantined") {

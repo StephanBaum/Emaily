@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useSWRConfig } from "swr";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +36,8 @@ interface TeamData {
 }
 
 export default function TeamPage() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
+  const { mutate } = useSWRConfig();
   const [team, setTeam] = useState<TeamData | null>(null);
   const [invites, setInvites] = useState<TeamInvite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,10 @@ export default function TeamPage() {
         const updated = await res.json();
         setTeam((prev) => prev ? { ...prev, name: updated.name } : prev);
         setMessage({ type: "success", text: "Team name updated" });
+        // Refresh session so JWT picks up the new team name
+        await updateSession({});
+        // Revalidate profile cache so sidebar updates
+        mutate("/api/user/profile");
       } else {
         const err = await res.json();
         setMessage({ type: "error", text: err.error });

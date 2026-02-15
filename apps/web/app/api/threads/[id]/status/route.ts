@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
+import { cacheInvalidatePattern } from "@/lib/cache";
 import type { ImapOperationType, ThreadStatus } from "@emaily/shared";
 
 const VALID_STATUSES: ThreadStatus[] = ["open", "archived", "snoozed", "quarantined", "trashed"];
@@ -72,6 +73,9 @@ export async function PATCH(
       trashedAt: status === "trashed" ? new Date() : null,
     },
   });
+
+  // Invalidate tag caches — status changes affect tag thread counts
+  await cacheInvalidatePattern(`tags:${session.user.teamId}:*`);
 
   // Queue IMAP operations for each email with a valid UID
   if (imapOperation) {

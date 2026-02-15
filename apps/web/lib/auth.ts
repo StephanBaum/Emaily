@@ -58,18 +58,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.teamId = user.teamId;
         token.teamName = user.teamName;
       }
+
+      // Re-read user data from DB when session is updated (e.g. profile change)
+      // or periodically (every 5 minutes) to catch team name changes etc.
+      if (trigger === "update" || !token.lastRefreshed ||
+          Date.now() - (token.lastRefreshed as number) > 5 * 60 * 1000) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { name: true, role: true, teamId: true, team: { select: { name: true } } },
+          });
+          if (dbUser) {
+            token.name = dbUser.name;
+            token.role = dbUser.role;
+            token.teamId = dbUser.teamId;
+            token.teamName = dbUser.team.name;
+          }
+        } catch {
+          // DB unavailable — keep existing token data
+        }
+        token.lastRefreshed = Date.now();
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
         session.user.role = token.role as string;
         session.user.teamId = token.teamId as string;
         session.user.teamName = token.teamName as string;

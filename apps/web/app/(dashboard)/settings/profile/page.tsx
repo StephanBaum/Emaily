@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useSWRConfig } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ interface ProfileData {
 
 export default function ProfilePage() {
   const { data: session, update: updateSession } = useSession();
+  const { mutate } = useSWRConfig();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -54,6 +56,8 @@ export default function ProfilePage() {
         setProfile((prev) => prev ? { ...prev, name: updated.name } : prev);
         setMessage({ type: "success", text: "Profile updated" });
         await updateSession({ name: updated.name });
+        // Revalidate shared profile cache so sidebar updates immediately
+        mutate("/api/user/profile");
       } else {
         const err = await res.json();
         setMessage({ type: "error", text: err.error || "Failed to update" });
@@ -88,8 +92,10 @@ export default function ProfilePage() {
               userId={profile.id}
               userName={profile.name}
               hasAvatar={profile.hasAvatar}
-              onAvatarChange={() => {
-                setProfile((prev) => prev ? { ...prev, hasAvatar: true } : prev);
+              onAvatarChange={(has) => {
+                setProfile((prev) => prev ? { ...prev, hasAvatar: has } : prev);
+                // Revalidate shared profile cache so sidebar avatar updates
+                mutate("/api/user/profile");
               }}
             />
           </CardContent>

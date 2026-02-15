@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(tags, {
     headers: {
-      "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+      "Cache-Control": "private, no-cache",
     },
   });
 }

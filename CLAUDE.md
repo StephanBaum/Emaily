@@ -54,6 +54,10 @@ pnpm db:studio              # Open Prisma Studio
 ## Code quality
 Refer to [Clean code Principles](docs/Principles/code.md) to keep the code clean and maintainable.
 
+## Fix what you find
+
+When you encounter bugs, build errors, or broken code while working on a task, fix them properly — not with quick patches but real solutions that address root causes. Finish your primary task first, then fix the issues in a separate commit. Never brush off pre-existing problems as "not my concern".
+
 
 ## Package Imports
 

@@ -82,12 +82,14 @@ export function useThreadActions(threadId: string) {
         // Revalidate SWR caches
         mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
         mutate("/api/mailboxes");
+        mutate("/api/tags");
 
         // Also refresh server component data (non-blocking)
         router.refresh();
       } catch (error) {
         // Revert on error by revalidating
         mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+        mutate("/api/tags");
         router.refresh();
         console.error("Failed to update thread status:", error);
       }
@@ -128,9 +130,11 @@ export function useThreadActions(threadId: string) {
       });
 
       mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+      mutate("/api/tags");
       router.refresh();
     } catch (error) {
       mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+      mutate("/api/tags");
       router.refresh();
       console.error("Failed to delete thread:", error);
     }
