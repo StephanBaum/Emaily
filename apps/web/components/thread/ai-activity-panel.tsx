@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { useAgents } from "@/hooks/use-agents";
 import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { revalidateAll } from "@/lib/revalidate";
+import { fetcher } from "@/lib/swr-config";
 
 interface AIActivity {
   id: string;
@@ -122,8 +124,6 @@ const actionConfig: Record<
 export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
   const router = useRouter();
   const { formatDateCompact } = useFormattedDate();
-  const [activities, setActivities] = useState<AIActivity[]>([]);
-  const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -142,35 +142,26 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
 
   const activityCountRef = useRef(0);
 
-  const fetchActivities = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/threads/${threadId}/ai-activity`);
-      if (res.ok) {
-        const data = await res.json();
-        setActivities(data);
-        // If activity count changed, refresh the whole page to update tags/drafts/etc.
-        if (data.length !== activityCountRef.current) {
-          activityCountRef.current = data.length;
-          revalidateAll();
-          router.refresh();
-        }
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false);
+  // SWR replaces raw setInterval: 3s while processing, 15s idle
+  const { data: activities = [], isLoading: loading, mutate: mutateActivities } = useSWR<AIActivity[]>(
+    `/api/threads/${threadId}/ai-activity`,
+    fetcher<AIActivity[]>,
+    {
+      refreshInterval: processing ? 3000 : 15000,
+      revalidateOnFocus: false,
+      dedupingInterval: 2000,
+      keepPreviousData: true,
     }
-  }, [threadId, router]);
+  );
 
-  // Continuous polling: 2s while processing, 5s otherwise
+  // Trigger page refresh when activity count changes (new AI actions completed)
   useEffect(() => {
-    fetchActivities();
-    const interval = setInterval(
-      () => fetchActivities(),
-      processing ? 2000 : 5000
-    );
-    return () => clearInterval(interval);
-  }, [fetchActivities, processing]);
+    if (activities.length !== activityCountRef.current && activityCountRef.current > 0) {
+      revalidateAll();
+      router.refresh();
+    }
+    activityCountRef.current = activities.length;
+  }, [activities.length, router]);
 
   async function handleProcess(agentId?: string) {
     setProcessing(true);
@@ -194,7 +185,7 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
       // ignore
     } finally {
       setProcessing(false);
-      await fetchActivities();
+      await mutateActivities();
       revalidateAll();
       router.refresh();
     }

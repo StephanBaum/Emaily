@@ -40,7 +40,7 @@ import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
 import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-groups";
 import { useUserProfile } from "@/hooks/use-user-profile";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { revalidateAll, revalidateThreads } from "@/lib/revalidate";
 import { ImapStatusIndicator } from "./imap-status-indicator";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -176,21 +176,26 @@ export function Sidebar() {
     }
   }
 
-  // Group tags: { null: [...ungrouped], "Internal": [...], "Projects": [...] }
-  const grouped = (tags || []).reduce<Record<string, TagData[]>>(
-    (acc, tag) => {
-      const key = tag.tagGroup || "";
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(tag);
-      return acc;
-    },
-    {}
-  );
+  // Group tags: { "": [...ungrouped], "Internal": [...], "Projects": [...] }
+  const { grouped, ungrouped, groupNames } = useMemo(() => {
+    const grouped = (tags || []).reduce<Record<string, TagData[]>>(
+      (acc, tag) => {
+        const key = tag.tagGroup || "";
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(tag);
+        return acc;
+      },
+      {}
+    );
 
-  const ungrouped = grouped[""] || [];
-  const groupNames = sortGroups(
-    Object.keys(grouped).filter((k) => k !== "")
-  );
+    return {
+      grouped,
+      ungrouped: grouped[""] || [],
+      groupNames: sortGroups(
+        Object.keys(grouped).filter((k) => k !== "")
+      ),
+    };
+  }, [tags, sortGroups]);
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-sidebar">

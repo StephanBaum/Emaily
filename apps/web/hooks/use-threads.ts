@@ -84,7 +84,11 @@ export function useThreads(params?: {
   const { data, error, isLoading, mutate } = useSWR<ThreadsResponse>(
     url,
     fetcher<ThreadsResponse>,
-    realtimeConfig
+    {
+      ...realtimeConfig,
+      refreshInterval: 45000,
+      revalidateOnFocus: false,
+    }
   );
 
   return {
@@ -102,7 +106,8 @@ export function useThread(id: string) {
     fetcher<Thread>,
     {
       ...realtimeConfig,
-      refreshInterval: 15000, // Individual thread refreshes faster
+      refreshInterval: 60000,
+      revalidateOnFocus: false,
     }
   );
 

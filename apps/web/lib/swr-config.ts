@@ -43,6 +43,20 @@ export const staticConfig: SWRConfiguration = {
   errorRetryCount: 2,
 };
 
+// For expensive aggregation queries (AI summary, analytics)
+// - Polls every 2 minutes
+// - No revalidation on focus
+// - Aggressive deduping (15s)
+// - Shows stale data while revalidating
+// - Fewer retries to avoid hammering expensive endpoints
+export const expensiveConfig: SWRConfiguration = {
+  refreshInterval: 120000,
+  revalidateOnFocus: false,
+  dedupingInterval: 15000,
+  keepPreviousData: true,
+  errorRetryCount: 2,
+};
+
 // Default fetcher with error handling
 export async function fetcher<T>(url: string): Promise<T> {
   const res = await fetch(url);

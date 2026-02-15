@@ -166,12 +166,17 @@ function mapToAwaitingResponseNudge(
 }
 
 export async function getNudgesForUser(userId: string): Promise<NudgesResponse> {
-  const mailboxIds = await getUserMailboxIds(userId);
+  // Single query replaces sequential getUserMailboxIds() + getMailboxEmails()
+  const access = await prisma.mailboxAccess.findMany({
+    where: { userId },
+    include: { mailbox: { select: { id: true, emailAddress: true } } },
+  });
+  const mailboxIds = access.map((a) => a.mailbox.id);
   if (mailboxIds.length === 0) {
     return { needsReply: [], awaitingResponse: [], totalNudges: 0 };
   }
 
-  const mailboxEmails = await getMailboxEmails(mailboxIds);
+  const mailboxEmails = access.map((a) => a.mailbox.emailAddress.toLowerCase());
   const staleThreshold = getStaleThreshold();
 
   const [needsReplyThreads, awaitingResponseThreads] = await Promise.all([

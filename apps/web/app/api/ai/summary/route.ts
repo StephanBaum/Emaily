@@ -172,9 +172,11 @@ export async function GET(request: NextRequest) {
 
   // Cache per user+team+hours combo with short TTL
   const cacheKey = `${cacheKeys.aiSummary(teamId, hours)}:${userId}`;
+  const start = performance.now();
   const result = await cacheOrFetch(cacheKey, CACHE_TTL.aiSummary, () =>
     fetchAISummary(teamId, userId, hours)
   );
+  console.debug(`[DB] GET /api/ai/summary: ${Math.round(performance.now() - start)}ms`);
 
   return NextResponse.json(result satisfies AISummaryResponse, {
     headers: {

@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { fetcher, realtimeConfig } from "@/lib/swr-config";
+import { fetcher, expensiveConfig } from "@/lib/swr-config";
 import type { AISummaryResponse } from "@emaily/shared";
 
 export function useAISummary(params?: { hours?: number }) {
@@ -13,7 +13,7 @@ export function useAISummary(params?: { hours?: number }) {
   const { data, error, isLoading, mutate } = useSWR<AISummaryResponse>(
     url,
     fetcher<AISummaryResponse>,
-    realtimeConfig
+    expensiveConfig
   );
 
   return {

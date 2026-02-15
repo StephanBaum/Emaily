@@ -15,18 +15,14 @@ export interface TagData {
   };
 }
 
-// Tags change moderately but counts change frequently (tag/untag, archive, etc.)
-// Override stableConfig to revalidate on focus so counts refresh when user returns.
-const tagsConfig = {
-  ...stableConfig,
-  revalidateOnFocus: true,
-};
+// Tags are Redis-cached for 30s and stableConfig (60s poll) is adequate.
+// Removed revalidateOnFocus override to prevent request storms on tab switches.
 
 export function useTags() {
   const { data, error, isLoading, mutate } = useSWR<TagData[]>(
     "/api/tags",
     fetcher<TagData[]>,
-    tagsConfig
+    stableConfig
   );
 
   return {

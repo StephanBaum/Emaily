@@ -26,8 +26,8 @@ export function useNudges() {
     "/api/nudges",
     fetcher,
     {
-      refreshInterval: 60000, // Refresh every minute
-      revalidateOnFocus: true,
+      refreshInterval: 60000,
+      revalidateOnFocus: false,
     }
   );
 

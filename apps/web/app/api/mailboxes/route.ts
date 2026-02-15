@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheOrFetch, cacheKeys, CACHE_TTL, cacheInvalidate } from "@/lib/cache";
 
 export async function GET() {
   const session = await auth();
@@ -11,43 +12,47 @@ export async function GET() {
 
   const userId = session.user.id;
 
-  const mailboxes = await prisma.mailbox.findMany({
-    where: {
-      access: {
-        some: {
-          userId,
-        },
-      },
-    },
-    select: {
-      id: true,
-      emailAddress: true,
-      displayName: true,
-      type: true,
-      imapHost: true,
-      smtpHost: true,
-      threads: {
+  const result = await cacheOrFetch(
+    cacheKeys.mailboxes(userId),
+    CACHE_TTL.mailboxes,
+    async () => {
+      const mailboxes = await prisma.mailbox.findMany({
         where: {
-          status: "open",
-          seenBy: { none: { userId } },
+          access: {
+            some: {
+              userId,
+            },
+          },
         },
-        select: { id: true },
-      },
-    },
-    orderBy: {
-      displayName: "asc",
-    },
-  });
+        select: {
+          id: true,
+          emailAddress: true,
+          displayName: true,
+          type: true,
+          imapHost: true,
+          smtpHost: true,
+          threads: {
+            where: {
+              status: "open",
+              seenBy: { none: { userId } },
+            },
+            select: { id: true },
+          },
+        },
+        orderBy: {
+          displayName: "asc",
+        },
+      });
 
-  // Transform to expected shape with _count
-  const result = mailboxes.map(({ threads, ...mailbox }) => ({
-    ...mailbox,
-    _count: { threads: threads.length },
-  }));
+      return mailboxes.map(({ threads, ...mailbox }) => ({
+        ...mailbox,
+        _count: { threads: threads.length },
+      }));
+    }
+  );
 
   return NextResponse.json(result, {
     headers: {
-      // Short cache since thread counts are dynamic
       "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
     },
   });
@@ -136,6 +141,9 @@ export async function POST(request: NextRequest) {
       permission: "admin",
     },
   });
+
+  // Invalidate mailboxes cache for this user
+  await cacheInvalidate(cacheKeys.mailboxes(session.user.id));
 
   return NextResponse.json(mailbox, { status: 201 });
 }

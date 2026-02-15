@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const start = performance.now();
   const { searchParams } = new URL(request.url);
   const mailboxId = searchParams.get("mailboxId");
   const status = searchParams.get("status");
@@ -22,17 +23,25 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") || String(DEFAULT_THREAD_LIMIT), 10), MAX_THREAD_LIMIT);
 
   // Get mailbox IDs the user has access to
-  const accessibleMailboxes = await prisma.mailboxAccess.findMany({
-    where: { userId: session.user.id },
-    select: { mailboxId: true },
-  });
-  const accessibleMailboxIds = accessibleMailboxes.map((a) => a.mailboxId);
+  // When mailboxId is provided, verify access for just that one mailbox
+  let accessibleMailboxIds: string[];
+  if (mailboxId) {
+    const hasAccess = await prisma.mailboxAccess.findFirst({
+      where: { userId: session.user.id, mailboxId },
+      select: { mailboxId: true },
+    });
+    accessibleMailboxIds = hasAccess ? [mailboxId] : [];
+  } else {
+    const accessibleMailboxes = await prisma.mailboxAccess.findMany({
+      where: { userId: session.user.id },
+      select: { mailboxId: true },
+    });
+    accessibleMailboxIds = accessibleMailboxes.map((a) => a.mailboxId);
+  }
 
   // Build where clause
   const where: Record<string, unknown> = {
-    mailboxId: mailboxId
-      ? { in: accessibleMailboxIds.includes(mailboxId) ? [mailboxId] : [] }
-      : { in: accessibleMailboxIds },
+    mailboxId: { in: accessibleMailboxIds },
   };
 
   // Unprocessed filter: threads AI hasn't touched (no AI-applied tags + status=open)
@@ -176,6 +185,8 @@ export async function GET(request: NextRequest) {
       bodyText: email.bodyText?.slice(0, EMAIL_PREVIEW_LENGTH) || "",
     })),
   }));
+
+  console.debug(`[DB] GET /api/threads: ${Math.round(performance.now() - start)}ms`);
 
   return NextResponse.json(
     {

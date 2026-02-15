@@ -28,8 +28,8 @@ export function useImapStatus() {
     "/api/imap/status",
     fetcher,
     {
-      refreshInterval: 30000, // Refresh every 30 seconds
-      revalidateOnFocus: true,
+      refreshInterval: 60000,
+      revalidateOnFocus: false,
     }
   );
 
