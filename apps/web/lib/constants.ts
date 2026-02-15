@@ -24,6 +24,7 @@ export const AI_QA_PAIRS_LIMIT = 20;
 export const AI_ACTIVITY_LOG_LIMIT = 20;
 export const AI_COMMENTS_LIMIT = 10;
 export const AI_BATCH_SIZE = 5;
+export const AI_THREAD_EMAILS_LIMIT = 50;
 
 // Redis retry config
 export const REDIS_MAX_RETRIES = 3;

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { processThreadWithAI } from "@/lib/ai";
 import { checkRateLimit, rateLimits } from "@/lib/cache";
-import type { AIProcessingResult } from "@emailautomation/shared";
+import type { AIProcessingResult } from "@emaily/shared";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
-    const result = await processThreadWithAI(threadId, teamId, { agentId });
+    const result = await processThreadWithAI(threadId, teamId, { agentId, force: true });
     return NextResponse.json({
       processed: [threadId],
       result: summarizeResult(result),
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
 
-    const result = await processThreadWithAI(email.threadId, teamId, { agentId });
+    const result = await processThreadWithAI(email.threadId, teamId, { agentId, force: true });
     return NextResponse.json({
       processed: [email.threadId],
       result: summarizeResult(result),

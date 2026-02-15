@@ -1,23 +1,30 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@emailautomation/database";
+import type { Prisma } from "@emaily/database";
 import {
   createProviderFromEnv,
   AutoTagger,
   UnifiedThreadProcessor,
   AgentLoop,
-} from "@emailautomation/ai-engine";
-import type { AIProvider } from "@emailautomation/ai-engine";
+} from "@emaily/ai-engine";
+import type { AIProvider } from "@emaily/ai-engine";
 import type {
   TagAutoRules,
   AIProcessingResult,
   AIBulkProcessingResult,
   ActivityAction,
   TrustLevel,
-} from "@emailautomation/shared";
-import { TRUST_LEVEL_ORDER } from "@emailautomation/shared";
+} from "@emaily/shared";
+import { TRUST_LEVEL_ORDER } from "@emaily/shared";
 import { getSenderTrustLevel } from "@/lib/contacts";
 import { elevateTrustOnReply } from "@/lib/contacts";
 import { executeAgentTool } from "@/lib/agent-tools";
+import {
+  AI_QA_PAIRS_LIMIT,
+  AI_ACTIVITY_LOG_LIMIT,
+  AI_COMMENTS_LIMIT,
+  AI_BATCH_SIZE,
+  AI_THREAD_EMAILS_LIMIT,
+} from "@/lib/constants";
 
 let providerInstance: AIProvider | null = null;
 
@@ -61,8 +68,8 @@ async function sendAutoReply(
   draftBody: string,
   mailboxId: string
 ) {
-  const { SmtpClient } = await import("@emailautomation/mail-engine");
-  const { decrypt } = await import("@emailautomation/security");
+  const { SmtpClient } = await import("@emaily/mail-engine");
+  const { decrypt } = await import("@emaily/security");
 
   const encryptionKey = process.env.ENCRYPTION_KEY;
   if (!encryptionKey) throw new Error("ENCRYPTION_KEY not configured");
@@ -147,7 +154,7 @@ async function sendAutoReply(
 export async function processThreadWithAI(
   threadId: string,
   teamId: string,
-  options?: { agentId?: string }
+  options?: { agentId?: string; force?: boolean }
 ): Promise<AIProcessingResult> {
   const provider = getProvider();
   const autoTagger = new AutoTagger(provider);
@@ -175,7 +182,8 @@ export async function processThreadWithAI(
           },
         },
         emails: {
-          orderBy: { date: "asc" },
+          orderBy: { date: "desc" },
+          take: AI_THREAD_EMAILS_LIMIT,
           select: {
             id: true,
             messageId: true,
@@ -207,9 +215,18 @@ export async function processThreadWithAI(
       return result;
     }
 
+    // Reverse to chronological order (queried desc for take limit)
+    thread.emails.reverse();
+
     // Quarantine gate — don't process quarantined threads
     if (thread.status === "quarantined") {
       result.error = "Thread is quarantined (spam)";
+      return result;
+    }
+
+    // Idempotency gate — skip already-processed threads unless forced
+    if (thread.aiStatus === "processed" && !options?.force) {
+      result.error = "Thread already processed";
       return result;
     }
 
@@ -270,17 +287,18 @@ export async function processThreadWithAI(
       await Promise.all([
         prisma.qAPair.findMany({
           where: { teamId, approved: true },
+          take: AI_QA_PAIRS_LIMIT,
         }),
         prisma.activityLog.findMany({
           where: { targetType: "thread", targetId: threadId, userId: null },
           orderBy: { createdAt: "desc" },
-          take: 20,
+          take: AI_ACTIVITY_LOG_LIMIT,
         }),
         prisma.comment.findMany({
           where: { threadId },
           include: { user: { select: { name: true } } },
           orderBy: { createdAt: "asc" },
-          take: 20,
+          take: AI_COMMENTS_LIMIT,
         }),
         prisma.sharedDraft.findFirst({
           where: { threadId, status: { not: "sent" } },
@@ -835,17 +853,12 @@ export async function processEmailWithAI(
 export async function processAllThreadsWithAI(
   teamId: string
 ): Promise<AIBulkProcessingResult> {
-  // Find threads with unprocessed incoming emails (skip quarantined)
+  // Find threads pending AI processing (skip quarantined)
   const threadsWithUnprocessed = await prisma.thread.findMany({
     where: {
       mailbox: { teamId },
       status: { not: "quarantined" },
-      emails: {
-        some: {
-          isSent: false,
-          intents: { none: {} },
-        },
-      },
+      aiStatus: "pending",
     },
     select: { id: true },
     orderBy: { lastActivityAt: "asc" },
@@ -858,10 +871,9 @@ export async function processAllThreadsWithAI(
     results: [],
   };
 
-  // Process in parallel batches of 5
-  const CONCURRENCY = 5;
-  for (let i = 0; i < threadsWithUnprocessed.length; i += CONCURRENCY) {
-    const batch = threadsWithUnprocessed.slice(i, i + CONCURRENCY);
+  // Process in parallel batches
+  for (let i = 0; i < threadsWithUnprocessed.length; i += AI_BATCH_SIZE) {
+    const batch = threadsWithUnprocessed.slice(i, i + AI_BATCH_SIZE);
     const batchResults = await Promise.allSettled(
       batch.map((thread) => processThreadWithAI(thread.id, teamId))
     );

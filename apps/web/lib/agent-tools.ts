@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { AgentToolResult } from "@emailautomation/ai-engine";
+import type { AgentToolResult } from "@emaily/ai-engine";
 
 const MAX_RESULT_CHARS = 3000;
 
@@ -122,6 +122,7 @@ export async function executeGetThreadDetail(
       status: true,
       emails: {
         orderBy: { date: "asc" },
+        take: 20,
         select: {
           fromAddress: true,
           bodyText: true,

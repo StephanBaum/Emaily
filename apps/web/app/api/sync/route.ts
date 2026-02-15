@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { MailboxSyncer, type SyncCallbacks, type EmailToStore, type ThreadToCreate, analyzeSpam, SPAM_THRESHOLD_QUARANTINE } from "@emailautomation/mail-engine";
-import { decrypt, encrypt } from "@emailautomation/security";
+import { MailboxSyncer, type SyncCallbacks, type EmailToStore, type ThreadToCreate, analyzeSpam, SPAM_THRESHOLD_QUARANTINE } from "@emaily/mail-engine";
+import { decrypt, encrypt } from "@emaily/security";
 import { injectTestEmails } from "@/lib/test-email-injector";
 import { upsertContactFromEmail } from "@/lib/contacts";
 
@@ -140,12 +140,14 @@ export async function POST() {
           });
 
           const shouldReopen = currentThread?.status === "archived";
+          const isInbound = email.fromAddress.toLowerCase() !== mailbox.emailAddress.toLowerCase();
 
           await prisma.thread.update({
             where: { id: threadId },
             data: {
               lastActivityAt: new Date(),
               ...(shouldReopen && { status: "open" }),
+              ...(isInbound && { aiStatus: "pending" }),
             },
           });
 

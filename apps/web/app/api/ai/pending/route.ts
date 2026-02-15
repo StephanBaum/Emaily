@@ -15,12 +15,7 @@ export async function GET() {
     where: {
       mailbox: { teamId },
       status: { not: "quarantined" },
-      emails: {
-        some: {
-          isSent: false,
-          intents: { none: {} },
-        },
-      },
+      aiStatus: "pending",
     },
     select: { id: true, subject: true },
     orderBy: { lastActivityAt: "asc" },
