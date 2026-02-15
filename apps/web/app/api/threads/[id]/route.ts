@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, verifyThreadAccess } from "@/lib/api-helpers";
+import { getCachedThreadEmails, onThreadMutated } from "@/lib/thread-cache";
 
 export async function GET(
   request: NextRequest,
@@ -11,66 +12,58 @@ export async function GET(
 
   const { id } = await params;
 
-  const { thread, error: accessError } = await verifyThreadAccess(session.user.id, id, {
-    mailbox: {
-      select: {
-        id: true,
-        emailAddress: true,
-        displayName: true,
+  // Fetch thread metadata (without emails) and cached emails in parallel
+  const [threadAccess, emails] = await Promise.all([
+    verifyThreadAccess(session.user.id, id, {
+      mailbox: {
+        select: {
+          id: true,
+          emailAddress: true,
+          displayName: true,
+        },
       },
-    },
-    emails: {
-      orderBy: { date: "asc" },
-      include: {
-        attachments: {
-          select: {
-            id: true,
-            filename: true,
-            contentType: true,
-            size: true,
+      tags: {
+        include: {
+          tag: true,
+        },
+      },
+      assignments: {
+        include: {
+          assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          assignedBy: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
       },
-    },
-    tags: {
-      include: {
-        tag: true,
-      },
-    },
-    assignments: {
-      include: {
-        assignedTo: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        assignedBy: {
-          select: {
-            id: true,
-            name: true,
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
       },
-    },
-    comments: {
-      orderBy: { createdAt: "asc" },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    },
-  });
-  if (accessError) return accessError;
+    }),
+    getCachedThreadEmails(id),
+  ]);
+
+  if (threadAccess.error) return threadAccess.error;
+  const thread = threadAccess.thread;
 
   // Mark as seen
-  const emails = (thread as any).emails;
   await prisma.seenBy.upsert({
     where: {
       threadId_userId: {
@@ -89,7 +82,7 @@ export async function GET(
     },
   });
 
-  return Response.json(thread);
+  return Response.json({ ...thread, emails });
 }
 
 export async function PATCH(
@@ -112,6 +105,8 @@ export async function PATCH(
       status: status || undefined,
     },
   });
+
+  await onThreadMutated(id);
 
   return Response.json(updated);
 }

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { queueBatchImapOperation } from "@emaily/mail-engine";
 import { cacheInvalidatePattern } from "@/lib/cache";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function DELETE(request: Request) {
   const session = await auth();
@@ -109,8 +110,11 @@ export async function DELETE(request: Request) {
     where: { id: { in: threads.map((t) => t.id) } },
   });
 
-  // Invalidate tag caches — deleted threads affect tag counts
-  await cacheInvalidatePattern(`tags:${session.user.teamId}:*`);
+  // Invalidate tag + thread caches — deleted threads affect tag counts
+  await Promise.all([
+    cacheInvalidatePattern(`tags:${session.user.teamId}:*`),
+    ...threads.map((t) => onThreadMutated(t.id)),
+  ]);
 
   // Log activity
   await prisma.activityLog.create({

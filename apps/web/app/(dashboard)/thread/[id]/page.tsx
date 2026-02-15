@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
+import { getCachedThreadEmails } from "@/lib/thread-cache";
 import { EmailChain } from "@/components/thread/email-chain";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { SharedDraftComposer } from "@/components/thread/shared-draft-composer";
@@ -27,116 +28,117 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
     notFound();
   }
 
-  // Fetch thread with all related data
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-    include: {
-      mailbox: {
-        select: {
-          id: true,
-          emailAddress: true,
-          displayName: true,
-          teamId: true,
-        },
-      },
-      emails: {
-        orderBy: { date: "asc" },
-        include: {
-          attachments: {
-            select: {
-              id: true,
-              filename: true,
-              contentType: true,
-              size: true,
+  // Fetch thread metadata (without emails) and cached emails in parallel
+  const [threadMeta, cachedEmails] = await Promise.all([
+    prisma.thread.findFirst({
+      where: {
+        id,
+        mailbox: {
+          access: {
+            some: {
+              userId: session.user.id,
             },
           },
         },
       },
-      tags: {
-        include: {
-          tag: true,
+      include: {
+        mailbox: {
+          select: {
+            id: true,
+            emailAddress: true,
+            displayName: true,
+            teamId: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        assignments: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            assignedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        comments: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        seenBy: {
+          orderBy: { seenAt: "desc" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        sharedDrafts: {
+          where: {
+            status: { not: "sent" },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            agent: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         },
       },
-      assignments: {
-        orderBy: { createdAt: "desc" },
-        include: {
-          assignedTo: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          assignedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      },
-      comments: {
-        orderBy: { createdAt: "asc" },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      },
-      seenBy: {
-        orderBy: { seenAt: "desc" },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      },
-      sharedDrafts: {
-        where: {
-          status: { not: "sent" },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          agent: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
+    }),
+    getCachedThreadEmails(id),
+  ]);
 
-  if (!thread) {
+  if (!threadMeta) {
     notFound();
   }
+
+  // Merge emails into thread object, converting serialized dates back to Date objects
+  const thread = {
+    ...threadMeta,
+    emails: cachedEmails.map((e) => ({
+      ...e,
+      date: new Date(e.date),
+      createdAt: new Date(e.createdAt),
+      updatedAt: new Date(e.updatedAt),
+    })),
+  };
 
   // Fetch team members for assignment picker
   const teamMembers = await prisma.user.findMany({

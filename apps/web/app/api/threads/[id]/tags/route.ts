@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cacheInvalidatePattern } from "@/lib/cache";
 import { requireAuth, verifyThreadAccess, apiError, apiSuccess } from "@/lib/api-helpers";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function POST(
   request: NextRequest,
@@ -62,7 +63,10 @@ export async function POST(
   });
 
   // Invalidate tag caches so counts reflect the change
-  await cacheInvalidatePattern(`tags:${mailbox.teamId}:*`);
+  await Promise.all([
+    cacheInvalidatePattern(`tags:${mailbox.teamId}:*`),
+    onThreadMutated(threadId),
+  ]);
 
   return Response.json(threadTag, { status: 201 });
 }
@@ -96,8 +100,11 @@ export async function DELETE(
     where: { threadId, tagId },
   });
 
-  // Invalidate tag caches so counts reflect the change
-  await cacheInvalidatePattern(`tags:${teamId}:*`);
+  // Invalidate tag + thread caches so counts reflect the change
+  await Promise.all([
+    cacheInvalidatePattern(`tags:${teamId}:*`),
+    onThreadMutated(threadId),
+  ]);
 
   // Removing spam tag → un-quarantine the thread and elevate sender trust
   if (tag && tag.name.toLowerCase() === "spam" && thread.status === "quarantined") {

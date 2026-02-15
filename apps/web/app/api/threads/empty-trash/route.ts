@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function POST() {
   const session = await auth();
@@ -103,6 +104,9 @@ export async function POST() {
   await prisma.thread.deleteMany({
     where: { id: { in: threadIds } },
   });
+
+  // Invalidate cached thread data
+  await Promise.all(threadIds.map((id) => onThreadMutated(id)));
 
   // Log activity
   await prisma.activityLog.create({

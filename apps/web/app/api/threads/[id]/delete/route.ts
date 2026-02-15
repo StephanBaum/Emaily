@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
 import { requireAuth, apiError, apiSuccess } from "@/lib/api-helpers";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function DELETE(
   _request: Request,
@@ -84,6 +85,8 @@ export async function DELETE(
   await prisma.thread.delete({
     where: { id },
   });
+
+  await onThreadMutated(id);
 
   // Log activity
   await prisma.activityLog.create({

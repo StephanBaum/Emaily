@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SmtpClient } from "@emaily/mail-engine";
 import { decrypt } from "@emaily/security";
+import { onThreadEmailAdded } from "@/lib/thread-cache";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -166,6 +167,9 @@ export async function POST(request: NextRequest) {
         isBot: false,
       },
     });
+
+    // Invalidate thread email cache
+    await onThreadEmailAdded(targetThreadId);
 
     // Mark shared draft as sent (if sending from a shared draft)
     if (sharedDraftId) {

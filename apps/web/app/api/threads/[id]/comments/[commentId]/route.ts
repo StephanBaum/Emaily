@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiError, apiSuccess } from "@/lib/api-helpers";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function PATCH(
   request: NextRequest,
@@ -57,6 +58,8 @@ export async function PATCH(
     },
   });
 
+  await onThreadMutated(threadId);
+
   return Response.json(updated);
 }
 
@@ -98,6 +101,8 @@ export async function DELETE(
   await prisma.comment.delete({
     where: { id: commentId },
   });
+
+  await onThreadMutated(threadId);
 
   return apiSuccess();
 }

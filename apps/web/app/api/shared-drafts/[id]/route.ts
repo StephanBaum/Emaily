@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function GET(
   request: NextRequest,
@@ -184,6 +185,10 @@ export async function PATCH(
     },
   });
 
+  if (draft.threadId) {
+    await onThreadMutated(draft.threadId);
+  }
+
   return NextResponse.json(updatedDraft);
 }
 
@@ -220,6 +225,10 @@ export async function DELETE(
   await prisma.sharedDraft.delete({
     where: { id },
   });
+
+  if (draft.threadId) {
+    await onThreadMutated(draft.threadId);
+  }
 
   return NextResponse.json({ success: true });
 }

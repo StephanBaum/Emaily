@@ -6,9 +6,13 @@ const CACHE_PREFIX = "emaily:cache:";
 // TTL values in seconds
 export const CACHE_TTL = {
   tags: 30, // 30 seconds - counts change on every tag/archive/delete
-  mailboxes: 600, // 10 minutes - rarely changes
+  mailboxes: 120, // 2 minutes - unseen counts need reasonable freshness
   agents: 600, // 10 minutes - rarely changes
   aiSummary: 60, // 1 minute - real-time but expensive query
+  nudges: 120, // 2 minutes - time-computed, not event-driven
+  notificationsCount: 60, // 1 minute - unread count freshness
+  email: 86400, // 24 hours - emails are immutable once synced
+  thread: 300, // 5 minutes - invalidated on mutations
 };
 
 let redis: Redis | null = null;
@@ -46,6 +50,22 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   } catch (err) {
     console.warn("[Cache] Get failed:", key, err);
     return null;
+  }
+}
+
+/**
+ * Get multiple cached values by keys (MGET)
+ */
+export async function cacheMultiGet<T>(keys: string[]): Promise<(T | null)[]> {
+  if (keys.length === 0) return [];
+  try {
+    const client = getRedis();
+    const prefixedKeys = keys.map((k) => CACHE_PREFIX + k);
+    const results = await client.mget(...prefixedKeys);
+    return results.map((data) => (data ? (JSON.parse(data) as T) : null));
+  } catch (err) {
+    console.warn("[Cache] MultiGet failed:", err);
+    return keys.map(() => null);
   }
 }
 
@@ -93,9 +113,14 @@ export async function cacheInvalidatePattern(pattern: string): Promise<void> {
  */
 export const cacheKeys = {
   tags: (teamId: string) => `tags:${teamId}`,
-  mailboxes: (teamId: string) => `mailboxes:${teamId}`,
+  mailboxes: (userId: string) => `mailboxes:${userId}`,
   agents: (teamId: string) => `agents:${teamId}`,
   aiSummary: (teamId: string, hours: number) => `ai-summary:${teamId}:${hours}h`,
+  nudges: (userId: string) => `nudges:${userId}`,
+  notificationsCount: (userId: string) => `notifications:count:${userId}`,
+  email: (emailId: string) => `email:${emailId}`,
+  threadEmails: (threadId: string) => `thread-emails:${threadId}`,
+  thread: (threadId: string) => `thread:${threadId}`,
 };
 
 /**
@@ -109,8 +134,11 @@ export async function cacheOrFetch<T>(
   // Try cache first
   const cached = await cacheGet<T>(key);
   if (cached !== null) {
+    console.debug(`[Cache] HIT ${key}`);
     return cached;
   }
+
+  console.debug(`[Cache] MISS ${key}`);
 
   // Fetch fresh data
   const data = await fetcher();

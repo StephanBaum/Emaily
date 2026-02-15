@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, verifyThreadAccess, apiError, apiSuccess } from "@/lib/api-helpers";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function PATCH(
   request: NextRequest,
@@ -59,6 +60,8 @@ export async function PATCH(
     },
   });
 
+  await onThreadMutated(threadId);
+
   return Response.json(updatedAssignment);
 }
 
@@ -89,6 +92,8 @@ export async function DELETE(
   await prisma.assignment.delete({
     where: { id: assignmentId },
   });
+
+  await onThreadMutated(threadId);
 
   return apiSuccess();
 }

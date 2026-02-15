@@ -5,6 +5,7 @@ import { MailboxSyncer, type SyncCallbacks, type EmailToStore, type ThreadToCrea
 import { decrypt, encrypt } from "@emaily/security";
 import { injectTestEmails } from "@/lib/test-email-injector";
 import { upsertContactFromEmail } from "@/lib/contacts";
+import { onThreadEmailAdded } from "@/lib/thread-cache";
 
 export async function POST() {
   const session = await auth();
@@ -167,6 +168,9 @@ export async function POST() {
             });
           }
 
+          // Invalidate thread email cache for this thread
+          await onThreadEmailAdded(threadId);
+
           // Auto-learn contact
           await upsertContactFromEmail(
             mailbox.teamId,
@@ -236,6 +240,9 @@ export async function POST() {
               emails: { select: { id: true } },
             },
           });
+          // Pre-warm email cache for the newly created thread
+          await onThreadEmailAdded(newThread.id);
+
           return newThread.id;
         },
 

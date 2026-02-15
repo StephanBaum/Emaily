@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
 import { cacheInvalidatePattern } from "@/lib/cache";
 import { requireAuth, verifyThreadAccess, apiError } from "@/lib/api-helpers";
+import { onThreadMutated } from "@/lib/thread-cache";
 import type { ImapOperationType, ThreadStatus } from "@emaily/shared";
 
 const VALID_STATUSES: ThreadStatus[] = ["open", "archived", "snoozed", "quarantined", "trashed"];
@@ -59,7 +60,10 @@ export async function PATCH(
   });
 
   // Invalidate tag caches — status changes affect tag thread counts
-  await cacheInvalidatePattern(`tags:${session.user.teamId}:*`);
+  await Promise.all([
+    cacheInvalidatePattern(`tags:${session.user.teamId}:*`),
+    onThreadMutated(id),
+  ]);
 
   // Queue IMAP operations for each email with a valid UID
   if (imapOperation) {

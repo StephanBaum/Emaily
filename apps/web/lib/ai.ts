@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { onThreadMutated, onThreadEmailAdded } from "@/lib/thread-cache";
 import type { Prisma } from "@emaily/database";
 import {
   createProviderFromEnv,
@@ -133,6 +134,8 @@ async function sendAutoReply(
       where: { id: email.threadId },
       data: { hasSentReply: true, lastActivityAt: new Date() },
     });
+
+    await onThreadEmailAdded(email.threadId);
 
     // Elevate sender trust when we reply
     const thread = await prisma.thread.findUnique({
@@ -491,6 +494,9 @@ export async function processThreadWithAI(
         })
       ),
     ]);
+
+    // Invalidate thread cache after tag mutations
+    await onThreadMutated(threadId);
 
     if (allTagMatches.length > 0) {
       for (const match of allTagMatches) {

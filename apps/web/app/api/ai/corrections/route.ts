@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cacheInvalidatePattern } from "@/lib/cache";
+import { onThreadMutated } from "@/lib/thread-cache";
 import type { ActivityAction, TrustLevel } from "@emaily/shared";
 
 interface CorrectionRequest {
@@ -103,8 +104,11 @@ export async function POST(request: NextRequest) {
       break;
   }
 
-  // Invalidate tag caches — corrections change statuses and tag associations
-  await cacheInvalidatePattern(`tags:${teamId}:*`);
+  // Invalidate tag + thread caches — corrections change statuses and tag associations
+  await Promise.all([
+    cacheInvalidatePattern(`tags:${teamId}:*`),
+    onThreadMutated(threadId),
+  ]);
 
   // Update contact trust level based on correction pattern
   // If user un-archives a stranger's email, bump them to "known"

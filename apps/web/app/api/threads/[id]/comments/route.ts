@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, verifyThreadAccess, apiError } from "@/lib/api-helpers";
+import { onThreadMutated } from "@/lib/thread-cache";
 
 export async function GET(
   request: NextRequest,
@@ -65,6 +66,8 @@ export async function POST(
       },
     },
   });
+
+  await onThreadMutated(threadId);
 
   return Response.json(comment, { status: 201 });
 }
