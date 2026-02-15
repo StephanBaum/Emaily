@@ -818,6 +818,80 @@ Thread interactions (archive, snooze, tag add/remove) required full page reloads
 
 ---
 
+## Clean Code Refactoring [DONE]
+
+Branch: `v2`
+Plan: `docs/plans/2026-02-14-clean-code-refactor.md`
+
+### Constants, Utilities, Service Layer
+- Extracted 17 magic numbers to `apps/web/lib/constants.ts`
+- Created `formatPlural()`, `formatRelativeTime()` in `apps/web/lib/format.ts`
+- Created `invalidateThreadCaches()` in `apps/web/lib/cache-utils.ts`
+- Extracted nudges API route (163→18 lines) into `apps/web/lib/services/nudges-service.ts`
+- Replaced magic numbers across 5 files
+- Renamed ~36 single-letter variables across 3 files (ai.ts, inbox-dashboard.tsx, filter-toolbar.tsx)
+- 11 commits total
+
+---
+
+## Dependency Upgrades [DONE]
+
+Branch: `v2`
+
+### Phase 1: Patch Updates
+- `pnpm update -r` for all semver-compatible bumps
+- Commit: `1c3264d`
+
+### Phase 2: Library Major Upgrades
+- vitest 2→4 (unified across all packages): `529e396`
+- bcryptjs 2→3: `55698ef`
+- nodemailer 6→8: `57a468c`
+- otplib 12→13: `1485ce8`
+- dotenv 16→17, @types/node 20→22: `5a5dd68`
+
+### Phase 3: React 18→19 + Next.js 14→15
+- next 14→15.5.12, react 18→19.2.4
+- Fixed `useRef()` calls (React 19 requires initial argument)
+- Async params/searchParams already migrated
+- Commit: `724bb88`
+
+### Phase 4: Tailwind CSS 3→4
+- Used official `@tailwindcss/upgrade` tool
+- Config migrated to CSS-first `@theme` in globals.css
+- PostCSS: tailwindcss→@tailwindcss/postcss, removed autoprefixer
+- Deleted tailwind.config.ts
+- Commit: `1edc491`
+
+### Phase 5: Prisma 5→6
+- @prisma/client + prisma 5.22→6.19
+- No breaking changes (no NotFoundError/fullTextSearch usage)
+- Commit: `a1ec6d8`
+
+### Phase 6: ESLint 8→9
+- Flat config migration: .eslintrc.json→eslint.config.mjs
+- Root flat config for non-web packages
+- Web lint: next lint→eslint . (next lint deprecated)
+- Fixed require() in encryption.ts, removed unused constant
+- Commit: `6b06795`
+
+### Final Stack
+| Package | Version |
+|---------|---------|
+| Next.js | 15.5.12 |
+| React | 19.2.4 |
+| Tailwind CSS | 4.1.18 |
+| Prisma | 6.19.2 |
+| ESLint | 9.39.2 |
+| Vitest | 4.0.18 |
+| TypeScript | 5.9.3 |
+
+### Intentionally Held Back
+- Prisma 7 — pgvector not supported
+- Next.js 16 — middleware→proxy rename too disruptive
+- @types/node 25 — keeping ^22 for Node 20 LTS
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---
