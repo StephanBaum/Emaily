@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { getInitials } from "@/lib/format";
 
 interface Version {
   id: string;
@@ -52,15 +53,6 @@ export function DraftVersionHistory({
     setIsLoading(true);
     fetchVersions();
   }, [fetchVersions, refreshKey]);
-
-  function getInitials(name: string) {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   async function handleRestore(version: Version) {
     setIsRestoring(true);

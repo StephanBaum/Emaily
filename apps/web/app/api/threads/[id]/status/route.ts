@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
 import { cacheInvalidatePattern } from "@/lib/cache";
+import { requireAuth, verifyThreadAccess, apiError } from "@/lib/api-helpers";
 import type { ImapOperationType, ThreadStatus } from "@emaily/shared";
 
 const VALID_STATUSES: ThreadStatus[] = ["open", "archived", "snoozed", "quarantined", "trashed"];
@@ -25,45 +24,30 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id } = await params;
   const { status } = await request.json();
 
   if (!status || !VALID_STATUSES.includes(status)) {
-    return NextResponse.json(
-      { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` },
-      { status: 400 }
-    );
+    return apiError(`Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`, 400);
   }
 
-  // Get thread with emails and mailbox info
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id,
-      mailbox: {
-        access: { some: { userId: session.user.id } },
-      },
+  const { thread, error: accessError } = await verifyThreadAccess(session.user.id, id, {
+    emails: {
+      select: { id: true, imapUid: true, folder: true },
     },
-    include: {
-      emails: {
-        select: { id: true, imapUid: true, folder: true },
-      },
-      mailbox: {
-        select: { id: true },
-      },
+    mailbox: {
+      select: { id: true },
     },
   });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  if (accessError) return accessError;
 
   const oldStatus = thread.status;
   const imapOperation = getImapOperationForStatus(oldStatus, status);
+  const emails = (thread as any).emails;
+  const mailbox = (thread as any).mailbox;
 
   // Update thread in database
   const updated = await prisma.thread.update({
@@ -79,13 +63,12 @@ export async function PATCH(
 
   // Queue IMAP operations for each email with a valid UID
   if (imapOperation) {
-    const emailsWithUid = thread.emails.filter((e) => e.imapUid !== null);
+    const emailsWithUid = emails.filter((e: any) => e.imapUid !== null);
 
     for (const email of emailsWithUid) {
-      // Create ImapOperation record
       const operation = await prisma.imapOperation.create({
         data: {
-          mailboxId: thread.mailbox.id,
+          mailboxId: mailbox.id,
           threadId: thread.id,
           emailId: email.id,
           operation: imapOperation,
@@ -96,10 +79,9 @@ export async function PATCH(
         },
       });
 
-      // Queue the job
       await queueImapOperation(
         operation.id,
-        thread.mailbox.id,
+        mailbox.id,
         imapOperation,
         email.folder,
         email.imapUid ?? undefined
@@ -119,5 +101,5 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json(updated);
+  return Response.json(updated);
 }

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Paperclip, Send, X } from "lucide-react";
-import { revalidateThreads } from "@/lib/revalidate";
+import { Loader2, Paperclip, Send } from "lucide-react";
+import { useSendEmail } from "@/hooks/use-send-email";
+import { ComposerHeader } from "./composer-header";
 
 interface Mailbox {
   id: string;
@@ -32,11 +32,8 @@ interface ReplyComposerProps {
 }
 
 export function ReplyComposer({ thread, mailbox }: ReplyComposerProps) {
-  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [body, setBody] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Get reply recipients from the last email
   const lastEmail = thread.emails[thread.emails.length - 1];
@@ -45,46 +42,17 @@ export function ReplyComposer({ thread, mailbox }: ReplyComposerProps) {
     ? thread.subject
     : `Re: ${thread.subject}`;
 
-  async function handleSend() {
-    if (!body.trim()) return;
-
-    setIsSending(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/emails/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          threadId: thread.id,
-          mailboxId: mailbox.id,
-          to: [replyTo],
-          subject: replySubject,
-          body: body.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to send email");
-      }
-
-      // Elevate sender trust (fire-and-forget)
-      fetch("/api/contacts/elevate-trust", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientAddress: replyTo }),
-      }).catch(() => {});
-
+  const { sendEmail, isSending, sendError: error, setSendError: setError } = useSendEmail({
+    threadId: thread.id,
+    mailboxId: mailbox.id,
+    onSuccess: () => {
       setBody("");
       setIsExpanded(false);
-      revalidateThreads();
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
-      setIsSending(false);
-    }
+    },
+  });
+
+  async function handleSend() {
+    await sendEmail({ to: [replyTo], subject: replySubject, body });
   }
 
   if (!isExpanded) {
@@ -103,23 +71,14 @@ export function ReplyComposer({ thread, mailbox }: ReplyComposerProps) {
 
   return (
     <div className="border-t">
-      <div className="flex items-center justify-between px-4 py-2">
-        <div className="text-sm text-muted-foreground">
-          Replying to <span className="font-medium">{replyTo}</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={() => {
-            setIsExpanded(false);
-            setBody("");
-            setError(null);
-          }}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+      <ComposerHeader
+        replyTo={replyTo}
+        onClose={() => {
+          setIsExpanded(false);
+          setBody("");
+          setError(null);
+        }}
+      />
 
       <Separator />
 

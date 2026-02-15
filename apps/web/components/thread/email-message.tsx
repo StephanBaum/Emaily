@@ -25,6 +25,7 @@ import {
   Paperclip,
   Send,
 } from "lucide-react";
+import { formatFileSize } from "@/lib/format";
 
 interface Attachment {
   id: string;
@@ -59,12 +60,6 @@ export function EmailMessage({ email, isFirst, isLast }: EmailMessageProps) {
   const [isExpanded, setIsExpanded] = useState(isLast);
   const senderName = email.fromName || email.fromAddress;
   const senderInitial = senderName[0]?.toUpperCase() || "?";
-
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
 
   return (
     <Card className={cn("transition-shadow", isExpanded && "shadow-md")}>

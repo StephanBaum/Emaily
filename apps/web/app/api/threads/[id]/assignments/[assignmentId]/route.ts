@@ -1,38 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, verifyThreadAccess, apiError, apiSuccess } from "@/lib/api-helpers";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; assignmentId: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId, assignmentId } = await params;
   const body = await request.json();
   const { status, note, dueDate } = body;
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const { error: accessError } = await verifyThreadAccess(session.user.id, threadId);
+  if (accessError) return accessError;
 
   // Verify assignment exists
   const assignment = await prisma.assignment.findFirst({
@@ -43,16 +25,13 @@ export async function PATCH(
   });
 
   if (!assignment) {
-    return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    return apiError("Assignment not found", 404);
   }
 
   // Validate status if provided
   const validStatuses = ["open", "in_progress", "done"];
   if (status && !validStatuses.includes(status)) {
-    return NextResponse.json(
-      { error: "Invalid status. Must be one of: open, in_progress, done" },
-      { status: 400 }
-    );
+    return apiError("Invalid status. Must be one of: open, in_progress, done", 400);
   }
 
   const updatedAssignment = await prisma.assignment.update({
@@ -80,38 +59,20 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json(updatedAssignment);
+  return Response.json(updatedAssignment);
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; assignmentId: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId, assignmentId } = await params;
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const { error: accessError } = await verifyThreadAccess(session.user.id, threadId);
+  if (accessError) return accessError;
 
   // Verify assignment exists
   const assignment = await prisma.assignment.findFirst({
@@ -122,12 +83,12 @@ export async function DELETE(
   });
 
   if (!assignment) {
-    return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    return apiError("Assignment not found", 404);
   }
 
   await prisma.assignment.delete({
     where: { id: assignmentId },
   });
 
-  return NextResponse.json({ success: true });
+  return apiSuccess();
 }

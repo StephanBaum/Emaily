@@ -22,15 +22,10 @@ interface ThreadTag {
   tag: TagData;
 }
 
-interface TagPickerProps {
-  threadId: string;
-  currentTags: ThreadTag[];
-}
-
-export function TagPicker({ threadId, currentTags }: TagPickerProps) {
+/** Shared hook for tag selection state and toggle logic */
+function useTagSelection(threadId: string, currentTags: ThreadTag[]) {
   const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
   const { tags: allTags, isLoading } = useTags();
-  const [open, setOpen] = useState(false);
   const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
     new Set(currentTags.map((t) => t.tag.id))
   );
@@ -62,14 +57,11 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
   }
 
   async function removeTag(tagId: string) {
-    // Update local state immediately
     setAppliedTagIds((prev) => {
       const next = new Set(prev);
       next.delete(tagId);
       return next;
     });
-
-    // Use optimistic action
     await removeTagAction(tagId);
   }
 
@@ -79,6 +71,19 @@ export function TagPicker({ threadId, currentTags }: TagPickerProps) {
     name: t.name,
     color: t.color,
   }));
+
+  return { appliedTagIds, toggleTag, removeTag, simpleTags, isLoading };
+}
+
+interface TagPickerProps {
+  threadId: string;
+  currentTags: ThreadTag[];
+}
+
+export function TagPicker({ threadId, currentTags }: TagPickerProps) {
+  const { appliedTagIds, toggleTag, removeTag, simpleTags, isLoading } =
+    useTagSelection(threadId, currentTags);
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
@@ -133,44 +138,8 @@ export function TagMenuPopover({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
-  const { tags: allTags, isLoading } = useTags();
-  const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
-    new Set(currentTags.map((t) => t.tag.id))
-  );
-
-  useEffect(() => {
-    setAppliedTagIds(new Set(currentTags.map((t) => t.tag.id)));
-  }, [currentTags]);
-
-  async function toggleTag(tag: TagData) {
-    const isApplied = appliedTagIds.has(tag.id);
-
-    // Update local state immediately
-    setAppliedTagIds((prev) => {
-      const next = new Set(prev);
-      if (isApplied) {
-        next.delete(tag.id);
-      } else {
-        next.add(tag.id);
-      }
-      return next;
-    });
-
-    // Use optimistic actions - no router.refresh() needed
-    if (isApplied) {
-      await removeTagAction(tag.id);
-    } else {
-      await addTag(tag);
-    }
-  }
-
-  // Convert TagData from useTags to the simpler format used here
-  const simpleTags: TagData[] = (allTags || []).map((t) => ({
-    id: t.id,
-    name: t.name,
-    color: t.color,
-  }));
+  const { appliedTagIds, toggleTag, simpleTags, isLoading } =
+    useTagSelection(threadId, currentTags);
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>

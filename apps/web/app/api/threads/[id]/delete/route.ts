@@ -1,20 +1,17 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { queueImapOperation } from "@emaily/mail-engine";
+import { requireAuth, apiError, apiSuccess } from "@/lib/api-helpers";
 
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id } = await params;
 
-  // Get thread with emails and mailbox info
+  // Get thread with emails and mailbox info — custom query because of status: "trashed" filter
   const thread = await prisma.thread.findFirst({
     where: {
       id,
@@ -34,10 +31,7 @@ export async function DELETE(
   });
 
   if (!thread) {
-    return NextResponse.json(
-      { error: "Thread not found or not in trash" },
-      { status: 404 }
-    );
+    return apiError("Thread not found or not in trash", 404);
   }
 
   // Queue IMAP expunge operations for each email
@@ -103,5 +97,5 @@ export async function DELETE(
     },
   });
 
-  return NextResponse.json({ success: true });
+  return apiSuccess();
 }

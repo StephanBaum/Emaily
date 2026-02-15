@@ -1,36 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, verifyThreadAccess, apiError } from "@/lib/api-helpers";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const { error: accessError } = await verifyThreadAccess(session.user.id, threadId);
+  if (accessError) return accessError;
 
   const assignments = await prisma.assignment.findMany({
     where: { threadId },
@@ -53,64 +35,41 @@ export async function GET(
     },
   });
 
-  return NextResponse.json(assignments);
+  return Response.json(assignments);
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
   const body = await request.json();
   const { assignedToId, note, dueDate } = body;
 
   if (!assignedToId) {
-    return NextResponse.json(
-      { error: "assignedToId is required" },
-      { status: 400 }
-    );
+    return apiError("assignedToId is required", 400);
   }
 
-  // Verify access to thread and get team info
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-    include: {
-      mailbox: true,
-    },
+  const { thread, error: accessError } = await verifyThreadAccess(session.user.id, threadId, {
+    mailbox: true,
   });
+  if (accessError) return accessError;
 
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const mailbox = (thread as any).mailbox;
 
   // Verify assignee is in the same team
   const assignee = await prisma.user.findFirst({
     where: {
       id: assignedToId,
-      teamId: thread.mailbox.teamId,
+      teamId: mailbox.teamId,
     },
   });
 
   if (!assignee) {
-    return NextResponse.json(
-      { error: "Assignee must be a team member" },
-      { status: 400 }
-    );
+    return apiError("Assignee must be a team member", 400);
   }
 
   // Check for existing assignment to same user
@@ -122,10 +81,7 @@ export async function POST(
   });
 
   if (existingAssignment) {
-    return NextResponse.json(
-      { error: "User is already assigned to this thread" },
-      { status: 400 }
-    );
+    return apiError("User is already assigned to this thread", 400);
   }
 
   const assignment = await prisma.assignment.create({
@@ -159,7 +115,7 @@ export async function POST(
     const { createNotification } = await import("@/lib/services/notification-service");
     await createNotification({
       userId: assignedToId,
-      teamId: thread.mailbox.teamId,
+      teamId: mailbox.teamId,
       type: "assignment",
       title: `Assigned to you: ${thread.subject}`,
       message: `By ${session.user.name}`,
@@ -168,5 +124,5 @@ export async function POST(
     });
   }
 
-  return NextResponse.json(assignment, { status: 201 });
+  return Response.json(assignment, { status: 201 });
 }

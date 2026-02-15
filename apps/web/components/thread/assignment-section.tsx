@@ -22,6 +22,7 @@ import {
   Clock,
   CheckCircle2,
 } from "lucide-react";
+import { getInitials } from "@/lib/format";
 
 interface TeamMember {
   id: string;
@@ -85,15 +86,6 @@ export function AssignmentSection({
   useEffect(() => {
     setAssignments(initialAssignments);
   }, [initialAssignments]);
-
-  function getInitials(name: string) {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   const assignedUserIds = new Set(assignments.map((a) => a.assignedTo.id));
   const availableMembers = teamMembers.filter((m) => !assignedUserIds.has(m.id));

@@ -1,26 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, apiError, apiSuccess } from "@/lib/api-helpers";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId, commentId } = await params;
   const body = await request.json();
   const { content } = body;
 
   if (!content?.trim()) {
-    return NextResponse.json(
-      { error: "Comment content is required" },
-      { status: 400 }
-    );
+    return apiError("Comment content is required", 400);
   }
 
   // Verify access to thread and ownership of comment
@@ -41,15 +35,12 @@ export async function PATCH(
   });
 
   if (!comment) {
-    return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    return apiError("Comment not found", 404);
   }
 
   // Only allow editing own comments
   if (comment.userId !== session.user.id) {
-    return NextResponse.json(
-      { error: "Can only edit your own comments" },
-      { status: 403 }
-    );
+    return apiError("Can only edit your own comments", 403);
   }
 
   const updated = await prisma.comment.update({
@@ -66,18 +57,15 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json(updated);
+  return Response.json(updated);
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId, commentId } = await params;
 
@@ -99,20 +87,17 @@ export async function DELETE(
   });
 
   if (!comment) {
-    return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    return apiError("Comment not found", 404);
   }
 
   // Only allow deleting own comments (or admin could delete any - check role)
   if (comment.userId !== session.user.id && session.user.role !== "admin") {
-    return NextResponse.json(
-      { error: "Can only delete your own comments" },
-      { status: 403 }
-    );
+    return apiError("Can only delete your own comments", 403);
   }
 
   await prisma.comment.delete({
     where: { id: commentId },
   });
 
-  return NextResponse.json({ success: true });
+  return apiSuccess();
 }

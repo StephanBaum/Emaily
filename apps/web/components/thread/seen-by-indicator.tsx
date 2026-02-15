@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Eye } from "lucide-react";
+import { getInitials } from "@/lib/format";
 
 interface SeenByUser {
   id: string;
@@ -28,15 +29,6 @@ interface SeenByIndicatorProps {
 
 export function SeenByIndicator({ seenBy, maxVisible = 4, compact = false }: SeenByIndicatorProps) {
   if (seenBy.length === 0) return null;
-
-  function getInitials(name: string) {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   // Compact mode for panel - vertical list
   if (compact) {

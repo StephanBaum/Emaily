@@ -1,53 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cacheInvalidatePattern } from "@/lib/cache";
+import { requireAuth, verifyThreadAccess, apiError, apiSuccess } from "@/lib/api-helpers";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
   const body = await request.json();
   const { tagId } = body;
 
   if (!tagId) {
-    return NextResponse.json(
-      { error: "tagId is required" },
-      { status: 400 }
-    );
+    return apiError("tagId is required", 400);
   }
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: { userId: session.user.id },
-        },
-      },
-    },
-    include: { mailbox: true },
+  const { thread, error: accessError } = await verifyThreadAccess(session.user.id, threadId, {
+    mailbox: true,
   });
+  if (accessError) return accessError;
 
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const mailbox = (thread as any).mailbox;
 
   // Verify tag belongs to the same team
   const tag = await prisma.tag.findFirst({
-    where: { id: tagId, teamId: thread.mailbox.teamId },
+    where: { id: tagId, teamId: mailbox.teamId },
   });
 
   if (!tag) {
-    return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+    return apiError("Tag not found", 404);
   }
 
   // Spam tag → quarantine the thread (bidirectional spam/quarantine sync)
@@ -78,48 +62,32 @@ export async function POST(
   });
 
   // Invalidate tag caches so counts reflect the change
-  await cacheInvalidatePattern(`tags:${thread.mailbox.teamId}:*`);
+  await cacheInvalidatePattern(`tags:${mailbox.teamId}:*`);
 
-  return NextResponse.json(threadTag, { status: 201 });
+  return Response.json(threadTag, { status: 201 });
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
   const { searchParams } = new URL(request.url);
   const tagId = searchParams.get("tagId");
 
   if (!tagId) {
-    return NextResponse.json(
-      { error: "tagId query param is required" },
-      { status: 400 }
-    );
+    return apiError("tagId query param is required", 400);
   }
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: { userId: session.user.id },
-        },
-      },
-    },
-    include: { mailbox: { select: { teamId: true } } },
+  const { thread, error: accessError } = await verifyThreadAccess(session.user.id, threadId, {
+    mailbox: { select: { teamId: true } },
   });
+  if (accessError) return accessError;
 
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const teamId = (thread as any).mailbox.teamId;
 
   // Look up the tag to check if it's the spam tag
   const tag = await prisma.tag.findUnique({ where: { id: tagId } });
@@ -129,7 +97,7 @@ export async function DELETE(
   });
 
   // Invalidate tag caches so counts reflect the change
-  await cacheInvalidatePattern(`tags:${thread.mailbox.teamId}:*`);
+  await cacheInvalidatePattern(`tags:${teamId}:*`);
 
   // Removing spam tag → un-quarantine the thread and elevate sender trust
   if (tag && tag.name.toLowerCase() === "spam" && thread.status === "quarantined") {
@@ -155,5 +123,5 @@ export async function DELETE(
     }
   }
 
-  return NextResponse.json({ success: true });
+  return apiSuccess();
 }

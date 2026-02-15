@@ -23,9 +23,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DraftVersionHistory } from "./draft-version-history";
+import { ComposerHeader } from "./composer-header";
 import { cn } from "@/lib/utils";
 import { useAgents, type AgentData } from "@/hooks/use-agents";
-import { revalidateThreads } from "@/lib/revalidate";
+import { getInitials } from "@/lib/format";
+import { useSendEmail } from "@/hooks/use-send-email";
 
 function DraftWithAIButton({
   agents,
@@ -145,14 +147,25 @@ export function SharedDraftComposer({
   );
   const [isAIEdited, setIsAIEdited] = useState(false);
   const [body, setBody] = useState(existingDraft?.body || "");
-  const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [lastSavedBody, setLastSavedBody] = useState(existingDraft?.body || "");
+
+  const { sendEmail, isSending, sendError, setSendError } = useSendEmail({
+    threadId: thread.id,
+    mailboxId: mailbox.id,
+  });
+
+  // Merge send errors with local errors for display
+  const error = sendError || localError;
+  function setError(e: string | null) {
+    setLocalError(e);
+    setSendError(null);
+  }
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const saveDraftRef = useRef<(() => Promise<void>) | undefined>(undefined);
@@ -235,15 +248,6 @@ export function SharedDraftComposer({
       }
     };
   }, [draft?.id, draft?.isLockedByMe]);
-
-  function getInitials(name: string) {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   async function createDraft() {
     setIsCreating(true);
@@ -374,87 +378,26 @@ export function SharedDraftComposer({
       await saveDraft();
     }
 
-    setIsSending(true);
-    setError(null);
-
-    try {
-      // Send the email (server also marks the shared draft as sent)
-      const response = await fetch("/api/emails/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          threadId: thread.id,
-          mailboxId: mailbox.id,
-          to: [replyTo],
-          subject: replySubject,
-          body: body.trim(),
-          sharedDraftId: draft.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to send email");
-      }
-
-      // Elevate sender trust (fire-and-forget)
-      fetch("/api/contacts/elevate-trust", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientAddress: replyTo }),
-      }).catch(() => {});
-
+    const ok = await sendEmail({
+      to: [replyTo],
+      subject: replySubject,
+      body,
+      sharedDraftId: draft.id,
+    });
+    if (ok) {
       setBody("");
       setDraft(null);
       setIsExpanded(false);
-      revalidateThreads();
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
-      setIsSending(false);
     }
   }
 
   async function handlePersonalSend() {
     if (!body.trim()) return;
 
-    setIsSending(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/emails/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          threadId: thread.id,
-          mailboxId: mailbox.id,
-          to: [replyTo],
-          subject: replySubject,
-          body: body.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to send email");
-      }
-
-      // Elevate sender trust (fire-and-forget)
-      fetch("/api/contacts/elevate-trust", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientAddress: replyTo }),
-      }).catch(() => {});
-
+    const ok = await sendEmail({ to: [replyTo], subject: replySubject, body });
+    if (ok) {
       setBody("");
       setIsExpanded(false);
-      revalidateThreads();
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
-      setIsSending(false);
     }
   }
 
@@ -573,23 +516,14 @@ export function SharedDraftComposer({
   if (mode === "personal" && !draft) {
     return (
       <div className="border-t">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="text-sm text-muted-foreground">
-            Replying to <span className="font-medium">{replyTo}</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => {
-              setIsExpanded(false);
-              setBody("");
-              setError(null);
-            }}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <ComposerHeader
+          replyTo={replyTo}
+          onClose={() => {
+            setIsExpanded(false);
+            setBody("");
+            setError(null);
+          }}
+        />
 
         <Separator />
 
@@ -757,22 +691,13 @@ export function SharedDraftComposer({
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-4 py-2">
-        <div className="text-sm text-muted-foreground">
-          Replying to <span className="font-medium">{replyTo}</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={() => {
-            releaseLock();
-            setIsExpanded(false);
-          }}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+      <ComposerHeader
+        replyTo={replyTo}
+        onClose={() => {
+          releaseLock();
+          setIsExpanded(false);
+        }}
+      />
 
       <Separator />
 

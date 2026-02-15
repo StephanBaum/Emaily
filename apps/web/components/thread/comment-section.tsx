@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MessageSquare, MoreVertical, Pencil, Trash2, Send } from "lucide-react";
+import { getInitials } from "@/lib/format";
 
 interface Comment {
   id: string;
@@ -50,15 +51,6 @@ export function CommentSection({ threadId, initialComments, compact = false, onC
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  function getInitials(name: string) {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

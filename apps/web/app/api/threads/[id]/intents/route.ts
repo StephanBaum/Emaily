@@ -1,43 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, verifyThreadAccess } from "@/lib/api-helpers";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: { userId: session.user.id },
-        },
-      },
-    },
-    include: {
-      emails: {
-        select: { id: true },
-        orderBy: { date: "asc" },
-      },
+  const { thread, error: accessError } = await verifyThreadAccess(session.user.id, threadId, {
+    emails: {
+      select: { id: true },
+      orderBy: { date: "asc" },
     },
   });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  if (accessError) return accessError;
 
   // Fetch intents for all emails in this thread
-  const emailIds = thread.emails.map((e) => e.id);
+  const emailIds = (thread as any).emails.map((e: any) => e.id);
   const intents = await prisma.emailIntent.findMany({
     where: {
       emailId: { in: emailIds },
@@ -58,5 +41,5 @@ export async function GET(
     },
   });
 
-  return NextResponse.json(intents);
+  return Response.json(intents);
 }

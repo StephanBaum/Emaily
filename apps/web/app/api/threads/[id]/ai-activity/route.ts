@@ -1,35 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, verifyThreadAccess } from "@/lib/api-helpers";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: { userId: session.user.id },
-        },
-      },
-    },
-    select: { id: true },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const { error: accessError } = await verifyThreadAccess(session.user.id, threadId);
+  if (accessError) return accessError;
 
   // Fetch AI activity logs for this thread
   const activities = await prisma.activityLog.findMany({
@@ -41,5 +24,5 @@ export async function GET(
     take: 50,
   });
 
-  return NextResponse.json(activities);
+  return Response.json(activities);
 }

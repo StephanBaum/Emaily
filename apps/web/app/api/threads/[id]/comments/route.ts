@@ -1,36 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, verifyThreadAccess, apiError } from "@/lib/api-helpers";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const { error: accessError } = await verifyThreadAccess(session.user.id, threadId);
+  if (accessError) return accessError;
 
   const comments = await prisma.comment.findMany({
     where: { threadId },
@@ -46,47 +28,26 @@ export async function GET(
     },
   });
 
-  return NextResponse.json(comments);
+  return Response.json(comments);
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   const { id: threadId } = await params;
   const body = await request.json();
   const { content } = body;
 
   if (!content?.trim()) {
-    return NextResponse.json(
-      { error: "Comment content is required" },
-      { status: 400 }
-    );
+    return apiError("Comment content is required", 400);
   }
 
-  // Verify access to thread
-  const thread = await prisma.thread.findFirst({
-    where: {
-      id: threadId,
-      mailbox: {
-        access: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    },
-  });
-
-  if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
+  const { error: accessError } = await verifyThreadAccess(session.user.id, threadId);
+  if (accessError) return accessError;
 
   const comment = await prisma.comment.create({
     data: {
@@ -105,5 +66,5 @@ export async function POST(
     },
   });
 
-  return NextResponse.json(comment, { status: 201 });
+  return Response.json(comment, { status: 201 });
 }
