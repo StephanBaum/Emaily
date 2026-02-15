@@ -8,14 +8,12 @@ const nextConfig = {
     "@emailautomation/mail-engine",
     "@emailautomation/ai-engine",
   ],
-  experimental: {
-    serverComponentsExternalPackages: [
-      "bcrypt",
-      "imapflow",
-      "nodemailer",
-      "mailparser",
-    ],
-  },
+  serverExternalPackages: [
+    "bcrypt",
+    "imapflow",
+    "nodemailer",
+    "mailparser",
+  ],
 };
 
 module.exports = nextConfig;

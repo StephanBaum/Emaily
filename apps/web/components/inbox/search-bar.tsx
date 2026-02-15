@@ -14,7 +14,7 @@ export function SearchBar() {
   const [isExpanded, setIsExpanded] = useState(Boolean(currentQuery));
   const [inputValue, setInputValue] = useState(currentQuery);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Focus input when expanding
   useEffect(() => {

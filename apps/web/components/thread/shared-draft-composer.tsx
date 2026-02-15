@@ -104,7 +104,7 @@ export function SharedDraftComposer({
   const [lastSavedBody, setLastSavedBody] = useState(existingDraft?.body || "");
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const saveDraftRef = useRef<() => Promise<void>>();
+  const saveDraftRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const lastDraftIdRef = useRef(existingDraft?.id ?? null);
   const draftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedBodyRef = useRef(existingDraft?.body || "");
