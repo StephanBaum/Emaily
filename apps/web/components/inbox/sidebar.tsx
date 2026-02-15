@@ -74,9 +74,19 @@ export function Sidebar() {
 
   const tagParams = getTagParams();
 
+  const activeStatus = searchParams.get("status");
+
+  function getStatusParam(): string {
+    return activeStatus ? `&status=${activeStatus}` : "";
+  }
+
   function getGroupHref(groupName: string, groupTags: TagData[]) {
+    // Toggle: clicking active group clears tag filter
+    if (isGroupActive(groupName)) {
+      return activeStatus ? `/inbox?status=${activeStatus}` : "/inbox";
+    }
     const ids = groupTags.map((t) => t.id).join(",");
-    return `/inbox?tags=${ids}&group=${encodeURIComponent(groupName)}`;
+    return `/inbox?tags=${ids}&group=${encodeURIComponent(groupName)}${getStatusParam()}`;
   }
 
   function isGroupActive(groupName: string) {
@@ -344,6 +354,7 @@ export function Sidebar() {
                             key={tag.id}
                             tag={tag}
                             isActive={activeTag === tag.id}
+                            status={activeStatus}
                           />
                         ))}
                       </div>
@@ -478,13 +489,20 @@ export function Sidebar() {
 function TagNavItem({
   tag,
   isActive,
+  status,
 }: {
   tag: TagData;
   isActive: boolean;
+  status: string | null;
 }) {
+  // Toggle: clicking active tag clears tag filter, preserving status
+  const href = isActive
+    ? status ? `/inbox?status=${status}` : "/inbox"
+    : `/inbox?tag=${tag.id}${status ? `&status=${status}` : ""}`;
+
   return (
     <Link
-      href={`/inbox?tag=${tag.id}`}
+      href={href}
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors",
         isActive

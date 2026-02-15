@@ -123,6 +123,20 @@ export async function POST(
     },
   });
 
+  // Prune old versions — keep only the 10 most recent
+  const MAX_VERSIONS = 10;
+  const allVersions = await prisma.draftVersion.findMany({
+    where: { sharedDraftId: id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (allVersions.length > MAX_VERSIONS) {
+    const idsToDelete = allVersions.slice(MAX_VERSIONS).map((v) => v.id);
+    await prisma.draftVersion.deleteMany({
+      where: { id: { in: idsToDelete } },
+    });
+  }
+
   // Restore the version
   const updatedDraft = await prisma.sharedDraft.update({
     where: { id },

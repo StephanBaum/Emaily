@@ -125,9 +125,9 @@ interface SharedDraftComposerProps {
 // Auto-save delay (debounce before saving to server, no version)
 const AUTO_SAVE_DELAY = 2000;
 // Version delay (idle time before creating a version snapshot)
-const VERSION_DELAY = 8000;
-// Max local versions to keep in localStorage
-const MAX_LOCAL_VERSIONS = 10;
+const VERSION_DELAY = 10000;
+// Max versions to keep (both local and server)
+const MAX_VERSIONS = 10;
 
 function getPersonalDraftKey(threadId: string) {
   return `draft:personal:${threadId}`;
@@ -187,7 +187,7 @@ function addLocalVersion(threadId: string, body: string): LocalVersion[] {
     bodySnapshot: body,
     createdAt: new Date().toISOString(),
   };
-  const updated = [newVersion, ...versions].slice(0, MAX_LOCAL_VERSIONS);
+  const updated = [newVersion, ...versions].slice(0, MAX_VERSIONS);
   try {
     window.localStorage.setItem(getPersonalVersionsKey(threadId), JSON.stringify(updated));
   } catch {
@@ -249,6 +249,8 @@ export function SharedDraftComposer({
   const draftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedBodyRef = useRef(existingDraft?.body || "");
   const lastVersionedBodyRef = useRef(existingDraft?.body || "");
+  // Track whether user has typed since last version (prevents versions on mere focus/blur)
+  const hasPendingEditsRef = useRef(false);
 
   // Load personal draft from localStorage on mount/expand
   useEffect(() => {
@@ -327,10 +329,12 @@ export function SharedDraftComposer({
   }
 
   // Two-timer auto-save for shared drafts:
-  // - 2s debounce → save (skipVersion: true)
-  // - 8s idle → create version snapshot
+  // - 2s debounce → save body to server (no version)
+  // - 10s idle → create version snapshot
   useEffect(() => {
     if (draft?.isLockedByMe && body !== lastSavedBodyRef.current) {
+      hasPendingEditsRef.current = true;
+
       // Reset save timer (2s)
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(async () => {
@@ -339,11 +343,12 @@ export function SharedDraftComposer({
         }
       }, AUTO_SAVE_DELAY);
 
-      // Reset version timer (8s)
+      // Reset version timer (10s idle)
       if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
       versionTimeoutRef.current = setTimeout(async () => {
+        if (!hasPendingEditsRef.current) return;
+        hasPendingEditsRef.current = false;
         // If body was already saved by the 2s timer, request a version snapshot
-        // without re-sending the body (avoids the "no change" skip on server)
         if (body === lastSavedBodyRef.current) {
           await createVersionSnapshot();
         } else if (saveDraftRef.current) {
@@ -358,9 +363,11 @@ export function SharedDraftComposer({
     };
   }, [body, draft?.isLockedByMe]);
 
-  // Personal mode: auto-save to localStorage + local version timer
+  // Personal mode: auto-save to localStorage + local version after 10s idle
   useEffect(() => {
     if (mode === "personal" && !draft && isExpanded && body) {
+      hasPendingEditsRef.current = true;
+
       // Save to localStorage on every change (debounced 2s)
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(() => {
@@ -368,10 +375,12 @@ export function SharedDraftComposer({
         flashSaved();
       }, AUTO_SAVE_DELAY);
 
-      // Create local version after 8s idle
+      // Create local version after 10s idle
       if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
       if (body !== lastVersionedBodyRef.current && body.trim()) {
         versionTimeoutRef.current = setTimeout(() => {
+          if (!hasPendingEditsRef.current) return;
+          hasPendingEditsRef.current = false;
           lastVersionedBodyRef.current = body;
           const updated = addLocalVersion(thread.id, body);
           setLocalVersions(updated);
@@ -536,6 +545,33 @@ export function SharedDraftComposer({
 
   // Keep ref updated with latest saveDraft
   saveDraftRef.current = saveDraft;
+
+  // Create a version when the textarea loses focus (if user has typed)
+  const handleTextareaBlur = useCallback(async () => {
+    if (!hasPendingEditsRef.current) return;
+    hasPendingEditsRef.current = false;
+
+    // Cancel the idle version timer — blur takes priority
+    if (versionTimeoutRef.current) {
+      clearTimeout(versionTimeoutRef.current);
+      versionTimeoutRef.current = null;
+    }
+
+    if (draft?.isLockedByMe) {
+      // Shared mode: save then version
+      if (body !== lastSavedBodyRef.current && saveDraftRef.current) {
+        await saveDraftRef.current(false); // save + version
+      } else if (body !== lastVersionedBodyRef.current && body.trim()) {
+        await createVersionSnapshot();
+      }
+    } else if (mode === "personal" && !draft && body.trim() && body !== lastVersionedBodyRef.current) {
+      // Personal mode: save + local version
+      savePersonalDraft(thread.id, body);
+      lastVersionedBodyRef.current = body;
+      const updated = addLocalVersion(thread.id, body);
+      setLocalVersions(updated);
+    }
+  }, [body, draft, mode, thread.id]);
 
   async function handleSend() {
     if (!body.trim() || !draft) return;
@@ -786,6 +822,7 @@ export function SharedDraftComposer({
             placeholder="Write your reply..."
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            onBlur={handleTextareaBlur}
             autoFocus
           />
 
@@ -951,6 +988,7 @@ export function SharedDraftComposer({
               setBody(e.target.value);
               if (isAIDraft && !isAIEdited) setIsAIEdited(true);
             }}
+            onBlur={handleTextareaBlur}
             autoFocus
           />
         )}
