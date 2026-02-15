@@ -7,7 +7,7 @@ import type {
   AISummaryGroup,
   AISummaryItem,
   AISummaryResponse,
-} from "@emailautomation/shared";
+} from "@emaily/shared";
 
 const AI_ACTIONS: AISummaryAction[] = [
   "ai_archived",

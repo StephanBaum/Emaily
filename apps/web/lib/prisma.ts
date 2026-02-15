@@ -1,3 +1,3 @@
-import { prisma } from "@emailautomation/database";
+import { prisma } from "@emaily/database";
 
 export { prisma };

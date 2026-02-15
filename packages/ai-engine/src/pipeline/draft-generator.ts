@@ -1,5 +1,5 @@
 import type { AIProvider } from "../providers/provider";
-import type { EmailIntent, DraftConfidence } from "@emailautomation/shared";
+import type { EmailIntent, DraftConfidence } from "@emaily/shared";
 import { buildDraftGenerationPrompt } from "../prompts/draft-generation";
 
 interface EmailData {

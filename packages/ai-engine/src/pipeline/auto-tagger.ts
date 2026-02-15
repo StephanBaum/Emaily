@@ -1,5 +1,5 @@
 import type { AIProvider } from "../providers/provider";
-import type { TagAutoRules, TagRuleCondition } from "@emailautomation/shared";
+import type { TagAutoRules, TagRuleCondition } from "@emaily/shared";
 import { buildAutoTagPrompt } from "../prompts/auto-tag";
 
 interface EmailData {

@@ -4,7 +4,7 @@ import type {
   DraftConfidence,
   ThreadTriage,
   EscalationResult,
-} from "@emailautomation/shared";
+} from "@emaily/shared";
 import type { ThreadContext, TagInfo } from "./unified-thread-processor";
 import type { AgentToolRequest, AgentToolResult } from "./agent-tools";
 import { buildToolDescriptionsBlock } from "./agent-tools";

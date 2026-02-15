@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { fetcher, realtimeConfig } from "@/lib/swr-config";
-import type { AISummaryResponse } from "@emailautomation/shared";
+import type { AISummaryResponse } from "@emaily/shared";
 
 export function useAISummary(params?: { hours?: number }) {
   const searchParams = new URLSearchParams();

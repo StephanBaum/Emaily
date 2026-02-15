@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { hashPassword, encrypt } from "@emailautomation/security";
+import { hashPassword, encrypt } from "@emaily/security";
 
 const prisma = new PrismaClient();
 

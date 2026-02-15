@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
-import { prisma, Prisma } from "@emailautomation/database";
-import { createProviderFromEnv, AutoTagger, IntentExtractor, DraftGenerator } from "@emailautomation/ai-engine";
-import type { TagAutoRules } from "@emailautomation/shared";
+import { prisma, Prisma } from "@emaily/database";
+import { createProviderFromEnv, AutoTagger, IntentExtractor, DraftGenerator } from "@emaily/ai-engine";
+import type { TagAutoRules } from "@emaily/shared";
 import { AI_QUEUE_NAME, getRedisConnection, type ProcessEmailJob } from "./queues";
 
 export function createWorker() {

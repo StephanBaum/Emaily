@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emailautomation/shared";
+import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emaily/shared";
 
 const VALID_TRUST_LEVELS = Object.keys(TRUST_LEVEL_ORDER);
 

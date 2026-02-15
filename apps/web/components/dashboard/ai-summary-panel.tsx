@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAISummary } from "@/hooks/use-ai-summary";
 import { AISummaryGroup } from "./ai-summary-group";
-import type { AISummaryAction } from "@emailautomation/shared";
+import type { AISummaryAction } from "@emaily/shared";
 
 const STORAGE_KEY_COLLAPSED = "ai-summary-panel-collapsed";
 const STORAGE_KEY_DISMISSED_AT = "ai-summary-panel-dismissed-at";

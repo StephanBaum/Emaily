@@ -1,5 +1,5 @@
 import type { AIProvider } from "../providers/provider";
-import type { EmailIntent } from "@emailautomation/shared";
+import type { EmailIntent } from "@emaily/shared";
 import { buildIntentExtractionPrompt } from "../prompts/intent-extraction";
 
 interface EmailData {

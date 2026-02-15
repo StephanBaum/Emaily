@@ -3,7 +3,7 @@
  * No database dependencies. Takes raw headers and returns structured analysis.
  */
 
-import type { SpamAnalysisResult } from "@emailautomation/shared";
+import type { SpamAnalysisResult } from "@emaily/shared";
 
 interface SpamAnalyzerInput {
   headers: Record<string, string>;

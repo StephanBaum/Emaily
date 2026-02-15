@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { queueImapOperation } from "@emailautomation/mail-engine";
+import { queueImapOperation } from "@emaily/mail-engine";
 import { EmailChain } from "@/components/thread/email-chain";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { SharedDraftComposer } from "@/components/thread/shared-draft-composer";

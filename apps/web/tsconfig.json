@@ -16,9 +16,9 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
-      "@emailautomation/ai-engine": ["../../packages/ai-engine/src"],
-      "@emailautomation/database": ["../../packages/database/src"],
-      "@emailautomation/shared": ["../../packages/shared/src"]
+      "@emaily/ai-engine": ["../../packages/ai-engine/src"],
+      "@emaily/database": ["../../packages/database/src"],
+      "@emaily/shared": ["../../packages/shared/src"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -1,5 +1,5 @@
 {
-  "name": "@emailautomation/imap-worker",
+  "name": "@emaily/imap-worker",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -7,10 +7,10 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@emailautomation/database": "workspace:*",
-    "@emailautomation/mail-engine": "workspace:*",
-    "@emailautomation/security": "workspace:*",
-    "@emailautomation/shared": "workspace:*",
+    "@emaily/database": "workspace:*",
+    "@emaily/mail-engine": "workspace:*",
+    "@emaily/security": "workspace:*",
+    "@emaily/shared": "workspace:*",
     "bullmq": "^5.69.2",
     "dotenv": "^17.3.1",
     "ioredis": "^5.9.3"

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { queueImapOperation } from "@emailautomation/mail-engine";
+import { queueImapOperation } from "@emaily/mail-engine";
 
 export async function DELETE(
   _request: Request,

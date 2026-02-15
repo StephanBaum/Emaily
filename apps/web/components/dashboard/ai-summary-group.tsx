@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ThreadPill } from "./thread-pill";
-import type { AISummaryGroup as AISummaryGroupType, AISummaryAction } from "@emailautomation/shared";
+import type { AISummaryGroup as AISummaryGroupType, AISummaryAction } from "@emaily/shared";
 
 interface AISummaryGroupProps {
   group: AISummaryGroupType;

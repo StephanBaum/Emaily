@@ -1,6 +1,6 @@
 import { Queue } from "bullmq";
 import type { ConnectionOptions } from "bullmq";
-import type { ImapOperationType } from "@emailautomation/shared";
+import type { ImapOperationType } from "@emaily/shared";
 
 export const IMAP_QUEUE_NAME = "imap-operations";
 

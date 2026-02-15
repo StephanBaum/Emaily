@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emailautomation/shared";
+import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emaily/shared";
 import { DEFAULT_THREAD_LIMIT, MAX_THREAD_LIMIT, EMAIL_PREVIEW_LENGTH } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {

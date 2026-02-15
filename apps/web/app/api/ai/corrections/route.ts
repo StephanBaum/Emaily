@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { ActivityAction, TrustLevel } from "@emailautomation/shared";
+import type { ActivityAction, TrustLevel } from "@emaily/shared";
 
 interface CorrectionRequest {
   threadId: string;

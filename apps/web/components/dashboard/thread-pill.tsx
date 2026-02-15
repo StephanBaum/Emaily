@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { AISummaryItem } from "@emailautomation/shared";
+import type { AISummaryItem } from "@emaily/shared";
 
 interface ThreadPillProps {
   item: AISummaryItem;

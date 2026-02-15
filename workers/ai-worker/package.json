@@ -1,5 +1,5 @@
 {
-  "name": "@emailautomation/ai-worker",
+  "name": "@emaily/ai-worker",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -7,9 +7,9 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@emailautomation/ai-engine": "workspace:*",
-    "@emailautomation/database": "workspace:*",
-    "@emailautomation/shared": "workspace:*",
+    "@emaily/ai-engine": "workspace:*",
+    "@emaily/database": "workspace:*",
+    "@emaily/shared": "workspace:*",
     "bullmq": "^5.69.2",
     "ioredis": "^5.9.3"
   },

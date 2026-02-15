@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { queueBatchImapOperation } from "@emailautomation/mail-engine";
-import type { ImapOperationType, ThreadStatus } from "@emailautomation/shared";
+import { queueBatchImapOperation } from "@emaily/mail-engine";
+import type { ImapOperationType, ThreadStatus } from "@emaily/shared";
 
 const VALID_STATUSES: ThreadStatus[] = ["open", "archived", "snoozed", "quarantined", "trashed"];
 

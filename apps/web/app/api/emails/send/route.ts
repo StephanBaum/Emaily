@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { SmtpClient } from "@emailautomation/mail-engine";
-import { decrypt } from "@emailautomation/security";
+import { SmtpClient } from "@emaily/mail-engine";
+import { decrypt } from "@emaily/security";
 
 export async function POST(request: NextRequest) {
   const session = await auth();

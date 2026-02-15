@@ -1,5 +1,5 @@
 import type { AIProvider } from "../providers/provider";
-import type { UnifiedAIResult, EmailIntent, DraftConfidence } from "@emailautomation/shared";
+import type { UnifiedAIResult, EmailIntent, DraftConfidence } from "@emaily/shared";
 import { buildUnifiedThreadPrompt } from "../prompts/unified-thread";
 
 interface ThreadEmail {

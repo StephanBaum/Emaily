@@ -1,5 +1,5 @@
 {
-  "name": "@emailautomation/database",
+  "name": "@emaily/database",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",
@@ -19,7 +19,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@emailautomation/security": "workspace:*",
+    "@emaily/security": "workspace:*",
     "@prisma/client": "^6.19.2"
   },
   "devDependencies": {

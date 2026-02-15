@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { TrustLevel } from "@emailautomation/shared";
+import type { TrustLevel } from "@emaily/shared";
 
 /**
  * Upsert a contact from an incoming email.

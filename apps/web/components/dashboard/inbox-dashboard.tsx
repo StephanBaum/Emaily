@@ -30,7 +30,7 @@ import { useAISummary } from "@/hooks/use-ai-summary";
 import { useThreads } from "@/hooks/use-threads";
 import { useNudges, type NudgeThread } from "@/hooks/use-nudges";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AISummaryAction, AISummaryGroup } from "@emailautomation/shared";
+import type { AISummaryAction, AISummaryGroup } from "@emaily/shared";
 
 // Extended Thread type from useThreads hook
 interface Thread {

@@ -1,5 +1,5 @@
 import type { ChatMessage } from "../providers/provider";
-import type { EmailIntent } from "@emailautomation/shared";
+import type { EmailIntent } from "@emaily/shared";
 
 interface EmailInfo {
   subject: string;

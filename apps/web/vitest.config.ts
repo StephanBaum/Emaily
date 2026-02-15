@@ -12,8 +12,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./"),
-      "@emailautomation/shared": path.resolve(__dirname, "../../packages/shared/src"),
-      "@emailautomation/database": path.resolve(__dirname, "../../packages/database/src"),
+      "@emaily/shared": path.resolve(__dirname, "../../packages/shared/src"),
+      "@emaily/database": path.resolve(__dirname, "../../packages/database/src"),
     },
   },
 });

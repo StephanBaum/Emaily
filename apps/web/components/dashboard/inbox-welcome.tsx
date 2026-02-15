@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAISummary } from "@/hooks/use-ai-summary";
 import { ThreadPill } from "./thread-pill";
-import type { AISummaryAction, AISummaryGroup } from "@emailautomation/shared";
+import type { AISummaryAction, AISummaryGroup } from "@emaily/shared";
 
 const ACTION_ICONS: Record<AISummaryAction, typeof Archive> = {
   ai_archived: Archive,

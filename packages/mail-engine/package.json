@@ -1,5 +1,5 @@
 {
-  "name": "@emailautomation/mail-engine",
+  "name": "@emaily/mail-engine",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",
@@ -10,9 +10,9 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@emailautomation/database": "workspace:*",
-    "@emailautomation/security": "workspace:*",
-    "@emailautomation/shared": "workspace:*",
+    "@emaily/database": "workspace:*",
+    "@emaily/security": "workspace:*",
+    "@emaily/shared": "workspace:*",
     "bullmq": "^5.69.2",
     "imapflow": "^1.2.9",
     "mailparser": "^3.9.3",

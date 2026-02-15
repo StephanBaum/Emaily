@@ -59,8 +59,8 @@ Refer to [Clean code Principles](docs/Principles/code.md) to keep the code clean
 
 Use path aliases defined in tsconfig:
 ```typescript
-import { User, Thread } from "@emailautomation/shared";
-import { prisma } from "@emailautomation/database";
+import { User, Thread } from "@emaily/shared";
+import { prisma } from "@emaily/database";
 import { something } from "@/components/...";  // within apps/web
 ```
 

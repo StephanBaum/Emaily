@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
-import { prisma } from "@emailautomation/database";
-import { ImapClient, ImapConfig } from "@emailautomation/mail-engine";
-import { decrypt } from "@emailautomation/security";
+import { prisma } from "@emaily/database";
+import { ImapClient, ImapConfig } from "@emaily/mail-engine";
+import { decrypt } from "@emaily/security";
 import {
   IMAP_QUEUE_NAME,
   getRedisConnection,

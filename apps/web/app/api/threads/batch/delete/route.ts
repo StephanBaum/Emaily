@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { queueBatchImapOperation } from "@emailautomation/mail-engine";
+import { queueBatchImapOperation } from "@emaily/mail-engine";
 
 export async function DELETE(request: Request) {
   const session = await auth();
@@ -99,7 +99,7 @@ export async function DELETE(request: Request) {
     });
 
     // Note: expunge is not a batch operation, queue individually
-    const { queueImapOperation } = await import("@emailautomation/mail-engine");
+    const { queueImapOperation } = await import("@emaily/mail-engine");
     await queueImapOperation(expungeOp.id, mailboxId, "expunge", trashFolder);
   }
 

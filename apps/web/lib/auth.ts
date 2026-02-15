@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
-import { verifyPassword, verifyTotpToken } from "@emailautomation/security";
+import { verifyPassword, verifyTotpToken } from "@emaily/security";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

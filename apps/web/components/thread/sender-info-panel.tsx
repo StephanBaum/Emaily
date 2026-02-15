@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, ShieldQuestion, Crown, Shield, ShieldAlert } from "lucide-react";
-import type { TrustLevel } from "@emailautomation/shared";
+import type { TrustLevel } from "@emaily/shared";
 
 interface SenderInfoPanelProps {
   threadId: string;

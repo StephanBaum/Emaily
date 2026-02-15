@@ -117,7 +117,7 @@ See `docs/plans/2026-02-06-email-client-implementation.md` for the full plan.
 
 ### Task 5.2: Authentication Setup [DONE]
 - NextAuth v5 (beta) with credentials provider
-- Integration with `@emailautomation/security` for password verification and TOTP
+- Integration with `@emaily/security` for password verification and TOTP
 - JWT session strategy with custom user fields (teamId, role, etc.)
 - Type-safe session with `next-auth.d.ts` module augmentation
 - Files: `apps/web/lib/auth.ts`, `apps/web/app/api/auth/[...nextauth]/route.ts`
@@ -404,7 +404,7 @@ Branch: `feature/ai-integration`
   - `GET /api/ai/status` — provider health check
   - `GET /api/threads/[id]/intents` — fetch intents for thread
 - Sync route wired: `addEmailToThread` and `createThread` callbacks enqueue AI jobs
-- Added deps to web app: `@emailautomation/ai-engine`, `bullmq`, `ioredis`
+- Added deps to web app: `@emaily/ai-engine`, `bullmq`, `ioredis`
 - Files:
   - `workers/ai-worker/package.json`, `tsconfig.json`
   - `workers/ai-worker/src/index.ts`, `processor.ts`, `queues.ts`
