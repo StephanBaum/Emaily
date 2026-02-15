@@ -105,52 +105,80 @@ export function DraftVersionHistory({
       <div className="w-64 border-r">
         <ScrollArea className="h-full">
           <div className="p-2 space-y-1">
-            {versions.map((version) => (
-              <div
-                key={version.id}
-                className={`group flex items-start gap-2 rounded-md p-2 cursor-pointer transition-colors ${
-                  previewId === version.id
-                    ? "bg-primary/10"
-                    : "hover:bg-muted"
-                }`}
-                onClick={() =>
-                  setPreviewId(previewId === version.id ? null : version.id)
-                }
-              >
-                <Avatar className="h-6 w-6 mt-0.5">
-                  <AvatarFallback className="text-[10px]">
-                    {getInitials(version.user.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {version.user.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(version.createdAt), {
-                      addSuffix: true,
-                    })}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRestore(version);
-                  }}
-                  disabled={isRestoring}
-                  title="Restore this version"
-                >
-                  {isRestoring ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RotateCcw className="h-3 w-3" />
-                  )}
-                </Button>
+            {/* Current version entry */}
+            <div
+              className={`flex items-start gap-2 rounded-md p-2 cursor-pointer transition-colors ${
+                previewId === null
+                  ? "bg-primary/10"
+                  : "hover:bg-muted"
+              }`}
+              onClick={() => setPreviewId(null)}
+            >
+              <div className="h-6 w-6 mt-0.5 rounded-full bg-primary/20 flex items-center justify-center">
+                <Eye className="h-3 w-3 text-primary" />
               </div>
-            ))}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Current</p>
+                <p className="text-xs text-muted-foreground">Live draft</p>
+              </div>
+            </div>
+
+            {/* Historical versions */}
+            {versions.map((version) => {
+              const createdDate = new Date(version.createdAt);
+              return (
+                <div
+                  key={version.id}
+                  className={`group flex items-start gap-2 rounded-md p-2 cursor-pointer transition-colors ${
+                    previewId === version.id
+                      ? "bg-primary/10"
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() =>
+                    setPreviewId(previewId === version.id ? null : version.id)
+                  }
+                >
+                  <Avatar className="h-6 w-6 mt-0.5">
+                    <AvatarFallback className="text-[10px]">
+                      {getInitials(version.user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {version.user.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(createdDate, { addSuffix: true })}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      {createdDate.toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRestore(version);
+                    }}
+                    disabled={isRestoring}
+                    title="Restore this version"
+                  >
+                    {isRestoring ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </ScrollArea>
       </div>
