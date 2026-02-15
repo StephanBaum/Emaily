@@ -244,13 +244,20 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
                     handleProcess(agent.id);
                   }}
                 >
-                  <Bot className="mr-2 h-3.5 w-3.5" />
-                  {agent.name}
-                  {agent.isDefault && (
-                    <Badge variant="secondary" className="ml-2 text-[10px] px-1 py-0">
-                      default
-                    </Badge>
-                  )}
+                  <Bot className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      {agent.name}
+                      {agent.isDefault && (
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                          default
+                        </Badge>
+                      )}
+                    </div>
+                    {agent.role && (
+                      <span className="text-[11px] text-muted-foreground">{agent.role}</span>
+                    )}
+                  </div>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
