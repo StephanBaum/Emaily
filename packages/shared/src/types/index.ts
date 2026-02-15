@@ -238,6 +238,60 @@ export interface AIBulkProcessingResult {
   results: AIProcessingResult[];
 }
 
+// Preferences
+export interface UserPreferences {
+  theme: "light" | "dark" | "system";
+  density: "compact" | "comfortable";
+  dateFormat: "relative" | "absolute" | "iso";
+  previewLines: number;
+  notifications: {
+    browser: boolean;
+    sound: boolean;
+    digestEmail: boolean;
+  };
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: "system",
+  density: "comfortable",
+  dateFormat: "relative",
+  previewLines: 2,
+  notifications: {
+    browser: true,
+    sound: false,
+    digestEmail: false,
+  },
+};
+
+// Notifications
+export type NotificationType = "ai_notify" | "assignment" | "mention" | "invite";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  teamId: string;
+  type: NotificationType;
+  title: string;
+  message: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  read: boolean;
+  createdAt: Date;
+}
+
+// Team Invites
+export interface TeamInvite {
+  id: string;
+  teamId: string;
+  email: string;
+  role: string;
+  invitedById: string;
+  token: string;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  createdAt: Date;
+}
+
 // Activity types
 export type ActivityAction =
   | "login"

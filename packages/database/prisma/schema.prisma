@@ -20,13 +20,15 @@ model Team {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users      User[]
-  mailboxes  Mailbox[]
-  tags       Tag[]
-  contacts   Contact[]
-  qaPairs    QAPair[]
-  activities ActivityLog[]
-  agents     Agent[]
+  users         User[]
+  mailboxes     Mailbox[]
+  tags          Tag[]
+  contacts      Contact[]
+  qaPairs       QAPair[]
+  activities    ActivityLog[]
+  agents        Agent[]
+  invites       TeamInvite[]
+  notifications Notification[]
 
   @@map("teams")
 }
@@ -40,6 +42,9 @@ model User {
   totpEnabled  Boolean  @default(false) @map("totp_enabled")
   role         String   @default("member") // admin, member
   teamId       String   @map("team_id")
+  avatar       Bytes?
+  avatarMime   String?            @map("avatar_mime")
+  preferences  Json               @default("{}") @map("preferences")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -53,6 +58,8 @@ model User {
   draftVersions  DraftVersion[]
   activities     ActivityLog[]
   refreshTokens  RefreshToken[]
+  invitesSent    TeamInvite[]     @relation("invites_sent")
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -98,6 +105,7 @@ model Mailbox {
   folderDrafts    String   @default("Drafts") @map("folder_drafts")
   folderSent      String   @default("Sent") @map("folder_sent")
   folderSpam      String   @default("Junk") @map("folder_spam")
+  signature       String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -123,6 +131,45 @@ model MailboxAccess {
 
   @@unique([userId, mailboxId])
   @@map("mailbox_access")
+}
+
+model TeamInvite {
+  id          String    @id @default(cuid())
+  teamId      String    @map("team_id")
+  email       String
+  role        String    @default("member")
+  invitedById String    @map("invited_by_id")
+  token       String    @unique
+  expiresAt   DateTime  @map("expires_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  team      Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("invites_sent", fields: [invitedById], references: [id])
+
+  @@index([email])
+  @@index([token])
+  @@map("team_invites")
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  teamId     String   @map("team_id")
+  type       String
+  title      String
+  message    String?
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 model MailboxSync {
@@ -381,6 +428,7 @@ model Tag {
   aiAction      String   @default("none") // none, draft, research_draft, auto_reply, archive, notify
   autoRules     Json?    @map("auto_rules") // TagRule conditions
   minTrustLevel String   @default("stranger") @map("min_trust_level") // minimum sender trust for AI to apply: stranger, known, trusted, vip
+  notifyRoles   String[] @default([]) @map("notify_roles")
   tagGroup      String?  @map("tag_group") // Sidebar grouping (e.g. "Internal", "Projects")
   active        Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
