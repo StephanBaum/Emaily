@@ -307,9 +307,28 @@ export function SharedDraftComposer({
     savedIndicatorRef.current = setTimeout(() => setShowSaved(false), 2000);
   }, []);
 
+  // Request the server to create a version snapshot of the current body
+  // (used when the 2s save already persisted the body but we need a version entry)
+  async function createVersionSnapshot() {
+    if (!draft?.isLockedByMe) return;
+    try {
+      const response = await fetch(`/api/shared-drafts/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ createVersion: true }),
+      });
+      if (response.ok) {
+        lastVersionedBodyRef.current = body;
+        setHistoryRefreshKey((k) => k + 1);
+      }
+    } catch {
+      // Silent fail
+    }
+  }
+
   // Two-timer auto-save for shared drafts:
   // - 2s debounce → save (skipVersion: true)
-  // - 8s idle → save with version (skipVersion: false)
+  // - 8s idle → create version snapshot
   useEffect(() => {
     if (draft?.isLockedByMe && body !== lastSavedBodyRef.current) {
       // Reset save timer (2s)
@@ -323,8 +342,12 @@ export function SharedDraftComposer({
       // Reset version timer (8s)
       if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
       versionTimeoutRef.current = setTimeout(async () => {
-        if (saveDraftRef.current) {
-          await saveDraftRef.current(false); // create version
+        // If body was already saved by the 2s timer, request a version snapshot
+        // without re-sending the body (avoids the "no change" skip on server)
+        if (body === lastSavedBodyRef.current) {
+          await createVersionSnapshot();
+        } else if (saveDraftRef.current) {
+          await saveDraftRef.current(false); // save + version
         }
       }, VERSION_DELAY);
     }
@@ -555,6 +578,24 @@ export function SharedDraftComposer({
     }
   }
 
+  async function handleCreateVersion() {
+    if (draft?.isLockedByMe) {
+      // Shared mode: save if needed, then create version on server
+      if (body !== lastSavedBodyRef.current) {
+        await saveDraft(false); // save + version
+      } else {
+        await createVersionSnapshot();
+      }
+    } else if (mode === "personal" && !draft && body.trim()) {
+      // Personal mode: create local version
+      lastVersionedBodyRef.current = body;
+      const updated = addLocalVersion(thread.id, body);
+      setLocalVersions(updated);
+      savePersonalDraft(thread.id, body);
+    }
+    setHistoryRefreshKey((k) => k + 1);
+  }
+
   function handlePersonalClose() {
     // Save to localStorage before closing (preserves content for later)
     if (body.trim()) {
@@ -696,6 +737,7 @@ export function SharedDraftComposer({
           localVersions={!draft ? localVersions : undefined}
           currentBody={body}
           onRestore={handleVersionRestore}
+          onCreateVersion={handleCreateVersion}
           refreshKey={historyRefreshKey}
         />
       </div>

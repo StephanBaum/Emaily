@@ -34,7 +34,15 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
       include: {
         _count: {
-          select: { threads: true },
+          select: {
+            threads: {
+              where: {
+                thread: {
+                  status: { not: "trashed" },
+                },
+              },
+            },
+          },
         },
       },
     });

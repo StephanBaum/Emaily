@@ -63,6 +63,17 @@ export function Sidebar() {
   const activeTags = searchParams.get("tags");
   const activeGroup = searchParams.get("group");
 
+  // Build URL suffix to preserve tag selection across view changes
+  function getTagParams(): string {
+    const parts: string[] = [];
+    if (activeTag) parts.push(`tag=${activeTag}`);
+    if (activeTags) parts.push(`tags=${activeTags}`);
+    if (activeGroup) parts.push(`group=${encodeURIComponent(activeGroup)}`);
+    return parts.length > 0 ? `&${parts.join("&")}` : "";
+  }
+
+  const tagParams = getTagParams();
+
   function getGroupHref(groupName: string, groupTags: TagData[]) {
     const ids = groupTags.map((t) => t.id).join(",");
     return `/inbox?tags=${ids}&group=${encodeURIComponent(groupName)}`;
@@ -186,35 +197,34 @@ export function Sidebar() {
       <ScrollArea className="flex-1 px-3 py-4">
         <div className="space-y-1">
           <NavItem
-            href="/inbox"
+            href={tagParams ? `/inbox?${tagParams.slice(1)}` : "/inbox"}
             icon={Inbox}
             label="Inbox"
             isActive={
               (pathname === "/inbox" || pathname.startsWith("/inbox/")) &&
-              !activeTag &&
               !searchParams.get("status")
             }
           />
           <NavItem
-            href="/inbox?status=archived"
+            href={`/inbox?status=archived${tagParams}`}
             icon={Archive}
             label="Archived"
             isActive={searchParams.get("status") === "archived"}
           />
           <NavItem
-            href="/inbox?status=snoozed"
+            href={`/inbox?status=snoozed${tagParams}`}
             icon={Clock}
             label="Snoozed"
             isActive={searchParams.get("status") === "snoozed"}
           />
           <NavItem
-            href="/inbox?status=quarantined"
+            href={`/inbox?status=quarantined${tagParams}`}
             icon={ShieldAlert}
             label="Spam"
             isActive={searchParams.get("status") === "quarantined"}
           />
           <NavItem
-            href="/inbox?status=trashed"
+            href={`/inbox?status=trashed${tagParams}`}
             icon={Trash2}
             label="Trash"
             isActive={searchParams.get("status") === "trashed"}

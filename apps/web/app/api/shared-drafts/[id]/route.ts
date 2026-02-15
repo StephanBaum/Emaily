@@ -83,7 +83,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { body: draftBody, subject, toAddresses, ccAddresses, bccAddresses, status, skipVersion } = body;
+  const { body: draftBody, subject, toAddresses, ccAddresses, bccAddresses, status, skipVersion, createVersion } = body;
 
   // Find draft with access check
   const draft = await prisma.sharedDraft.findFirst({
@@ -128,6 +128,25 @@ export async function PATCH(
         bodySnapshot: draft.body,
       },
     });
+  }
+
+  // Force-create a version snapshot of the current body (used when body was already saved
+  // by the quick save timer but we want to mark this point as a version)
+  if (createVersion && draft.body.trim()) {
+    // Avoid duplicates: only create if latest version differs from current body
+    const latestVersion = await prisma.draftVersion.findFirst({
+      where: { sharedDraftId: id },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!latestVersion || latestVersion.bodySnapshot !== draft.body) {
+      await prisma.draftVersion.create({
+        data: {
+          sharedDraftId: id,
+          userId: session.user.id,
+          bodySnapshot: draft.body,
+        },
+      });
+    }
   }
 
   const updatedDraft = await prisma.sharedDraft.update({

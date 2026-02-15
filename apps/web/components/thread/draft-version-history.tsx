@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, RotateCcw, Eye, Clock } from "lucide-react";
+import { Loader2, RotateCcw, Eye, Clock, Plus } from "lucide-react";
 import { getInitials } from "@/lib/format";
 
 interface Version {
@@ -30,6 +30,7 @@ interface DraftVersionHistoryProps {
   localVersions?: LocalVersion[];
   currentBody: string;
   onRestore: (body: string) => void;
+  onCreateVersion?: () => void;
   refreshKey?: number;
 }
 
@@ -38,6 +39,7 @@ export function DraftVersionHistory({
   localVersions,
   currentBody,
   onRestore,
+  onCreateVersion,
   refreshKey,
 }: DraftVersionHistoryProps) {
   const isLocalMode = !draftId;
@@ -106,8 +108,14 @@ export function DraftVersionHistory({
 
   if (versions.length === 0) {
     return (
-      <div className="p-8 text-center text-sm text-muted-foreground">
-        No version history yet. Versions are created automatically when you pause editing.
+      <div className="p-8 text-center text-sm text-muted-foreground space-y-3">
+        <p>No version history yet. Versions are created automatically when you pause editing.</p>
+        {onCreateVersion && currentBody.trim() && (
+          <Button variant="outline" size="sm" onClick={onCreateVersion}>
+            <Plus className="mr-2 h-3 w-3" />
+            Save Version Now
+          </Button>
+        )}
       </div>
     );
   }
@@ -204,6 +212,13 @@ export function DraftVersionHistory({
           <span className="text-sm text-muted-foreground">
             {previewVersion ? "Version Preview" : "Current Version"}
           </span>
+          <div className="flex items-center gap-2">
+          {!previewVersion && onCreateVersion && currentBody.trim() && (
+            <Button variant="outline" size="sm" onClick={onCreateVersion}>
+              <Plus className="mr-2 h-3 w-3" />
+              Save Version
+            </Button>
+          )}
           {previewVersion && (
             <Button
               variant="secondary"
@@ -224,6 +239,7 @@ export function DraftVersionHistory({
               Restore
             </Button>
           )}
+          </div>
         </div>
         <ScrollArea className="flex-1">
           <div className="p-4">

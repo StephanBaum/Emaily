@@ -30,7 +30,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Apply theme
+  // Apply theme and cache in localStorage for blocking script
   useEffect(() => {
     const root = document.documentElement;
     if (preferences.theme === "dark") {
@@ -40,6 +40,11 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     } else {
       const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.classList.toggle("dark", isDark);
+    }
+    try {
+      localStorage.setItem("emaily-theme", preferences.theme);
+    } catch {
+      // Ignore storage errors
     }
   }, [preferences.theme]);
 
