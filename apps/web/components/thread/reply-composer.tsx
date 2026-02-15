@@ -125,7 +125,7 @@ export function ReplyComposer({ thread, mailbox }: ReplyComposerProps) {
 
       <div className="p-4">
         <textarea
-          className="min-h-[150px] w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="min-h-[150px] w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-ring"
           placeholder="Write your reply..."
           value={body}
           onChange={(e) => setBody(e.target.value)}

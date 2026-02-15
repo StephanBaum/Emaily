@@ -131,7 +131,7 @@ export function FilterToolbar({
             className={cn(
               "rounded-md px-3 py-1 text-sm font-medium transition-colors",
               activeStatus === opt.value
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -169,7 +169,7 @@ export function FilterToolbar({
           })}
 
           {/* Add tag / clear button group */}
-          <div className="flex items-center rounded-md border border-transparent hover:[&>*]:first:rounded-l-md hover:[&>*]:last:rounded-r-md">
+          <div className="flex items-center rounded-md border border-transparent first:*:hover:rounded-l-md last:*:hover:rounded-r-md">
             <Popover>
               <PopoverTrigger asChild>
                 <button

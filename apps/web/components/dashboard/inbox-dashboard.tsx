@@ -212,7 +212,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
     <div className="px-6 py-6 space-y-6">
       {/* Unprocessed threads section */}
       {hasUnprocessed && threads && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <Card className="border-primary/20 bg-linear-to-br from-primary/5 to-transparent">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-primary/10 p-2">
@@ -240,7 +240,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
 
       {/* Nudges section - Needs attention */}
       {hasNudges && (
-        <Card className="border-orange-200 dark:border-orange-900/50 bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
+        <Card className="border-orange-200 dark:border-orange-900/50 bg-linear-to-br from-orange-50/50 to-transparent dark:from-orange-950/20">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-orange-500/10 p-2">

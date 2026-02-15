@@ -27,7 +27,7 @@ export function BulkActionBar({
   const isTrashView = currentStatus === "trashed";
 
   return (
-    <div className="sticky top-0 z-20 flex items-center justify-between border-b bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="sticky top-0 z-20 flex items-center justify-between border-b bg-background/95 px-4 py-2 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onClear}>
           <X className="h-4 w-4" />

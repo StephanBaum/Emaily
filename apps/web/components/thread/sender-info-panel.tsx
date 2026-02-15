@@ -116,7 +116,7 @@ export function SenderInfoPanel({
             value={trustLevel}
             onChange={(e) => handleTrustChange(e.target.value)}
             disabled={isSaving}
-            className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="stranger">Stranger</option>
             <option value="known">Known</option>

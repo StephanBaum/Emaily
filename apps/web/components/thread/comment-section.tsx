@@ -154,7 +154,7 @@ export function CommentSection({ threadId, initialComments, compact = false, onC
                       <span className="text-xs font-medium truncate">
                         {comment.user.name}
                       </span>
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                      <span className="text-[10px] text-muted-foreground shrink-0">
                         {formatDistanceToNow(new Date(comment.createdAt), {
                           addSuffix: true,
                         })}

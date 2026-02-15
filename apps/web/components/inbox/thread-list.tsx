@@ -153,7 +153,7 @@ export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, f
 
         return (
           <div key={s}>
-            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-muted/50 px-4 py-1.5 backdrop-blur-sm">
+            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-muted/50 px-4 py-1.5 backdrop-blur-xs">
               <Icon className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">
                 {meta.label}

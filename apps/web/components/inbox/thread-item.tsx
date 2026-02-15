@@ -180,7 +180,7 @@ export function ThreadItem({
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <ShieldQuestion className="h-3.5 w-3.5 flex-shrink-0 text-orange-500" />
+                    <ShieldQuestion className="h-3.5 w-3.5 shrink-0 text-orange-500" />
                   </TooltipTrigger>
                   <TooltipContent>Unknown sender</TooltipContent>
                 </Tooltip>
@@ -190,7 +190,7 @@ export function ThreadItem({
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Crown className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                    <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                   </TooltipTrigger>
                   <TooltipContent>VIP contact</TooltipContent>
                 </Tooltip>
@@ -200,7 +200,7 @@ export function ThreadItem({
               <Bot className="h-3 w-3 text-muted-foreground" />
             )}
           </div>
-          <span className="flex-shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(thread.lastActivityAt), {
               addSuffix: true,
             })}
@@ -217,10 +217,10 @@ export function ThreadItem({
             {thread.subject}
           </span>
           {thread.hasSentReply && (
-            <Reply className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+            <Reply className="h-3 w-3 shrink-0 text-muted-foreground" />
           )}
           {thread._count && thread._count.emails > 1 && (
-            <span className="flex-shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-xs text-muted-foreground">
               ({thread._count.emails})
             </span>
           )}
