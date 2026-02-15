@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,6 +103,12 @@ export function LoginForm() {
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {showTotp ? "Verify & Sign in" : "Sign in"}
       </Button>
+      <p className="text-center text-sm text-muted-foreground">
+        Don&apos;t have an account?{" "}
+        <Link href="/register" className="underline">
+          Sign up
+        </Link>
+      </p>
     </form>
   );
 }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/inbox/sidebar";
 import { SessionProvider } from "next-auth/react";
 import { ThreadUpdatesProvider } from "@/contexts/thread-updates-context";
+import { PreferencesProvider } from "@/contexts/preferences-context";
 
 export default async function DashboardLayout({
   children,
@@ -18,14 +19,16 @@ export default async function DashboardLayout({
 
   return (
     <SessionProvider session={session}>
-      <ThreadUpdatesProvider>
-        <div className="flex h-screen overflow-hidden">
-          <Suspense>
-            <Sidebar />
-          </Suspense>
-          <main className="flex-1 overflow-auto">{children}</main>
-        </div>
-      </ThreadUpdatesProvider>
+      <PreferencesProvider>
+        <ThreadUpdatesProvider>
+          <div className="flex h-screen overflow-hidden">
+            <Suspense>
+              <Sidebar />
+            </Suspense>
+            <main className="flex-1 overflow-auto">{children}</main>
+          </div>
+        </ThreadUpdatesProvider>
+      </PreferencesProvider>
     </SessionProvider>
   );
 }

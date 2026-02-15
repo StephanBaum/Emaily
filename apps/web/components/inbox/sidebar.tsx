@@ -39,6 +39,7 @@ import { useGroupOrder, useCollapsedGroups, useTagOrder } from "@/hooks/use-tag-
 import { useState } from "react";
 import { revalidateAll, revalidateThreads } from "@/lib/revalidate";
 import { ImapStatusIndicator } from "./imap-status-indicator";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -378,6 +379,14 @@ export function Sidebar() {
 
       {/* User Menu */}
       <div className="border-t p-3">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <NotificationBell />
+          <Link href="/settings">
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -401,9 +410,11 @@ export function Sidebar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              Profile
+            <DropdownMenuItem asChild>
+              <Link href="/settings/profile">
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings/agents">
@@ -411,9 +422,11 @@ export function Sidebar() {
                 AI Agents
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>

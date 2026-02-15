@@ -17,7 +17,7 @@ export default function AgentsSettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8">
+      <div>
         <h1 className="text-2xl font-bold mb-6">AI Agents</h1>
         <div className="text-muted-foreground">Loading agents...</div>
       </div>
@@ -25,7 +25,7 @@ export default function AgentsSettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">AI Agents</h1>

@@ -154,5 +154,19 @@ export async function POST(
     },
   });
 
+  // Notify assignee
+  if (assignedToId !== session.user.id) {
+    const { createNotification } = await import("@/lib/services/notification-service");
+    await createNotification({
+      userId: assignedToId,
+      teamId: thread.mailbox.teamId,
+      type: "assignment",
+      title: `Assigned to you: ${thread.subject}`,
+      message: `By ${session.user.name}`,
+      targetType: "thread",
+      targetId: threadId,
+    });
+  }
+
   return NextResponse.json(assignment, { status: 201 });
 }

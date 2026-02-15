@@ -777,6 +777,20 @@ export async function processThreadWithAI(
 
         case "notify": {
           if (executedActionKeys.has(`ai_notified:${tag.name}`)) break;
+
+          const { createNotificationsForTeam } = await import("@/lib/services/notification-service");
+
+          await createNotificationsForTeam({
+            teamId,
+            mailboxId: thread.mailboxId,
+            type: "ai_notify",
+            title: `AI flagged: ${thread.subject}`,
+            message: `Tagged with "${tag.name}"`,
+            targetType: "thread",
+            targetId: threadId,
+            roles: tag.notifyRoles?.length ? tag.notifyRoles : undefined,
+          });
+
           result.actionsExecuted.push({
             action: "notify",
             tagId: tag.id,
