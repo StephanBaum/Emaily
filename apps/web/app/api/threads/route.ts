@@ -96,13 +96,14 @@ export async function GET(request: NextRequest) {
     include: {
       emails: {
         orderBy: { date: "desc" },
-        take: 1,
+        take: 2,
         select: {
           id: true,
           fromAddress: true,
           fromName: true,
           bodyText: true,
           date: true,
+          isSent: true,
         },
       },
       tags: {

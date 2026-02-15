@@ -6,7 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Crown, Reply, ShieldQuestion, Sparkles } from "lucide-react";
+import { Bot, Clock, Crown, Reply, ShieldQuestion, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePrefetchThread } from "@/hooks/use-thread-actions";
 
@@ -16,6 +16,7 @@ interface ThreadEmail {
   fromName: string | null;
   bodyText: string;
   date: string;
+  isSent?: boolean;
 }
 
 interface ThreadTag {
@@ -89,7 +90,9 @@ export function ThreadItem({
   );
 
   const latestEmail = thread.emails[0];
-  const senderName = latestEmail?.fromName || latestEmail?.fromAddress || "Unknown";
+  // Show the counterpart (the person we're talking to), not ourselves
+  const counterpartEmail = thread.emails.find((e) => !e.isSent) || latestEmail;
+  const senderName = counterpartEmail?.fromName || counterpartEmail?.fromAddress || "Unknown";
   const senderInitial = senderName[0]?.toUpperCase() || "?";
   const preview = latestEmail?.bodyText?.slice(0, 100) || "";
 
@@ -216,7 +219,17 @@ export function ThreadItem({
           >
             {thread.subject}
           </span>
-          {thread.hasSentReply && (
+          {thread.hasSentReply && latestEmail?.isSent && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Clock className="h-3 w-3 shrink-0 text-blue-500" />
+                </TooltipTrigger>
+                <TooltipContent>Awaiting reply</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {thread.hasSentReply && !latestEmail?.isSent && (
             <Reply className="h-3 w-3 shrink-0 text-muted-foreground" />
           )}
           {thread._count && thread._count.emails > 1 && (

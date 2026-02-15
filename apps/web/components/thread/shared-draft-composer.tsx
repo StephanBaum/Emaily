@@ -327,7 +327,7 @@ export function SharedDraftComposer({
     setError(null);
 
     try {
-      // Send the email
+      // Send the email (server also marks the shared draft as sent)
       const response = await fetch("/api/emails/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -337,6 +337,7 @@ export function SharedDraftComposer({
           to: [replyTo],
           subject: replySubject,
           body: body.trim(),
+          sharedDraftId: draft.id,
         }),
       });
 
@@ -344,13 +345,6 @@ export function SharedDraftComposer({
         const data = await response.json();
         throw new Error(data.error || "Failed to send email");
       }
-
-      // Mark draft as sent
-      await fetch(`/api/shared-drafts/${draft.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "sent" }),
-      });
 
       // Elevate sender trust (fire-and-forget)
       fetch("/api/contacts/elevate-trust", {
@@ -494,22 +488,24 @@ export function SharedDraftComposer({
           >
             Click to reply...
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setMode("shared");
-              createDraft();
-            }}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Users className="mr-2 h-4 w-4" />
-            )}
-            Start Shared Draft
-          </Button>
+          {!draft && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setMode("shared");
+                createDraft();
+              }}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Users className="mr-2 h-4 w-4" />
+              )}
+              Start Shared Draft
+            </Button>
+          )}
           {activeAgents.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

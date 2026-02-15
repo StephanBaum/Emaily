@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { threadId, mailboxId, to, cc, bcc, subject, body: emailBody } = body;
+  const { threadId, mailboxId, to, cc, bcc, subject, body: emailBody, sharedDraftId } = body;
 
   if (!mailboxId || !to || !subject || !emailBody) {
     return NextResponse.json(
@@ -166,6 +166,20 @@ export async function POST(request: NextRequest) {
         isBot: false,
       },
     });
+
+    // Mark shared draft as sent (if sending from a shared draft)
+    if (sharedDraftId) {
+      await prisma.sharedDraft.updateMany({
+        where: { id: sharedDraftId, threadId: targetThreadId },
+        data: { status: "sent", lockedById: null, lockExpiresAt: null, lockType: null },
+      });
+    } else if (targetThreadId) {
+      // Fallback: mark any active draft for this thread as sent
+      await prisma.sharedDraft.updateMany({
+        where: { threadId: targetThreadId, status: { not: "sent" } },
+        data: { status: "sent", lockedById: null, lockExpiresAt: null, lockType: null },
+      });
+    }
 
     await smtpClient.close();
 
