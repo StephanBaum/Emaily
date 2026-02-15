@@ -16,7 +16,6 @@ export interface RefreshTokenPayload {
 }
 
 const ACCESS_TOKEN_EXPIRY = "15m";
-const _REFRESH_TOKEN_EXPIRY = "7d"; // reserved for future use
 
 /**
  * Generate an access token (short-lived JWT)

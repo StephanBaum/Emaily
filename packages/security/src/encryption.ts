@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
@@ -75,6 +75,5 @@ export function generateMasterKey(): string {
  * Uses HMAC-SHA256 with a separate key
  */
 export function blindIndex(data: string, indexKey: string): string {
-  const { createHmac } = require("crypto");
   return createHmac("sha256", indexKey).update(data.toLowerCase()).digest("hex");
 }
