@@ -34,6 +34,7 @@ import {
   SlidersHorizontal,
   Users,
   Trash2,
+  Settings,
 } from "lucide-react";
 import { useMailboxes } from "@/hooks/use-mailboxes";
 import { useTags, type TagData } from "@/hooks/use-tags";
@@ -257,10 +258,11 @@ export function Sidebar() {
               Tags
             </h3>
             <Link
-              href="/tags"
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              href="/settings/tags"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="Manage tags"
             >
-              Manage
+              <Settings className="h-3.5 w-3.5" />
             </Link>
           </div>
 
@@ -271,10 +273,10 @@ export function Sidebar() {
             </div>
           ) : !tags || tags.length === 0 ? (
             <NavItem
-              href="/tags"
+              href="/settings/tags"
               icon={Tag}
               label="Create Tags"
-              isActive={pathname === "/tags"}
+              isActive={pathname === "/settings/tags"}
             />
           ) : (
             <>

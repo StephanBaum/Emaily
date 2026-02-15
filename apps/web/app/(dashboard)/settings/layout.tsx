@@ -9,7 +9,7 @@ export default function SettingsLayout({
     <div className="flex h-full">
       <SettingsSidebar />
       <div className="flex-1 overflow-auto p-8">
-        <div className="max-w-3xl">{children}</div>
+        <div className="max-w-4xl">{children}</div>
       </div>
     </div>
   );

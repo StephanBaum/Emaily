@@ -424,9 +424,14 @@ export default function TagsPage() {
     : null;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-14 items-center justify-between border-b px-6">
-        <h1 className="text-lg font-semibold">Manage Tags</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Tags</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage tags, groups, and AI actions for organizing threads.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -444,9 +449,9 @@ export default function TagsPage() {
             New Tag
           </Button>
         </div>
-      </header>
+      </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div>
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -612,7 +617,7 @@ export default function TagsPage() {
         )}
       </div>
 
-      {/* Create / Edit Dialog */}
+      {/* Create / Edit Dialog — rendered outside scroll area for proper overlay */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
