@@ -24,8 +24,59 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DraftVersionHistory } from "./draft-version-history";
 import { cn } from "@/lib/utils";
-import { useAgents } from "@/hooks/use-agents";
+import { useAgents, type AgentData } from "@/hooks/use-agents";
 import { revalidateThreads } from "@/lib/revalidate";
+
+function DraftWithAIButton({
+  agents,
+  isLoading,
+  onSelect,
+  variant = "outline",
+  align = "end",
+}: {
+  agents: AgentData[];
+  isLoading: boolean;
+  onSelect: (agentId: string) => void;
+  variant?: "outline" | "secondary";
+  align?: "start" | "end";
+}) {
+  if (agents.length === 0) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant={variant} size="sm" disabled={isLoading}>
+          {isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="mr-2 h-4 w-4" />
+          )}
+          Draft with AI
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={align}>
+        {agents.map((agent) => (
+          <DropdownMenuItem key={agent.id} onClick={() => onSelect(agent.id)}>
+            <Sparkles className="mr-2 h-3.5 w-3.5 shrink-0" />
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                {agent.name}
+                {agent.isDefault && (
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                    default
+                  </Badge>
+                )}
+              </div>
+              {agent.role && (
+                <span className="text-[11px] text-muted-foreground">{agent.role}</span>
+              )}
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 interface Mailbox {
   id: string;
@@ -506,47 +557,13 @@ export function SharedDraftComposer({
               Start Shared Draft
             </Button>
           )}
-          {activeAgents.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={isDraftingWithAI}
-                >
-                  {isDraftingWithAI ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                  )}
-                  Draft with AI
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {activeAgents.map((agent) => (
-                  <DropdownMenuItem
-                    key={agent.id}
-                    onClick={() => handleDraftWithAI(agent.id)}
-                  >
-                    <Sparkles className="mr-2 h-3.5 w-3.5 shrink-0" />
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5">
-                        {agent.name}
-                        {agent.isDefault && (
-                          <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                            default
-                          </Badge>
-                        )}
-                      </div>
-                      {agent.role && (
-                        <span className="text-[11px] text-muted-foreground">{agent.role}</span>
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DraftWithAIButton
+            agents={activeAgents}
+            isLoading={isDraftingWithAI}
+            onSelect={handleDraftWithAI}
+            variant="secondary"
+            align="end"
+          />
         </div>
       </div>
     );
@@ -611,40 +628,12 @@ export function SharedDraftComposer({
                 )}
                 Share Draft
               </Button>
-              {activeAgents.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={isDraftingWithAI}
-                    >
-                      {isDraftingWithAI ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="mr-2 h-4 w-4" />
-                      )}
-                      Draft with AI
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {activeAgents.map((agent) => (
-                      <DropdownMenuItem
-                        key={agent.id}
-                        onClick={() => handleDraftWithAI(agent.id)}
-                      >
-                        <Sparkles className="mr-2 h-3.5 w-3.5" />
-                        {agent.name}
-                        {agent.isDefault && (
-                          <Badge variant="secondary" className="ml-2 text-[10px] px-1 py-0">
-                            default
-                          </Badge>
-                        )}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              <DraftWithAIButton
+                agents={activeAgents}
+                isLoading={isDraftingWithAI}
+                onSelect={handleDraftWithAI}
+                align="start"
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -820,39 +809,13 @@ export function SharedDraftComposer({
               <Paperclip className="mr-2 h-4 w-4" />
               Attach
             </Button>
-            {activeAgents.length > 0 && !lockedByOther && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isDraftingWithAI}
-                  >
-                    {isDraftingWithAI ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-2 h-4 w-4" />
-                    )}
-                    Draft with AI
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {activeAgents.map((agent) => (
-                    <DropdownMenuItem
-                      key={agent.id}
-                      onClick={() => handleDraftWithAI(agent.id)}
-                    >
-                      <Sparkles className="mr-2 h-3.5 w-3.5" />
-                      {agent.name}
-                      {agent.isDefault && (
-                        <Badge variant="secondary" className="ml-2 text-[10px] px-1 py-0">
-                          default
-                        </Badge>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {!lockedByOther && (
+              <DraftWithAIButton
+                agents={activeAgents}
+                isLoading={isDraftingWithAI}
+                onSelect={handleDraftWithAI}
+                align="start"
+              />
             )}
           </div>
 
