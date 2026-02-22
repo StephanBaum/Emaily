@@ -92,7 +92,8 @@ export function RegisterForm() {
       });
 
       if (result?.ok) {
-        window.location.href = "/settings/mailboxes";
+        // New team creators go through onboarding; joiners go straight to inbox
+        window.location.href = teamId ? "/inbox" : "/onboarding";
       } else {
         setError("Account created but sign-in failed. Please log in manually.");
       }

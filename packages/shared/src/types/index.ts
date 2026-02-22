@@ -249,6 +249,7 @@ export interface UserPreferences {
     sound: boolean;
     digestEmail: boolean;
   };
+  onboardingCompleted?: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {

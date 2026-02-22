@@ -5,6 +5,8 @@ import { Sidebar } from "@/components/inbox/sidebar";
 import { SessionProvider } from "next-auth/react";
 import { ThreadUpdatesProvider } from "@/contexts/thread-updates-context";
 import { PreferencesProvider } from "@/contexts/preferences-context";
+import { prisma } from "@/lib/prisma";
+import type { UserPreferences } from "@emaily/shared";
 
 export default async function DashboardLayout({
   children,
@@ -15,6 +17,18 @@ export default async function DashboardLayout({
 
   if (!session?.user) {
     redirect("/login");
+  }
+
+  // Redirect admins who haven't completed onboarding
+  if (session.user.role === "admin") {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { preferences: true },
+    });
+    const prefs = (user?.preferences ?? {}) as unknown as UserPreferences;
+    if (!prefs.onboardingCompleted) {
+      redirect("/onboarding");
+    }
   }
 
   return (
