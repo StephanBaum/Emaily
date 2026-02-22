@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Mail, Tag, SlidersHorizontal, Users, Bot } from "lucide-react";
+import { User, Mail, Tag, SlidersHorizontal, Users, Bot, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Preferences", href: "/settings/preferences", icon: SlidersHorizontal },
   { label: "Team", href: "/settings/team", icon: Users },
   { label: "AI Agents", href: "/settings/agents", icon: Bot },
+  { label: "API Keys", href: "/settings/api-keys", icon: Key },
 ];
 
 export function SettingsSidebar() {
