@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 import { prisma } from "@/lib/prisma";
 import { SmtpClient } from "@emaily/mail-engine";
 import { decrypt } from "@emaily/security";
 import { onThreadEmailAdded } from "@/lib/thread-cache";
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
+  const session = await unifiedAuth();
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

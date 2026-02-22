@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 import { processAllThreadsWithAI } from "@/lib/ai";
 import { checkRateLimit, rateLimits } from "@/lib/cache";
 
 export async function POST() {
-  const session = await auth();
+  const session = await unifiedAuth();
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

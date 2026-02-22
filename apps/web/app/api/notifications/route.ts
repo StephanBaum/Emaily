@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 import { prisma } from "@/lib/prisma";
 import { cacheOrFetch, cacheKeys, CACHE_TTL } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
+  const session = await unifiedAuth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

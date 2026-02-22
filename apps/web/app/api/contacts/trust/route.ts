@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 import { prisma } from "@/lib/prisma";
 import { TRUST_LEVEL_ORDER, type TrustLevel } from "@emaily/shared";
 
@@ -10,7 +10,7 @@ const VALID_TRUST_LEVELS = Object.keys(TRUST_LEVEL_ORDER);
  * Creates the contact if it doesn't exist yet.
  */
 export async function PUT(request: NextRequest) {
-  const session = await auth();
+  const session = await unifiedAuth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

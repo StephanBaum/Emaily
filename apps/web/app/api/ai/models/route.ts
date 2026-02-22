@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 
 const GEMINI_MODELS = [
   "gemini-2.0-flash",
@@ -8,7 +8,7 @@ const GEMINI_MODELS = [
 ];
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
+  const session = await unifiedAuth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

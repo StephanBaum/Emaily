@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 import { elevateTrustOnReply } from "@/lib/contacts";
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const session = await unifiedAuth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { unifiedAuth } from "@/lib/unified-auth";
 import { prisma } from "@/lib/prisma";
 
 /** Return typed error response */
@@ -14,7 +14,7 @@ export function apiSuccess(data?: unknown, status = 200) {
 
 /** Get authenticated session or return 401 response */
 export async function requireAuth() {
-  const session = await auth();
+  const session = await unifiedAuth();
   if (!session?.user) return { session: null, error: apiError("Unauthorized", 401) } as const;
   return { session, error: null } as const;
 }
