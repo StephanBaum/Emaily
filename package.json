@@ -8,6 +8,7 @@
     "test": "turbo test",
     "test:watch": "turbo test:watch",
     "clean": "turbo clean",
+    "start": "turbo start",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker-compose -f docker/docker-compose.yml down",
     "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f"
