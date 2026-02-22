@@ -19,14 +19,12 @@ interface NudgesResponse {
   totalNudges: number;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
 export function useNudges() {
   const { data, error, mutate } = useSWR<NudgesResponse>(
     "/api/nudges",
-    fetcher,
+    null,
     {
-      refreshInterval: 60000,
+      refreshInterval: 120000,
       revalidateOnFocus: false,
     }
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { memo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,7 @@ interface ThreadItemProps {
 
 const LOW_VALUE_TAGS = ["spam", "newsletter", "advertising", "notification", "marketing"];
 
-export function ThreadItem({
+export const ThreadItem = memo(function ThreadItem({
   thread,
   isSelectionMode = false,
   isSelected = false,
@@ -461,4 +461,4 @@ export function ThreadItem({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});

@@ -86,7 +86,7 @@ export function useThreads(params?: {
     fetcher<ThreadsResponse>,
     {
       ...realtimeConfig,
-      refreshInterval: 45000,
+      refreshInterval: 90000,
       revalidateOnFocus: false,
     }
   );
@@ -106,7 +106,7 @@ export function useThread(id: string) {
     fetcher<Thread>,
     {
       ...realtimeConfig,
-      refreshInterval: 60000,
+      refreshInterval: 120000,
       revalidateOnFocus: false,
     }
   );

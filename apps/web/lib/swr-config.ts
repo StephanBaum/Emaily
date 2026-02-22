@@ -5,14 +5,14 @@ import type { SWRConfiguration } from "swr";
  */
 
 // For frequently changing data (threads, inbox)
-// - Polls every 30s
+// - Polls every 60s
 // - Revalidates on focus (user expects fresh data)
-// - Dedupes requests within 5s
+// - Dedupes requests within 10s
 // - Shows stale data while revalidating
 export const realtimeConfig: SWRConfiguration = {
-  refreshInterval: 30000,
+  refreshInterval: 60000,
   revalidateOnFocus: true,
-  dedupingInterval: 5000,
+  dedupingInterval: 10000,
   keepPreviousData: true,
   errorRetryCount: 3,
 };

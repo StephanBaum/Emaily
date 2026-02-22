@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -335,7 +335,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
   );
 }
 
-function ThreadCard({ thread }: { thread: Thread }) {
+const ThreadCard = memo(function ThreadCard({ thread }: { thread: Thread }) {
   const { formatDateCompact } = useFormattedDate();
   const latestEmail = thread.emails?.[0];
   const senderName = latestEmail?.fromName || latestEmail?.fromEmail?.split("@")[0] || "Unknown";
@@ -423,7 +423,7 @@ function ThreadCard({ thread }: { thread: Thread }) {
       </div>
     </Link>
   );
-}
+});
 
 function RelevantSection({ group }: { group: AISummaryGroup }) {
   const Icon = ACTION_ICONS[group.action];
@@ -488,7 +488,7 @@ function RelevantSection({ group }: { group: AISummaryGroup }) {
   );
 }
 
-function EmailRow({ item, action }: { item: AISummaryGroup["items"][0]; action: AISummaryAction }) {
+const EmailRow = memo(function EmailRow({ item, action }: { item: AISummaryGroup["items"][0]; action: AISummaryAction }) {
   const senderName = item.senderName || item.senderEmail?.split("@")[0] || "Unknown";
   const senderInitial = senderName[0]?.toUpperCase() || "?";
 
@@ -547,7 +547,7 @@ function EmailRow({ item, action }: { item: AISummaryGroup["items"][0]; action: 
       )}
     </Link>
   );
-}
+});
 
 function HandledSection({ group }: { group: AISummaryGroup }) {
   const Icon = ACTION_ICONS[group.action];
@@ -663,7 +663,7 @@ function NudgeSection({
   );
 }
 
-function NudgeRow({
+const NudgeRow = memo(function NudgeRow({
   item,
   accentColor,
 }: {
@@ -717,7 +717,7 @@ function NudgeRow({
       </div>
     </Link>
   );
-}
+});
 
 function DashboardSkeleton() {
   return (

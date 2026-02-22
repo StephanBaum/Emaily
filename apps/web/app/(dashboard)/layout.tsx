@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/inbox/sidebar";
 import { SessionProvider } from "next-auth/react";
 import { ThreadUpdatesProvider } from "@/contexts/thread-updates-context";
 import { PreferencesProvider } from "@/contexts/preferences-context";
+import { SWRProvider } from "@/components/swr-provider";
 import { prisma } from "@/lib/prisma";
 import type { UserPreferences } from "@emaily/shared";
 
@@ -33,16 +34,18 @@ export default async function DashboardLayout({
 
   return (
     <SessionProvider session={session}>
-      <PreferencesProvider>
-        <ThreadUpdatesProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Suspense>
-              <Sidebar />
-            </Suspense>
-            <main className="flex-1 overflow-auto">{children}</main>
-          </div>
-        </ThreadUpdatesProvider>
-      </PreferencesProvider>
+      <SWRProvider>
+        <PreferencesProvider>
+          <ThreadUpdatesProvider>
+            <div className="flex h-screen overflow-hidden">
+              <Suspense>
+                <Sidebar />
+              </Suspense>
+              <main className="flex-1 overflow-auto">{children}</main>
+            </div>
+          </ThreadUpdatesProvider>
+        </PreferencesProvider>
+      </SWRProvider>
     </SessionProvider>
   );
 }
