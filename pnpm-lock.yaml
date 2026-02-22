@@ -336,6 +336,34 @@ importers:
         specifier: ^4.21.0
         version: 4.21.0
 
+  workers/sync-worker:
+    dependencies:
+      '@emaily/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@emaily/mail-engine':
+        specifier: workspace:*
+        version: link:../../packages/mail-engine
+      '@emaily/security':
+        specifier: workspace:*
+        version: link:../../packages/security
+      '@emaily/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      bullmq:
+        specifier: ^5.69.2
+        version: 5.69.2
+      dotenv:
+        specifier: ^17.3.1
+        version: 17.3.1
+      ioredis:
+        specifier: ^5.9.3
+        version: 5.9.3
+    devDependencies:
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+
 packages:
 
   '@acemir/cssom@0.9.31':

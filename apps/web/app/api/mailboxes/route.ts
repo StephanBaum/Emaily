@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cacheOrFetch, cacheKeys, CACHE_TTL, cacheInvalidate } from "@/lib/cache";
+import { Queue } from "bullmq";
 
 export async function GET() {
   const session = await auth();
@@ -144,6 +145,28 @@ export async function POST(request: NextRequest) {
 
   // Invalidate mailboxes cache for this user
   await cacheInvalidate(cacheKeys.mailboxes(session.user.id));
+
+  // Queue an immediate sync so emails appear without waiting for the scheduler
+  try {
+    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+    const parsed = new URL(redisUrl);
+    const syncQueue = new Queue("email-sync", {
+      connection: {
+        host: parsed.hostname,
+        port: parseInt(parsed.port || "6379", 10),
+        password: parsed.password || undefined,
+      },
+    });
+    await syncQueue.add(`sync-initial-${mailbox.id}`, {
+      mailboxId: mailbox.id,
+      teamId: user.teamId,
+      emailAddress,
+    });
+    await syncQueue.close();
+  } catch (error) {
+    // Non-critical — the scheduler will pick it up on the next cycle
+    console.warn("[Mailbox API] Failed to queue initial sync:", error);
+  }
 
   return NextResponse.json(mailbox, { status: 201 });
 }

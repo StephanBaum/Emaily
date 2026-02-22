@@ -388,6 +388,7 @@ export function Sidebar() {
           />
           <span className="truncate">{isSyncing ? "Syncing..." : "Sync Mail"}</span>
         </Button>
+        <p className="text-xs text-muted-foreground px-1">Auto-sync active</p>
         <div className="space-y-1">
           <Button
             variant="outline"
