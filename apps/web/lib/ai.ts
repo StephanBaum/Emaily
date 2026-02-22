@@ -3,11 +3,12 @@ import { onThreadMutated, onThreadEmailAdded } from "@/lib/thread-cache";
 import type { Prisma } from "@emaily/database";
 import {
   createProviderFromEnv,
+  createProvider,
   AutoTagger,
   UnifiedThreadProcessor,
   AgentLoop,
 } from "@emaily/ai-engine";
-import type { AIProvider } from "@emaily/ai-engine";
+import type { AIProvider, AIConfig } from "@emaily/ai-engine";
 import type {
   TagAutoRules,
   AIProcessingResult,
@@ -27,13 +28,44 @@ import {
   AI_THREAD_EMAILS_LIMIT,
 } from "@/lib/constants";
 
-let providerInstance: AIProvider | null = null;
+let defaultProviderInstance: AIProvider | null = null;
 
-function getProvider(): AIProvider {
-  if (!providerInstance) {
-    providerInstance = createProviderFromEnv();
+function getDefaultProvider(): AIProvider {
+  if (!defaultProviderInstance) {
+    defaultProviderInstance = createProviderFromEnv();
   }
-  return providerInstance;
+  return defaultProviderInstance;
+}
+
+interface TeamAISettings {
+  aiProvider?: "ollama" | "gemini";
+  aiModel?: string;
+}
+
+async function getProviderForTeam(teamId: string): Promise<AIProvider> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { settings: true },
+  });
+
+  const settings = (team?.settings ?? {}) as TeamAISettings;
+
+  if (!settings.aiProvider && !settings.aiModel) {
+    return getDefaultProvider();
+  }
+
+  const provider = settings.aiProvider || process.env.AI_PROVIDER || "ollama";
+
+  const config: AIConfig = {
+    provider: provider as "ollama" | "gemini",
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: settings.aiModel || process.env.GEMINI_MODEL,
+    ollamaHost: process.env.OLLAMA_HOST,
+    ollamaModel: settings.aiModel || process.env.OLLAMA_MODEL,
+    ollamaEmbeddingModel: process.env.OLLAMA_EMBEDDING_MODEL,
+  };
+
+  return createProvider(config);
 }
 
 // --- Activity logging ---
@@ -159,7 +191,7 @@ export async function processThreadWithAI(
   teamId: string,
   options?: { agentId?: string; force?: boolean; currentDraft?: string }
 ): Promise<AIProcessingResult> {
-  const provider = getProvider();
+  const provider = await getProviderForTeam(teamId);
   const autoTagger = new AutoTagger(provider);
 
   const result: AIProcessingResult = {
@@ -930,9 +962,9 @@ export const processAllEmailsWithAI = processAllThreadsWithAI;
 
 // --- Provider status ---
 
-export async function getAIProviderStatus() {
+export async function getAIProviderStatus(teamId?: string) {
   try {
-    const provider = getProvider();
+    const provider = teamId ? await getProviderForTeam(teamId) : getDefaultProvider();
     const available = await provider.isAvailable();
     return {
       provider: provider.name,

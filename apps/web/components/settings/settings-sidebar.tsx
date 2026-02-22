@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Shield, Mail, Tag, SlidersHorizontal, Users, Bot } from "lucide-react";
+import { User, Mail, Tag, SlidersHorizontal, Users, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { label: "Profile", href: "/settings/profile", icon: User },
-  { label: "Security", href: "/settings/security", icon: Shield },
   { label: "Mailboxes", href: "/settings/mailboxes", icon: Mail },
   { label: "Tags", href: "/settings/tags", icon: Tag },
   { label: "Preferences", href: "/settings/preferences", icon: SlidersHorizontal },
