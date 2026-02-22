@@ -1,15 +1,13 @@
 import { Worker, Job } from "bullmq";
 import { prisma } from "@emaily/database";
 import { ImapClient, ImapConfig } from "@emaily/mail-engine";
-import { decrypt } from "@emaily/security";
+import { decrypt, encrypt } from "@emaily/security";
 import {
   IMAP_QUEUE_NAME,
   getRedisConnection,
   ImapOperationJob,
   BatchImapOperationJob,
 } from "./queues";
-
-const MASTER_KEY = process.env.ENCRYPTION_KEY || "dev-key-change-in-production";
 
 interface MailboxWithFolders {
   id: string;
@@ -49,7 +47,30 @@ async function getMailboxConfig(
     return null;
   }
 
-  const password = decrypt(mailbox.imapPasswordEnc, MASTER_KEY);
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error("ENCRYPTION_KEY not configured");
+  }
+
+  let password: string;
+  try {
+    password = decrypt(mailbox.imapPasswordEnc, encryptionKey);
+  } catch {
+    if (process.env.NODE_ENV !== "production") {
+      // Dev mode: encryption key mismatch from seed — re-encrypt with current key
+      password = mailbox.imapUser || "test";
+      const fixed = encrypt(password, encryptionKey);
+      await prisma.mailbox.update({
+        where: { id: mailbox.id },
+        data: { imapPasswordEnc: fixed, smtpPasswordEnc: fixed },
+      });
+      console.warn(
+        `[IMAP Worker] Re-encrypted credentials for mailbox ${mailboxId} (key mismatch)`
+      );
+    } else {
+      throw new Error("Failed to decrypt IMAP credentials");
+    }
+  }
 
   return {
     config: {
