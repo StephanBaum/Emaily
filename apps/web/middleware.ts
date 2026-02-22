@@ -8,7 +8,9 @@ export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
 
-  const isAuthPage = nextUrl.pathname.startsWith("/login");
+  const isAuthPage =
+    nextUrl.pathname.startsWith("/login") ||
+    nextUrl.pathname.startsWith("/register");
 
   // Redirect logged-in users away from auth pages
   if (isAuthPage && isLoggedIn) {
