@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
-import { REVALIDATION_DELAY_MS } from "@/lib/constants";
 import { invalidateThreadCaches } from "@/lib/cache-utils";
 
 interface ThreadUpdate {
@@ -160,11 +159,9 @@ export function useOptimisticThreadActions(threadId: string) {
           throw new Error("Failed to update status");
         }
 
-        // Revalidate caches after successful update
-        invalidateThreadCaches();
-
-        // Clear the pending update after a short delay to allow revalidation
-        setTimeout(() => clearUpdate(threadId), REVALIDATION_DELAY_MS);
+        // Revalidate caches and wait for fresh data before clearing the optimistic update
+        await invalidateThreadCaches();
+        clearUpdate(threadId);
       } catch (error) {
         // Revert on error
         clearUpdate(threadId);
@@ -188,11 +185,9 @@ export function useOptimisticThreadActions(threadId: string) {
         throw new Error("Failed to delete thread");
       }
 
-      // Revalidate caches
-      invalidateThreadCaches();
-
-      // Clear after revalidation
-      setTimeout(() => clearUpdate(threadId), REVALIDATION_DELAY_MS);
+      // Revalidate caches and wait for fresh data before clearing the optimistic update
+      await invalidateThreadCaches();
+      clearUpdate(threadId);
     } catch (error) {
       clearUpdate(threadId);
       console.error("Failed to delete thread:", error);

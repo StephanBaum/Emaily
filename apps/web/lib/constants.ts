@@ -9,9 +9,6 @@ export const MS_PER_DAY = MS_PER_HOUR * 24;
 export const STALE_THREAD_DAYS = 3;
 export const STALE_THREAD_MS = STALE_THREAD_DAYS * MS_PER_DAY;
 
-// UI timing
-export const REVALIDATION_DELAY_MS = 500;
-
 // API limits
 export const NUDGE_LIMIT = 10;
 export const DEFAULT_THREAD_LIMIT = 50;

@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useThreadUpdates } from "@/contexts/thread-updates-context";
-import { REVALIDATION_DELAY_MS } from "@/lib/constants";
 import { invalidateThreadCaches } from "@/lib/cache-utils";
 
 export interface BatchSelectionState {
@@ -71,11 +70,9 @@ export function useBatchSelection() {
 
         if (!res.ok) throw new Error("Failed to update");
 
-        // Revalidate caches
-        invalidateThreadCaches();
-
-        // Clear pending updates after revalidation
-        setTimeout(() => ids.forEach((id) => clearUpdate(id)), REVALIDATION_DELAY_MS);
+        // Revalidate caches and wait for fresh data before clearing optimistic updates
+        await invalidateThreadCaches();
+        ids.forEach((id) => clearUpdate(id));
       } catch (error) {
         // Revert on error
         ids.forEach((id) => clearUpdate(id));
@@ -104,11 +101,9 @@ export function useBatchSelection() {
 
       if (!res.ok) throw new Error("Failed to delete");
 
-      // Revalidate caches
-      invalidateThreadCaches();
-
-      // Clear pending updates after revalidation
-      setTimeout(() => ids.forEach((id) => clearUpdate(id)), REVALIDATION_DELAY_MS);
+      // Revalidate caches and wait for fresh data before clearing optimistic updates
+      await invalidateThreadCaches();
+      ids.forEach((id) => clearUpdate(id));
     } catch (error) {
       // Revert on error
       ids.forEach((id) => clearUpdate(id));
