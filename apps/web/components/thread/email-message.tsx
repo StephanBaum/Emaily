@@ -65,12 +65,12 @@ export function EmailMessage({ email, isFirst, isLast }: EmailMessageProps) {
   return (
     <Card className={cn("transition-shadow", isExpanded && "shadow-md")}>
       <CardHeader
-        className="cursor-pointer py-3 compact:py-2"
+        className="cursor-pointer py-3 compact:py-1.5"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <Avatar className="h-10 w-10 compact:h-8 compact:w-8">
+        <div className="flex items-start justify-between compact:items-center">
+          <div className="flex items-start gap-3 compact:items-center compact:gap-2">
+            <Avatar className="h-10 w-10 compact:h-6 compact:w-6">
               <AvatarFallback
                 className={cn(
                   "text-sm",
@@ -102,7 +102,7 @@ export function EmailMessage({ email, isFirst, isLast }: EmailMessageProps) {
                   </TooltipProvider>
                 )}
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground compact:hidden">
                 To: {email.toAddresses.join(", ")}
                 {email.ccAddresses.length > 0 && (
                   <span className="ml-2">

@@ -372,11 +372,11 @@ const ThreadCard = memo(function ThreadCard({ thread }: { thread: Thread }) {
     <Link
       href={`/thread/${thread.id}`}
       className={cn(
-        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors compact:gap-2 compact:p-2 compact:py-1.5",
+        "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors compact:gap-2 compact:px-3 compact:py-1",
         priority === "high" && "border-l-2 border-l-red-500"
       )}
     >
-      <Avatar className="h-10 w-10 shrink-0 compact:h-8 compact:w-8">
+      <Avatar className="h-10 w-10 shrink-0 compact:h-6 compact:w-6">
         <AvatarFallback className={cn(
           isVip ? "bg-amber-500/20 text-amber-600" :
           isTrusted ? "bg-blue-500/20 text-blue-600" :
@@ -504,10 +504,10 @@ const EmailRow = memo(function EmailRow({ item, action }: { item: AISummaryGroup
   return (
     <Link
       href={`/thread/${item.threadId}`}
-      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors compact:gap-2 compact:p-2"
+      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors compact:gap-2 compact:px-3 compact:py-1"
     >
-      <Avatar className="h-9 w-9 shrink-0 compact:h-7 compact:w-7">
-        <AvatarFallback className="bg-muted text-muted-foreground text-sm">
+      <Avatar className="h-9 w-9 shrink-0 compact:h-6 compact:w-6">
+        <AvatarFallback className="bg-muted text-muted-foreground text-sm compact:text-xs">
           {senderInitial}
         </AvatarFallback>
       </Avatar>
@@ -682,9 +682,9 @@ const NudgeRow = memo(function NudgeRow({
   return (
     <Link
       href={`/thread/${item.id}`}
-      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors compact:gap-2 compact:p-2"
+      className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors compact:gap-2 compact:px-3 compact:py-1"
     >
-      <Avatar className="h-9 w-9 shrink-0 compact:h-7 compact:w-7">
+      <Avatar className="h-9 w-9 shrink-0 compact:h-6 compact:w-6">
         <AvatarFallback
           className={cn(
             isVip

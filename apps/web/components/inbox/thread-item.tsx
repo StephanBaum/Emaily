@@ -149,7 +149,7 @@ export const ThreadItem = memo(function ThreadItem({
           <Link
             href={`/thread/${thread.id}`}
             className={cn(
-              "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50 compact:gap-2 compact:p-2 compact:py-1.5",
+              "flex items-start gap-4 p-4 transition-colors hover:bg-muted/50 compact:gap-2 compact:px-3 compact:py-1",
               isUnseen && !isAIHandled && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950/30",
               isUnseen && isAIHandled && "bg-muted/30",
               !isUnseen && "border-l-2 border-l-transparent",
@@ -185,11 +185,11 @@ export const ThreadItem = memo(function ThreadItem({
               </div>
             )}
 
-            <div className="relative">
-              <Avatar className="h-10 w-10 compact:h-7 compact:w-7">
+            <div className="relative compact:hidden">
+              <Avatar className="h-10 w-10">
                 <AvatarFallback
                   className={cn(
-                    "text-sm compact:text-xs",
+                    "text-sm",
                     isUnseen && !isAIHandled
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
@@ -208,7 +208,7 @@ export const ThreadItem = memo(function ThreadItem({
                 <div className="flex items-center gap-2 overflow-hidden">
                   <span
                     className={cn(
-                      "truncate",
+                      "truncate compact:text-sm",
                       isUnseen && !isAIHandled ? "font-semibold" : "font-medium"
                     )}
                   >
@@ -328,10 +328,10 @@ export const ThreadItem = memo(function ThreadItem({
                 </div>
               </div>
 
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 compact:mt-0 flex items-center gap-2">
                 <span
                   className={cn(
-                    "truncate",
+                    "truncate compact:text-sm",
                     isUnseen && !isAIHandled ? "font-medium" : "text-foreground"
                   )}
                 >
@@ -357,10 +357,10 @@ export const ThreadItem = memo(function ThreadItem({
                 )}
               </div>
 
-              <p className="mt-1 compact:mt-0.5 truncate text-sm text-muted-foreground">{preview}</p>
+              <p className="mt-1 compact:hidden truncate text-sm text-muted-foreground">{preview}</p>
 
               {(thread.tags.length > 0 || thread.assignments.length > 0) && (
-                <div className="mt-2 compact:mt-1 flex items-center gap-2">
+                <div className="mt-2 compact:mt-0.5 flex items-center gap-2">
                   {thread.tags.map(({ tag, appliedBy }) => (
                     <Badge
                       key={tag.id}
