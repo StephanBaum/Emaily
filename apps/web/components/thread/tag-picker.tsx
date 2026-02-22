@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tag, Check, X } from "lucide-react";
-import { useThreadActions } from "@/hooks/use-thread-actions";
+import { useOptimisticThreadActions } from "@/contexts/thread-updates-context";
 import { useTags } from "@/hooks/use-tags";
 
 interface TagData {
@@ -24,7 +24,7 @@ interface ThreadTag {
 
 /** Shared hook for tag selection state and toggle logic */
 function useTagSelection(threadId: string, currentTags: ThreadTag[]) {
-  const { addTag, removeTag: removeTagAction } = useThreadActions(threadId);
+  const { addTag, removeTag: removeTagAction } = useOptimisticThreadActions(threadId);
   const { tags: allTags, isLoading } = useTags();
   const [appliedTagIds, setAppliedTagIds] = useState<Set<string>>(
     new Set(currentTags.map((t) => t.tag.id))

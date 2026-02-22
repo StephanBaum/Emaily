@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
+import { useSWRConfig } from "swr";
 import { invalidateThreadCaches } from "@/lib/cache-utils";
 
 interface ThreadUpdate {
@@ -137,16 +138,122 @@ export function useThreadUpdates() {
 }
 
 /**
+ * Optimistically remove a thread from all SWR list caches.
+ * Uses { revalidate: false } so the cache stays in the optimistic state
+ * until an explicit revalidation is triggered.
+ */
+interface TagInfo {
+  id: string;
+  name: string;
+  color: string;
+}
+
+function useOptimisticCacheMutations() {
+  const { mutate } = useSWRConfig();
+
+  /** Remove threads from all SWR list caches */
+  const removeThreadsFromCache = useCallback(
+    (threadIds: string[]) => {
+      const idSet = new Set(threadIds);
+      mutate(
+        (key) => typeof key === "string" && key.startsWith("/api/threads"),
+        (currentData: any) => {
+          if (!currentData) return currentData;
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
+            return {
+              ...currentData,
+              threads: currentData.threads.filter(
+                        (t: any) => !idSet.has(t.id)
+              ),
+            };
+          }
+          return currentData;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  /** Optimistically add a tag to a thread in all SWR caches */
+  const addTagToCache = useCallback(
+    (threadId: string, tag: TagInfo) => {
+      const newTag = { tag, appliedBy: "manual" };
+      mutate(
+        (key) => typeof key === "string" && key.startsWith("/api/threads"),
+        (currentData: any) => {
+          if (!currentData) return currentData;
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
+            return {
+              ...currentData,
+                    threads: currentData.threads.map((t: any) =>
+                t.id === threadId ? { ...t, tags: [...t.tags, newTag] } : t
+              ),
+            };
+          }
+          if ("id" in currentData && currentData.id === threadId) {
+            return { ...currentData, tags: [...currentData.tags, newTag] };
+          }
+          return currentData;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  /** Optimistically remove a tag from a thread in all SWR caches */
+  const removeTagFromCache = useCallback(
+    (threadId: string, tagId: string) => {
+      mutate(
+        (key) => typeof key === "string" && key.startsWith("/api/threads"),
+        (currentData: any) => {
+          if (!currentData) return currentData;
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
+            return {
+              ...currentData,
+                    threads: currentData.threads.map((t: any) =>
+                t.id === threadId
+                            ? { ...t, tags: t.tags.filter((tt: any) => tt.tag.id !== tagId) }
+                  : t
+              ),
+            };
+          }
+          if ("id" in currentData && currentData.id === threadId) {
+                return { ...currentData, tags: currentData.tags.filter((tt: any) => tt.tag.id !== tagId) };
+          }
+          return currentData;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  /** Force revalidation to restore correct data on error */
+  const revertCache = useCallback(() => {
+    mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
+    mutate("/api/mailboxes");
+    mutate("/api/tags");
+  }, [mutate]);
+
+  return { removeThreadsFromCache, addTagToCache, removeTagFromCache, revertCache };
+}
+
+/**
  * Hook for thread actions with proper optimistic updates.
- * Uses the ThreadUpdatesContext for instant UI updates.
+ * Combines context-based hiding (instant cross-component awareness)
+ * with direct SWR cache mutations (data consistency).
  */
 export function useOptimisticThreadActions(threadId: string) {
   const { markStatusChange, markDeleted, clearUpdate } = useThreadUpdates();
+  const { removeThreadsFromCache, addTagToCache, removeTagFromCache, revertCache } =
+    useOptimisticCacheMutations();
 
   const updateStatus = useCallback(
     async (newStatus: string) => {
-      // Instantly mark thread for hiding/update
       markStatusChange(threadId, newStatus);
+      removeThreadsFromCache([threadId]);
 
       try {
         const res = await fetch(`/api/threads/${threadId}/status`, {
@@ -155,45 +262,80 @@ export function useOptimisticThreadActions(threadId: string) {
           body: JSON.stringify({ status: newStatus }),
         });
 
-        if (!res.ok) {
-          throw new Error("Failed to update status");
-        }
+        if (!res.ok) throw new Error("Failed to update status");
 
-        // Revalidate caches and wait for fresh data before clearing the optimistic update
-        await invalidateThreadCaches();
+        invalidateThreadCaches();
         clearUpdate(threadId);
       } catch (error) {
-        // Revert on error
         clearUpdate(threadId);
+        revertCache();
         console.error("Failed to update thread status:", error);
         throw error;
       }
     },
-    [threadId, markStatusChange, clearUpdate]
+    [threadId, markStatusChange, clearUpdate, removeThreadsFromCache, revertCache]
   );
 
   const deleteThread = useCallback(async () => {
-    // Instantly mark as deleted
     markDeleted(threadId);
+    removeThreadsFromCache([threadId]);
 
     try {
       const res = await fetch(`/api/threads/${threadId}/delete`, {
         method: "DELETE",
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to delete thread");
-      }
+      if (!res.ok) throw new Error("Failed to delete thread");
 
-      // Revalidate caches and wait for fresh data before clearing the optimistic update
-      await invalidateThreadCaches();
+      invalidateThreadCaches();
       clearUpdate(threadId);
     } catch (error) {
       clearUpdate(threadId);
+      revertCache();
       console.error("Failed to delete thread:", error);
       throw error;
     }
-  }, [threadId, markDeleted, clearUpdate]);
+  }, [threadId, markDeleted, clearUpdate, removeThreadsFromCache, revertCache]);
 
-  return { updateStatus, deleteThread };
+  const addTag = useCallback(
+    async (tag: TagInfo) => {
+      addTagToCache(threadId, tag);
+
+      try {
+        await fetch(`/api/threads/${threadId}/tags`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tagId: tag.id }),
+        });
+
+        invalidateThreadCaches();
+      } catch (error) {
+        revertCache();
+        console.error("Failed to add tag:", error);
+        throw error;
+      }
+    },
+    [threadId, addTagToCache, revertCache]
+  );
+
+  const removeTag = useCallback(
+    async (tagId: string) => {
+      removeTagFromCache(threadId, tagId);
+
+      try {
+        await fetch(`/api/threads/${threadId}/tags?tagId=${tagId}`, {
+          method: "DELETE",
+        });
+
+        invalidateThreadCaches();
+      } catch (error) {
+        revertCache();
+        console.error("Failed to remove tag:", error);
+        throw error;
+      }
+    },
+    [threadId, removeTagFromCache, revertCache]
+  );
+
+  return { updateStatus, deleteThread, addTag, removeTag };
 }

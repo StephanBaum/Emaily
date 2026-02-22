@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { useSWRConfig } from "swr";
 import { useThreadUpdates } from "@/contexts/thread-updates-context";
 import { invalidateThreadCaches } from "@/lib/cache-utils";
 
@@ -13,6 +14,7 @@ export function useBatchSelection() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const { markStatusChange, markDeleted, clearUpdate } = useThreadUpdates();
+  const { mutate } = useSWRConfig();
 
   const toggleSelection = useCallback((threadId: string) => {
     setSelectedIds((prev) => {
@@ -49,14 +51,38 @@ export function useBatchSelection() {
 
   const selectedCount = useMemo(() => selectedIds.size, [selectedIds]);
 
-  // Batch actions with instant UI updates via context
+  /** Optimistically remove threads from all SWR list caches */
+  const removeFromCache = useCallback(
+    (ids: string[]) => {
+      const idSet = new Set(ids);
+      mutate(
+        (key) => typeof key === "string" && key.startsWith("/api/threads"),
+        (currentData: any) => {
+          if (!currentData) return currentData;
+          if ("threads" in currentData && Array.isArray(currentData.threads)) {
+            return {
+              ...currentData,
+                    threads: currentData.threads.filter((t: any) => !idSet.has(t.id)),
+            };
+          }
+          return currentData;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  // Batch actions with instant UI updates via context + SWR cache
   const batchUpdateStatus = useCallback(
     async (status: string) => {
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
 
-      // Instantly mark all threads for hiding via context
+      // 1. Context: mark all for hiding
       ids.forEach((id) => markStatusChange(id, status));
+      // 2. SWR: remove from list caches
+      removeFromCache(ids);
 
       clearSelection();
 
@@ -70,24 +96,27 @@ export function useBatchSelection() {
 
         if (!res.ok) throw new Error("Failed to update");
 
-        // Revalidate caches and wait for fresh data before clearing optimistic updates
-        await invalidateThreadCaches();
+        // Background revalidation
+        invalidateThreadCaches();
         ids.forEach((id) => clearUpdate(id));
       } catch (error) {
-        // Revert on error
+        // Revert
         ids.forEach((id) => clearUpdate(id));
+        mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
         console.error("Batch status update failed:", error);
       }
     },
-    [selectedIds, markStatusChange, clearSelection, clearUpdate]
+    [selectedIds, markStatusChange, clearSelection, clearUpdate, removeFromCache, mutate]
   );
 
   const batchDelete = useCallback(async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
-    // Instantly mark all as deleted via context
+    // 1. Context: mark all as deleted
     ids.forEach((id) => markDeleted(id));
+    // 2. SWR: remove from list caches
+    removeFromCache(ids);
 
     clearSelection();
 
@@ -101,15 +130,16 @@ export function useBatchSelection() {
 
       if (!res.ok) throw new Error("Failed to delete");
 
-      // Revalidate caches and wait for fresh data before clearing optimistic updates
-      await invalidateThreadCaches();
+      // Background revalidation
+      invalidateThreadCaches();
       ids.forEach((id) => clearUpdate(id));
     } catch (error) {
-      // Revert on error
+      // Revert
       ids.forEach((id) => clearUpdate(id));
+      mutate((key) => typeof key === "string" && key.startsWith("/api/threads"));
       console.error("Batch delete failed:", error);
     }
-  }, [selectedIds, markDeleted, clearSelection, clearUpdate]);
+  }, [selectedIds, markDeleted, clearSelection, clearUpdate, removeFromCache, mutate]);
 
   return {
     selectedIds,
