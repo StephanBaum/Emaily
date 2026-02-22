@@ -1,3 +1,8 @@
+import { config } from "dotenv";
+import { resolve } from "path";
+
+config({ path: resolve(__dirname, "../../../.env.local") });
+
 import { createWorker } from "./processor";
 
 console.log("[AI Worker] Starting...");

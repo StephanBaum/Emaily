@@ -1,9 +1,6 @@
-// Load environment variables from the web app's .env.local
 import { config } from "dotenv";
 import { resolve } from "path";
 
-config({ path: resolve(__dirname, "../../../apps/web/.env.local") });
-config({ path: resolve(__dirname, "../../../.env") });
 config({ path: resolve(__dirname, "../../../.env.local") });
 
 import { Queue } from "bullmq";
