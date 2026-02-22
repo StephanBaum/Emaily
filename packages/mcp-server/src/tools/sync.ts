@@ -1,6 +1,16 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { EmailyClient } from "../client.js";
 
-export function registerSyncTools(_server: McpServer, _client: EmailyClient): void {
-  // Tools will be implemented in a future task
+export function registerSyncTools(server: McpServer, client: EmailyClient): void {
+  server.tool(
+    "trigger_sync",
+    "Trigger an IMAP sync for all accessible mailboxes. Fetches new emails from the mail server.",
+    {},
+    async () => {
+      const data = await client.post("/api/sync");
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+      };
+    }
+  );
 }
