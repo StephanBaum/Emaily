@@ -29,6 +29,7 @@ import { useAgents } from "@/hooks/use-agents";
 import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { revalidateAll } from "@/lib/revalidate";
 import { fetcher } from "@/lib/swr-config";
+import { VISIBLE_AI_LOGS_DEFAULT } from "@/lib/constants";
 
 interface AIActivity {
   id: string;
@@ -123,6 +124,7 @@ const actionConfig: Record<
 export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
   const { formatDateCompact } = useFormattedDate();
   const [processing, setProcessing] = useState(false);
+  const [visibleLogCount, setVisibleLogCount] = useState(VISIBLE_AI_LOGS_DEFAULT);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [result, setResult] = useState<{
     tags: number;
@@ -273,31 +275,58 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
       {activities.length === 0 ? (
         <div className="text-xs text-muted-foreground">No AI activity yet</div>
       ) : (
-        activities.map((activity) => {
-          const config = actionConfig[activity.action];
-          if (!config) return null;
+        <>
+          {(() => {
+            const visibleActivities =
+              visibleLogCount >= activities.length
+                ? activities
+                : activities.slice(0, visibleLogCount);
+            const hiddenCount = activities.length - visibleActivities.length;
 
-          const Icon = config.icon;
-          const description = config.format(
-            activity.metadata as Record<string, unknown>
-          );
-          const timeAgo = formatDateCompact(activity.createdAt);
+            return (
+              <>
+                {visibleActivities.map((activity) => {
+                  const config = actionConfig[activity.action];
+                  if (!config) return null;
 
-          return (
-            <div
-              key={activity.id}
-              className="flex items-start gap-2 rounded border px-2 py-1.5 text-xs"
-            >
-              <div className={cn("mt-0.5 rounded p-0.5", config.color)}>
-                <Icon className="h-3 w-3" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="leading-snug text-foreground">{description}</p>
-                <p className="mt-0.5 text-muted-foreground">{timeAgo}</p>
-              </div>
-            </div>
-          );
-        })
+                  const Icon = config.icon;
+                  const description = config.format(
+                    activity.metadata as Record<string, unknown>
+                  );
+                  const timeAgo = formatDateCompact(activity.createdAt);
+
+                  return (
+                    <div
+                      key={activity.id}
+                      className="flex items-start gap-2 rounded border px-2 py-1.5 text-xs"
+                    >
+                      <div className={cn("mt-0.5 rounded p-0.5", config.color)}>
+                        <Icon className="h-3 w-3" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="leading-snug text-foreground">{description}</p>
+                        <p className="mt-0.5 text-muted-foreground">{timeAgo}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {hiddenCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleLogCount((prev) =>
+                        Math.min(prev + VISIBLE_AI_LOGS_DEFAULT, activities.length)
+                      )
+                    }
+                    className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+                  >
+                    Show {Math.min(hiddenCount, VISIBLE_AI_LOGS_DEFAULT)} older
+                  </button>
+                )}
+              </>
+            );
+          })()}
+        </>
       )}
     </div>
   );

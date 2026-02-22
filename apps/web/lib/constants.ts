@@ -23,6 +23,10 @@ export const AI_COMMENTS_LIMIT = 10;
 export const AI_BATCH_SIZE = 5;
 export const AI_THREAD_EMAILS_LIMIT = 50;
 
+// Progressive loading defaults
+export const VISIBLE_EMAILS_DEFAULT = 5;
+export const VISIBLE_AI_LOGS_DEFAULT = 10;
+
 // Redis retry config
 export const REDIS_MAX_RETRIES = 3;
 export const REDIS_MAX_BACKOFF_MS = 2000;

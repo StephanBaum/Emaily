@@ -328,13 +328,6 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
           )}
 
           <PanelSection
-            title="AI Activity"
-            icon={<Sparkles className="h-4 w-4" />}
-          >
-            <AIActivityPanel threadId={thread.id} />
-          </PanelSection>
-
-          <PanelSection
             title={`Assignments (${serializedAssignments.length})`}
             icon={<Users className="h-4 w-4" />}
           >
@@ -356,6 +349,14 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
             defaultOpen={false}
           >
             <SeenByIndicator seenBy={serializedSeenBy} compact />
+          </PanelSection>
+
+          <PanelSection
+            title="AI Activity"
+            icon={<Sparkles className="h-4 w-4" />}
+            defaultOpen={false}
+          >
+            <AIActivityPanel threadId={thread.id} />
           </PanelSection>
         </CollaborationPanel>
       </div>
