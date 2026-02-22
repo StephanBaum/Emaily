@@ -29,6 +29,7 @@ model Team {
   agents        Agent[]
   invites       TeamInvite[]
   notifications Notification[]
+  apiKeys       ApiKey[]
 
   @@map("teams")
 }
@@ -58,6 +59,7 @@ model User {
   draftVersions  DraftVersion[]
   activities     ActivityLog[]
   refreshTokens  RefreshToken[]
+  apiKeys        ApiKey[]
   invitesSent    TeamInvite[]     @relation("invites_sent")
   notifications  Notification[]
 
@@ -78,6 +80,24 @@ model RefreshToken {
   @@index([tokenHash])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId     String
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  scopes     String[]
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([keyHash])
+  @@map("api_keys")
 }
 
 // ============================================
