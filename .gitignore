@@ -21,6 +21,10 @@ dist
 # OS
 .DS_Store
 Thumbs.db
+*.stackdump
+
+# Claude Code
+.claude/settings.local.json
 
 # Logs
 *.log
