@@ -136,12 +136,14 @@ export async function POST(request: NextRequest) {
       });
       targetThreadId = newThread.id;
     } else {
-      // Update thread
+      // Update thread: mark as replied and clear stale AI urgency flags
       await prisma.thread.update({
         where: { id: targetThreadId },
         data: {
           hasSentReply: true,
           lastActivityAt: new Date(),
+          aiNeedsReply: false,
+          aiPriority: null,
         },
       });
     }

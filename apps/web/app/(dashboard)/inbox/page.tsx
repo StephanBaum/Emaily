@@ -9,6 +9,7 @@ interface InboxPageProps {
   searchParams: Promise<{
     mailbox?: string;
     status?: string;
+    filter?: string;
     tag?: string;
     tags?: string;
     group?: string;
@@ -20,11 +21,14 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
   const params = await searchParams;
 
   const isTagView = Boolean(params.tag || params.tags);
+  const isSentView = params.filter === "sent";
 
   const title = params.group
     ? params.group
     : params.tag
     ? "Tagged Threads"
+    : isSentView
+    ? "Sent"
     : params.status === "archived"
     ? "Archived"
     : params.status === "snoozed"
@@ -33,12 +37,13 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
   // Determine the status to pass to ThreadList:
   // - Tag view with no explicit status -> show all statuses
+  // - Sent view -> show all statuses (sent threads can be open or archived)
   // - Explicit status param -> use that
   // - Default inbox -> "open"
-  const effectiveStatus = params.status || (isTagView ? "all" : "open");
+  const effectiveStatus = params.status || (isTagView || isSentView ? "all" : "open");
 
-  // Default inbox = no tags, no explicit status, no search
-  const isDefaultInbox = !isTagView && !params.status && !params.q;
+  // Default inbox = no tags, no explicit status, no filter, no search
+  const isDefaultInbox = !isTagView && !params.status && !params.filter && !params.q;
 
   // For default inbox, show the humanized dashboard
   // For filtered views (tags, archived, search), show compact panel + thread list
@@ -80,6 +85,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
             tagId={params.tag}
             tagIds={params.tags}
             query={params.q}
+            filter={isSentView ? "sent" : undefined}
           />
         </Suspense>
       </div>

@@ -98,7 +98,7 @@ function generateThreadsSummary(threads: Thread[]): string {
   }
 
   if (parts.length === 0) {
-    return "Sorted by importance — urgent and VIP contacts first";
+    return "All open conversations, sorted by recent activity";
   }
 
   return parts.join(", ");
@@ -155,7 +155,6 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
   const { groups, isLoading: aiLoading } = useAISummary({ hours: 24 });
   const { threads, isLoading: threadsLoading } = useThreads({
     mailboxId,
-    filter: "unprocessed",
   });
   const { needsReply, awaitingResponse, totalNudges, isLoading: nudgesLoading } = useNudges();
   const [showHandled, setShowHandled] = useState(false);
@@ -174,7 +173,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
   if (!mounted) return null;
 
   const isLoading = aiLoading || threadsLoading || nudgesLoading;
-  const unprocessedCount = threads?.length ?? 0;
+  const openCount = threads?.length ?? 0;
 
   // Split AI groups into relevant vs handled, sorted by importance
   const relevantGroups = groups
@@ -185,7 +184,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
   const relevantCount = relevantGroups.reduce((sum, group) => sum + group.count, 0);
   const handledCount = handledGroups.reduce((sum, group) => sum + group.count, 0);
 
-  const hasUnprocessed = unprocessedCount > 0;
+  const hasOpenThreads = openCount > 0;
   const hasRelevant = relevantCount > 0;
   const hasHandled = handledCount > 0;
   const hasNudges = totalNudges > 0;
@@ -195,7 +194,7 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
   }
 
   // All caught up state
-  if (!hasUnprocessed && !hasRelevant && !hasHandled && !hasNudges) {
+  if (!hasOpenThreads && !hasRelevant && !hasHandled && !hasNudges) {
     return (
       <div className="px-6 py-12 flex flex-col items-center justify-center text-center">
         <div className="rounded-full bg-green-500/10 p-4 mb-4">
@@ -211,8 +210,8 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
 
   return (
     <div className="px-6 py-6 space-y-6">
-      {/* Unprocessed threads section */}
-      {hasUnprocessed && threads && (
+      {/* Open threads section */}
+      {hasOpenThreads && threads && (
         <Card className="border-primary/20 bg-linear-to-br from-primary/5 to-transparent">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
@@ -221,10 +220,10 @@ export function InboxDashboard({ mailboxId }: InboxDashboardProps) {
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-semibold">
-                  {unprocessedCount} new {unprocessedCount === 1 ? "message" : "messages"}
+                  {openCount} open {openCount === 1 ? "thread" : "threads"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {threadsSummary || "Sorted by importance — VIP and trusted contacts first"}
+                  {threadsSummary || "All open conversations, sorted by recent activity"}
                 </p>
               </div>
             </div>

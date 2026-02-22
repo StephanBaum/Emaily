@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Inbox,
+  Send,
   Archive,
   Clock,
   Tag,
@@ -217,8 +218,15 @@ export function Sidebar() {
             label="Inbox"
             isActive={
               (pathname === "/inbox" || pathname.startsWith("/inbox/")) &&
-              !searchParams.get("status")
+              !searchParams.get("status") &&
+              !searchParams.get("filter")
             }
+          />
+          <NavItem
+            href={`/inbox?filter=sent${tagParams}`}
+            icon={Send}
+            label="Sent"
+            isActive={searchParams.get("filter") === "sent"}
           />
           <NavItem
             href={`/inbox?status=archived${tagParams}`}

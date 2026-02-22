@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const tagId = searchParams.get("tagId");
   const tagIds = searchParams.get("tagIds");
   const query = searchParams.get("q")?.trim();
-  const filter = searchParams.get("filter"); // "unprocessed" = threads AI hasn't touched
+  const filter = searchParams.get("filter"); // "unprocessed" | "sent"
   const cursor = searchParams.get("cursor"); // Cursor for pagination (thread ID)
   const limit = Math.min(parseInt(searchParams.get("limit") || String(DEFAULT_THREAD_LIMIT), 10), MAX_THREAD_LIMIT);
 
@@ -44,11 +44,16 @@ export async function GET(request: NextRequest) {
     mailboxId: { in: accessibleMailboxIds },
   };
 
-  // Unprocessed filter: threads AI hasn't touched (no AI-applied tags + status=open)
-  // This takes precedence over status filtering
+  // Special filters take precedence over status filtering
   if (filter === "unprocessed") {
     where.status = "open";
     where.tags = { none: { appliedBy: "ai" } };
+  } else if (filter === "sent") {
+    where.hasSentReply = true;
+    // Allow optional status narrowing, default to all statuses
+    if (status && status !== "all") {
+      where.status = status;
+    }
   } else {
     // Status filtering:
     // - status=quarantined -> show quarantined OR spam-tagged threads

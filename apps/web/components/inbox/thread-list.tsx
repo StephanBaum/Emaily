@@ -16,7 +16,7 @@ interface ThreadListProps {
   tagId?: string;
   tagIds?: string;
   query?: string;
-  filter?: "unprocessed";
+  filter?: "unprocessed" | "sent";
 }
 
 export function ThreadList({ mailboxId, status = "open", tagId, tagIds, query, filter }: ThreadListProps) {

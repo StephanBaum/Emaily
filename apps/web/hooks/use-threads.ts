@@ -62,7 +62,7 @@ export function useThreads(params?: {
   tagId?: string;
   tagIds?: string;
   query?: string;
-  filter?: "unprocessed";
+  filter?: "unprocessed" | "sent";
   limit?: number;
 }) {
   const searchParams = new URLSearchParams();
