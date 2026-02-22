@@ -977,6 +977,64 @@ Plan: `docs/plans/2026-02-15-profile-settings-implementation.md`
 
 ---
 
+## Phase 9: MCP Server for Agent Access [COMPLETE]
+
+Branch: `v2`
+Plan: `docs/plans/2026-02-23-mcp-server-design.md`, `docs/plans/2026-02-23-mcp-server-implementation.md`
+
+### API Key Authentication
+- New `ApiKey` Prisma model with SHA-256 hash storage, scopes, expiry
+- `api-key-auth.ts`: key generation (crypto randomBytes), validation, scope checking
+- `unified-auth.ts`: session-first + API key fallback for all API routes
+- 25+ API routes migrated from `auth()` to `unifiedAuth()` (including `api-helpers.ts`)
+- API key management routes: `POST/GET /api/auth/api-keys`, `DELETE /api/auth/api-keys/[id]`
+- Files: `packages/database/prisma/schema.prisma`, `apps/web/lib/api-key-auth.ts`, `apps/web/lib/unified-auth.ts`
+
+### New API Routes for MCP
+- `GET /api/emails/[id]` — single email fetch with mailbox access check
+- `GET /api/contacts` — contact list with trust level, search, cursor pagination
+- Files: `apps/web/app/api/emails/[id]/route.ts`, `apps/web/app/api/contacts/route.ts`
+
+### MCP Server Package (`packages/mcp-server`)
+- Standalone Node.js package with `@modelcontextprotocol/sdk` and stdio transport
+- Config loader: env vars (`EMAILY_API_KEY`, `EMAILY_BASE_URL`) > `~/.emaily-mcp.json` > defaults
+- HTTP client: typed GET/POST/PATCH/DELETE with Bearer auth and error mapping
+- 24 MCP tools across 11 modules:
+  - **Threads (5):** list_threads, get_thread, update_thread_status, batch_update_status, delete_thread
+  - **Email (2):** get_email, send_email
+  - **Tags (3):** list_tags, add_tag_to_thread, remove_tag_from_thread
+  - **Drafts (3):** list_drafts, create_draft, update_draft
+  - **Comments (2):** add_comment, list_comments
+  - **Assignments (1):** create_assignment
+  - **Contacts (2):** list_contacts, update_contact_trust
+  - **AI (3):** trigger_ai_processing, get_ai_summary, list_agents
+  - **Mailboxes (1):** list_mailboxes
+  - **Notifications (2):** list_notifications, mark_notification_read
+  - **Sync (1):** trigger_sync
+- Files: `packages/mcp-server/` (16 source files)
+
+### Settings UI
+- "API Keys" section in settings sidebar (Key icon)
+- Key generation form (name input, generates with all scopes)
+- Raw key display (shown once, copy button, Claude Desktop config snippet)
+- Existing keys list with prefix, last used, revoke button
+- Files: `apps/web/app/(dashboard)/settings/api-keys/page.tsx`, `apps/web/components/settings/settings-sidebar.tsx`
+
+### Commits
+- `5cdfad4` feat: add ApiKey model for MCP/API authentication
+- `a41e04d` feat: add API key auth and unified auth helper
+- `e1699b1` feat: scaffold MCP server package
+- `9810f63` feat: add MCP server config loader and HTTP client
+- `1f37c3b` feat: add single email and contacts list API routes for MCP
+- `0a56756` feat: add API key management routes (create, list, delete)
+- `69c0f2c` feat: add MCP server entry point, tool registry, and error handling
+- `7c98dbf` feat: implement MCP thread tools (list, get, status, batch, delete)
+- `3d58284` feat: implement MCP email, tag, and draft tools
+- `6c6961e` feat: implement remaining MCP tools
+- `744f350` feat: add API Keys settings page with key generation and management
+
+---
+
 ## Phase 8: Polish & Production [PENDING]
 
 ---
