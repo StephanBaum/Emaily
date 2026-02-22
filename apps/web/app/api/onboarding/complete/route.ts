@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_AGENTS, DEFAULT_TAGS } from "@/lib/default-agents";
 import { cacheInvalidate, cacheKeys } from "@/lib/cache";
+import { generateSystemPrompt } from "@/lib/generate-system-prompt";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -15,9 +16,9 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id;
 
   const body = await request.json();
-  const { agentNames, customAgent } = body as {
+  const { agentNames, customAgents } = body as {
     agentNames: string[];
-    customAgent?: { name: string; role: string; description: string };
+    customAgents?: { name: string; role: string; description: string }[];
   };
 
   if (!Array.isArray(agentNames) || agentNames.length === 0) {
@@ -102,18 +103,26 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Create custom agent if provided
-  if (customAgent?.name?.trim()) {
-    const existing = await prisma.agent.findUnique({
-      where: { teamId_name: { teamId, name: customAgent.name.trim() } },
-    });
-    if (!existing) {
+  // Create custom agents if provided
+  if (customAgents?.length) {
+    for (const custom of customAgents) {
+      if (!custom.name?.trim()) continue;
+      const existing = await prisma.agent.findUnique({
+        where: { teamId_name: { teamId, name: custom.name.trim() } },
+      });
+      if (existing) continue;
+
+      const systemPrompt = generateSystemPrompt(
+        custom.role?.trim() || "",
+        custom.description?.trim() || ""
+      );
+
       await prisma.agent.create({
         data: {
           teamId,
-          name: customAgent.name.trim(),
-          role: customAgent.role?.trim() || "",
-          systemPrompt: customAgent.description?.trim() || "",
+          name: custom.name.trim(),
+          role: custom.role?.trim() || "",
+          systemPrompt,
           temperature: 0.4,
           active: true,
           isDefault: false,

@@ -14,12 +14,19 @@ import {
   Lock,
   Plus,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 
 interface OnboardingWizardProps {
   userName: string;
   teamName: string;
+}
+
+interface CustomAgentDraft {
+  name: string;
+  role: string;
+  description: string;
 }
 
 function AgentAvatar({
@@ -48,8 +55,9 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(
     new Set(["Emaily"])
   );
+  const [customAgents, setCustomAgents] = useState<CustomAgentDraft[]>([]);
   const [showCustomForm, setShowCustomForm] = useState(false);
-  const [customAgent, setCustomAgent] = useState({
+  const [draft, setDraft] = useState<CustomAgentDraft>({
     name: "",
     role: "",
     description: "",
@@ -70,6 +78,17 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
     });
   }
 
+  function addCustomAgent() {
+    if (!draft.name.trim()) return;
+    setCustomAgents((prev) => [...prev, { ...draft }]);
+    setDraft({ name: "", role: "", description: "" });
+    setShowCustomForm(false);
+  }
+
+  function removeCustomAgent(index: number) {
+    setCustomAgents((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit() {
     setSubmitting(true);
     setError("");
@@ -77,13 +96,13 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
     try {
       const payload: {
         agentNames: string[];
-        customAgent?: { name: string; role: string; description: string };
+        customAgents?: CustomAgentDraft[];
       } = {
         agentNames: Array.from(selectedAgents),
       };
 
-      if (customAgent.name.trim()) {
-        payload.customAgent = customAgent;
+      if (customAgents.length > 0) {
+        payload.customAgents = customAgents;
       }
 
       const res = await fetch("/api/onboarding/complete", {
@@ -158,24 +177,43 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
           ))}
         </div>
 
-        {/* Custom Agent */}
-        {!showCustomForm ? (
-          <button
-            onClick={() => setShowCustomForm(true)}
-            className="w-full border border-dashed rounded-lg p-4 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add a Custom Agent
-          </button>
-        ) : (
+        {/* Added Custom Agents */}
+        {customAgents.length > 0 && (
+          <div className="space-y-2">
+            {customAgents.map((agent, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 rounded-lg border border-primary bg-primary/5 p-3"
+              >
+                <AgentAvatar name={agent.name} color="#6b7280" size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{agent.name}</span>
+                    <span className="text-xs text-muted-foreground">{agent.role}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{agent.description}</p>
+                </div>
+                <button
+                  onClick={() => removeCustomAgent(index)}
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Custom Agent Form */}
+        {showCustomForm ? (
           <Card>
             <CardContent className="pt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Custom Agent</Label>
+                <Label className="text-sm font-medium">New Custom Agent</Label>
                 <button
                   onClick={() => {
                     setShowCustomForm(false);
-                    setCustomAgent({ name: "", role: "", description: "" });
+                    setDraft({ name: "", role: "", description: "" });
                   }}
                   className="text-muted-foreground hover:text-foreground"
                 >
@@ -184,30 +222,51 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
               </div>
               <Input
                 placeholder="Agent name (e.g. Casey)"
-                value={customAgent.name}
+                value={draft.name}
                 onChange={(e) =>
-                  setCustomAgent((prev) => ({ ...prev, name: e.target.value }))
+                  setDraft((prev) => ({ ...prev, name: e.target.value }))
                 }
               />
               <Input
                 placeholder="Role (e.g. Marketing Copywriter)"
-                value={customAgent.role}
+                value={draft.role}
                 onChange={(e) =>
-                  setCustomAgent((prev) => ({ ...prev, role: e.target.value }))
+                  setDraft((prev) => ({ ...prev, role: e.target.value }))
                 }
               />
               <Input
-                placeholder="Brief description of what this agent does"
-                value={customAgent.description}
+                placeholder="Describe what this agent should do"
+                value={draft.description}
                 onChange={(e) =>
-                  setCustomAgent((prev) => ({
+                  setDraft((prev) => ({
                     ...prev,
                     description: e.target.value,
                   }))
                 }
               />
+              <p className="text-xs text-muted-foreground">
+                We&apos;ll generate a detailed system prompt from your description.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-1"
+                onClick={addCustomAgent}
+                disabled={!draft.name.trim()}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Agent
+              </Button>
             </CardContent>
           </Card>
+        ) : (
+          <button
+            onClick={() => setShowCustomForm(true)}
+            className="w-full border border-dashed rounded-lg p-4 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add a Custom Agent
+          </button>
         )}
 
         {error && <p className="text-sm text-destructive text-center">{error}</p>}
@@ -248,11 +307,9 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">Your AI team is ready</h1>
           <p className="text-sm text-muted-foreground">
-            {finalAgents.length} agent{finalAgents.length !== 1 ? "s" : ""}{" "}
+            {finalAgents.length + customAgents.length} agent
+            {finalAgents.length + customAgents.length !== 1 ? "s" : ""}{" "}
             activated
-            {customAgent.name.trim()
-              ? ` + ${customAgent.name.trim()}`
-              : ""}
           </p>
         </div>
 
@@ -266,12 +323,15 @@ export function OnboardingWizard({ userName, teamName }: OnboardingWizardProps) 
               <span className="text-sm font-medium">{agent.name}</span>
             </div>
           ))}
-          {customAgent.name.trim() && (
-            <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
-              <AgentAvatar name={customAgent.name} color="#6b7280" size="sm" />
-              <span className="text-sm font-medium">{customAgent.name}</span>
+          {customAgents.map((agent, index) => (
+            <div
+              key={`custom-${index}`}
+              className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5"
+            >
+              <AgentAvatar name={agent.name} color="#6b7280" size="sm" />
+              <span className="text-sm font-medium">{agent.name}</span>
             </div>
-          )}
+          ))}
         </div>
 
         <Button
