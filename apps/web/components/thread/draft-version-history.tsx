@@ -67,7 +67,7 @@ export function DraftVersionHistory({
       setIsLoading(true);
       fetchVersions();
     }
-  }, [fetchVersions, refreshKey]);
+  }, [draftId, fetchVersions, refreshKey]);
 
   async function handleRestore(bodySnapshot: string, versionId?: string) {
     setIsRestoring(true);

@@ -376,6 +376,7 @@ function TotpSection() {
             <div className="space-y-2">
               <Label>Scan this QR code with your authenticator app:</Label>
               <div className="bg-white p-4 rounded-lg inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setupUri)}`}
                   alt="TOTP QR Code"

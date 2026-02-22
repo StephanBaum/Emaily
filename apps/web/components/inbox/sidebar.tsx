@@ -430,6 +430,7 @@ export function Sidebar() {
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground overflow-hidden shrink-0">
                   {profile?.hasAvatar && profile.id ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={`/api/user/avatar/${profile.id}?v=${profile.name}`}
                       alt=""

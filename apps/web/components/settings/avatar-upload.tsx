@@ -74,6 +74,7 @@ export function AvatarUpload({
     <div className="flex items-center gap-6">
       <div className="relative h-20 w-20 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-2xl font-semibold text-primary">
         {avatarUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={avatarUrl}
             alt={userName}

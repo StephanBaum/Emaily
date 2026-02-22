@@ -285,12 +285,13 @@ export function SharedDraftComposer({
       lastVersionedBodyRef.current = existingDraft.body || "";
       setIsAIEdited(false);
     }
-  }, [existingDraft?.id, existingDraft?.body]);
+  }, [existingDraft, draft?.isLockedByMe]);
 
   // Clean up draft poll on unmount
   useEffect(() => {
+    const pollRef = draftPollRef.current;
     return () => {
-      if (draftPollRef.current) clearInterval(draftPollRef.current);
+      if (pollRef) clearInterval(pollRef);
     };
   }, []);
 
@@ -310,7 +311,7 @@ export function SharedDraftComposer({
 
   // Request the server to create a version snapshot of the current body
   // (used when the 2s save already persisted the body but we need a version entry)
-  async function createVersionSnapshot() {
+  const createVersionSnapshot = useCallback(async () => {
     if (!draft?.isLockedByMe) return;
     try {
       const response = await fetch(`/api/shared-drafts/${draft.id}`, {
@@ -325,7 +326,7 @@ export function SharedDraftComposer({
     } catch {
       // Silent fail
     }
-  }
+  }, [draft?.isLockedByMe, draft?.id, body]);
 
   // Two-timer auto-save for shared drafts:
   // - 2s debounce → save body to server (no version)
@@ -360,7 +361,7 @@ export function SharedDraftComposer({
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (versionTimeoutRef.current) clearTimeout(versionTimeoutRef.current);
     };
-  }, [body, draft?.isLockedByMe]);
+  }, [body, draft?.isLockedByMe, createVersionSnapshot]);
 
   // Personal mode: auto-save to localStorage + local version after 10s idle
   useEffect(() => {
@@ -570,7 +571,7 @@ export function SharedDraftComposer({
       const updated = addLocalVersion(thread.id, body);
       setLocalVersions(updated);
     }
-  }, [body, draft, mode, thread.id]);
+  }, [body, draft, mode, thread.id, createVersionSnapshot]);
 
   async function handleSend() {
     if (!body.trim() || !draft) return;
