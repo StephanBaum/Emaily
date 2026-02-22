@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, ShieldQuestion, Crown, Shield, ShieldAlert } from "lucide-react";
+import { invalidateThreadCaches } from "@/lib/cache-utils";
 import type { TrustLevel } from "@emaily/shared";
 
 interface SenderInfoPanelProps {
@@ -71,7 +71,6 @@ export function SenderInfoPanel({
   spamScore,
   threadStatus,
 }: SenderInfoPanelProps) {
-  const router = useRouter();
   const [trustLevel, setTrustLevel] = useState<TrustLevel>(senderTrustLevel || "stranger");
   const [contactId, setContactId] = useState<string | null>(initialContactId);
   const [isSaving, setIsSaving] = useState(false);
@@ -109,7 +108,7 @@ export function SenderInfoPanel({
           setContactId(data.id);
         }
       }
-      router.refresh();
+      invalidateThreadCaches();
     } catch {
       setTrustLevel(prevLevel);
     } finally {
@@ -152,7 +151,7 @@ export function SenderInfoPanel({
         setContactId(data.id);
         setTrustLevel("known");
       }
-      router.refresh();
+      invalidateThreadCaches();
     } catch {
       // ignore
     } finally {

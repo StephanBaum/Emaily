@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { invalidateThreadCaches } from "@/lib/cache-utils";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -206,7 +206,6 @@ export function SharedDraftComposer({
   onDraftCreated,
   onDraftUpdated,
 }: SharedDraftComposerProps) {
-  const router = useRouter();
   const isAIDraft = lockType === "generating";
   const overallConfidence = confidence?.overall ?? null;
   const { agents } = useAgents();
@@ -700,8 +699,8 @@ export function SharedDraftComposer({
         }
       }
 
-      // Also refresh the page to update activity panel and other data
-      router.refresh();
+      // SWR revalidation to update activity panel and other data
+      invalidateThreadCaches();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to draft with AI");
     } finally {

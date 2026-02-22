@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,7 +121,6 @@ const actionConfig: Record<
 };
 
 export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
-  const router = useRouter();
   const { formatDateCompact } = useFormattedDate();
   const [processing, setProcessing] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -158,10 +156,9 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
   useEffect(() => {
     if (activities.length !== activityCountRef.current && activityCountRef.current > 0) {
       revalidateAll();
-      router.refresh();
     }
     activityCountRef.current = activities.length;
-  }, [activities.length, router]);
+  }, [activities.length]);
 
   async function handleProcess(agentId?: string) {
     setProcessing(true);
@@ -187,7 +184,7 @@ export function AIActivityPanel({ threadId }: AIActivityPanelProps) {
       setProcessing(false);
       await mutateActivities();
       revalidateAll();
-      router.refresh();
+      // SWR revalidation via revalidateAll() handles updates
     }
   }
 

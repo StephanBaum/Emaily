@@ -14,15 +14,61 @@ export function NotificationBell() {
   const { notifications, mutate: mutateList } = useNotifications(open);
 
   async function markAsRead(id: string) {
-    await fetch(`/api/notifications/${id}`, { method: "PATCH" });
-    mutateList();
-    mutateCount();
+    // Optimistic: mark read in list cache + decrement count
+    mutateList(
+      (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          notifications: current.notifications.map((n) =>
+            n.id === id ? { ...n, read: true } : n
+          ),
+          unreadCount: Math.max(0, current.unreadCount - 1),
+        };
+      },
+      { revalidate: false }
+    );
+    mutateCount(
+      (current) => current ? { unreadCount: Math.max(0, current.unreadCount - 1) } : current,
+      { revalidate: false }
+    );
+
+    try {
+      await fetch(`/api/notifications/${id}`, { method: "PATCH" });
+      mutateList();
+      mutateCount();
+    } catch {
+      mutateList();
+      mutateCount();
+    }
   }
 
   async function markAllRead() {
-    await fetch("/api/notifications/mark-all-read", { method: "POST" });
-    mutateList();
-    mutateCount();
+    // Optimistic: mark all as read, set count to 0
+    mutateList(
+      (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          notifications: current.notifications.map((n) => ({ ...n, read: true })),
+          unreadCount: 0,
+        };
+      },
+      { revalidate: false }
+    );
+    mutateCount(
+      () => ({ unreadCount: 0 }),
+      { revalidate: false }
+    );
+
+    try {
+      await fetch("/api/notifications/mark-all-read", { method: "POST" });
+      mutateList();
+      mutateCount();
+    } catch {
+      mutateList();
+      mutateCount();
+    }
   }
 
   function handleNotificationClick(notification: (typeof notifications)[0]) {

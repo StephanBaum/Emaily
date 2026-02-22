@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { revalidateThreads } from "@/lib/revalidate";
+import { invalidateThreadCaches } from "@/lib/cache-utils";
 
 interface SendEmailParams {
   to: string[];
@@ -16,7 +15,6 @@ export function useSendEmail(opts: {
   mailboxId: string;
   onSuccess?: () => void;
 }) {
-  const router = useRouter();
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -54,8 +52,8 @@ export function useSendEmail(opts: {
         }).catch(() => {});
       }
 
-      revalidateThreads();
-      router.refresh();
+      // SWR revalidation instead of router.refresh()
+      invalidateThreadCaches();
       opts.onSuccess?.();
       return true;
     } catch (err) {
