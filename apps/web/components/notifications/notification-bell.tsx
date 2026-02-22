@@ -2,24 +2,27 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useUnreadCount, useNotifications } from "@/hooks/use-notifications";
 
 export function NotificationBell() {
   const router = useRouter();
-  const { notifications, unreadCount, mutate } = useNotifications();
+  const { unreadCount, mutate: mutateCount } = useUnreadCount();
   const [open, setOpen] = useState(false);
+  const { notifications, mutate: mutateList } = useNotifications(open);
 
   async function markAsRead(id: string) {
     await fetch(`/api/notifications/${id}`, { method: "PATCH" });
-    mutate();
+    mutateList();
+    mutateCount();
   }
 
   async function markAllRead() {
     await fetch("/api/notifications/mark-all-read", { method: "POST" });
-    mutate();
+    mutateList();
+    mutateCount();
   }
 
   function handleNotificationClick(notification: (typeof notifications)[0]) {

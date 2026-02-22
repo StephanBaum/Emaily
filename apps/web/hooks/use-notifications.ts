@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { fetcher, realtimeConfig } from "@/lib/swr-config";
+import { fetcher, stableConfig, realtimeConfig } from "@/lib/swr-config";
 
 interface NotificationData {
   id: string;
@@ -21,9 +21,28 @@ interface NotificationsResponse {
   nextCursor: string | null;
 }
 
-export function useNotifications() {
+interface UnreadCountResponse {
+  unreadCount: number;
+}
+
+/** Cheap unread count — cached server-side, safe to poll from layout */
+export function useUnreadCount() {
+  const { data, mutate } = useSWR<UnreadCountResponse>(
+    "/api/notifications/unread-count",
+    fetcher,
+    stableConfig
+  );
+
+  return {
+    unreadCount: data?.unreadCount ?? 0,
+    mutate,
+  };
+}
+
+/** Full notification list — only fetch when popover is open */
+export function useNotifications(enabled: boolean) {
   const { data, error, isLoading, mutate } = useSWR<NotificationsResponse>(
-    "/api/notifications",
+    enabled ? "/api/notifications" : null,
     fetcher,
     realtimeConfig
   );

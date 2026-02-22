@@ -142,6 +142,13 @@ export async function processSyncJob(
     },
 
     addEmailToThread: async (threadId: string, email: EmailToStore) => {
+      // Skip if this email already exists (duplicate sync / retry)
+      const existing = await prisma.email.findUnique({
+        where: { messageId: email.messageId },
+        select: { id: true },
+      });
+      if (existing) return;
+
       const spamAnalysis = analyzeSpam({
         headers: email.headers,
         fromAddress: email.fromAddress,
