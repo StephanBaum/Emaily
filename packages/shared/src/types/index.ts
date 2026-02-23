@@ -361,3 +361,12 @@ export interface AISummaryResponse {
   totalCount: number;
   since: Date;
 }
+
+// Type guards & comparators
+export {
+  isValidThreadStatus,
+  isValidTrustLevel,
+  isValidTagAIAction,
+  isValidMailboxPermission,
+  compareTrustLevels,
+} from "../guards";
