@@ -7,10 +7,6 @@ export default defineConfig({
     testTimeout: 60000,
     hookTimeout: 120000, // testcontainers needs time to start
     pool: "forks", // better isolation for database tests
-    poolOptions: {
-      forks: {
-        singleFork: true, // run tests sequentially to avoid DB conflicts
-      },
-    },
+    singleFork: true, // run tests sequentially to avoid DB conflicts
   },
 });
